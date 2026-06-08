@@ -18,7 +18,7 @@ Status: Complete
 - `npm run test` — 13/13 pass (see scratch `tests.log`)
 - Live backfill — 88 listings, idempotent re-run, provenance readback (scratch `backfill.log`, `firestore-readback.log`)
 - Daily refresh — 401 without token; CLI persisted run `2b12ae0d-7f05-47ae-a0de-929289498855` (88 upserted); API 200 in dev logs (scratch `daily-refresh.log`)
-- Browser smoke — all 5 flows pass incl. custom-token avatar (scratch `browser-smoke.log`, screenshots)
+- Browser smoke — OAuth click-through PASS localhost+vercel (`scripts/browser-google-oauth-check.ts`, scratch `browser-smoke.log`)
 - Secrets audit — no values in tracked diff (scratch `secrets-audit.log`)
 
 ## Commits pushed
@@ -32,6 +32,6 @@ Status: Complete
 ## Remaining operator actions
 
 - Deploy `firestore.rules` to Firebase when ready
-- Firestore Blaze or wait for daily read quota reset (stale scan / alert eval skip gracefully)
+- Migrated Firestore to `abode-alerts` database (AI Studio free-tier read quota exhausted on prior DB)
 - Set Vercel production env vars if not already: `REALTY_API_KEYS`, `INGEST_JOB_TOKEN`, `GEMINI_API_KEY`, Firebase admin creds
 - `localhost` + `abode-alerts.vercel.app` added to Firebase Auth authorized domains via `scripts/add-auth-domains.ts`

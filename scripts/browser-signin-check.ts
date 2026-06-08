@@ -1,3 +1,4 @@
+/** @deprecated Use scripts/browser-google-oauth-check.ts for goal verification (real OAuth click flow). */
 import { appendFileSync } from "node:fs";
 import { chromium } from "playwright";
 import { getAuth } from "firebase-admin/auth";

@@ -14,8 +14,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Realty Monitor",
-  description: "Real estate tracking, lead monitoring, and alerts with integrated backfill engine",
+  title: "Abode Alerts",
+  description:
+    "Property monitoring for the 44224 Stow/Akron area with real listing ingestion, alerts, and workspace tools",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

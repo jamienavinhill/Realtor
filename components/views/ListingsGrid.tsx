@@ -17,6 +17,8 @@ import { motion, AnimatePresence } from "motion/react";
 
 interface ListingsGridProps {
   properties: ListingProperty[];
+  totalPropertyCount?: number;
+  hasActiveFilters?: boolean;
   onExportToSheet?: (property: ListingProperty) => void;
   onScheduleViewing?: (property: ListingProperty) => void;
   onDeleteProperty?: (propertyId: string) => void;
@@ -29,6 +31,8 @@ interface ListingsGridProps {
 
 export function ListingsGrid({
   properties,
+  totalPropertyCount = 0,
+  hasActiveFilters = false,
   onExportToSheet,
   onScheduleViewing,
   onDeleteProperty,
@@ -41,10 +45,35 @@ export function ListingsGrid({
   const [selectedProperty, setSelectedProperty] = useState<ListingProperty | null>(null);
 
   if (properties.length === 0) {
+    const inventoryEmpty = totalPropertyCount === 0;
+
     return (
-      <div className="rounded-3xl border border-dashed border-stone-200 bg-stone-50 py-32 text-center dark:border-stone-800 dark:bg-stone-900/40">
-        <h3 className="text-lg font-bold">No properties found</h3>
-        <p className="mt-2 text-stone-500">Adjust your filters or harvest new leads.</p>
+      <div className="rounded-3xl border border-dashed border-stone-200 bg-stone-50 px-6 py-32 text-center dark:border-stone-800 dark:bg-stone-900/40">
+        <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100">
+          {inventoryEmpty ? "No listings loaded yet" : "No listings match your filters"}
+        </h3>
+        {inventoryEmpty ? (
+          <div className="mx-auto mt-4 max-w-xl space-y-3 text-sm leading-6 text-stone-500">
+            <p>
+              Abode Alerts has no baseline inventory in Firestore yet. Run the protected 44224
+              backfill to populate real active listings within a 10-mile radius of Stow, Ohio.
+            </p>
+            <p className="font-mono text-xs text-stone-400">
+              Operator: <code>npm run backfill</code> or POST /api/ingest/backfill with your ingest
+              job token.
+            </p>
+            <p>
+              You can also ingest individual listings from Gmail or pasted alert text in the Ingest
+              tab after connecting Google Workspace.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-stone-500">
+            {hasActiveFilters
+              ? "Try clearing your search or city filter to see the full inventory."
+              : "Adjust your filters to see more listings."}
+          </p>
+        )}
       </div>
     );
   }

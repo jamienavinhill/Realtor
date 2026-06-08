@@ -1,6 +1,6 @@
 {
-  "name": "Realty Monitor",
-  "description": "Real Estate Tracking, Lead Monitoring, and Property Alerts Engine",
+  "name": "Abode Alerts",
+  "description": "Property monitoring, listing ingestion, and alert matching for the 44224 area",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

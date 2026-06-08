@@ -31,7 +31,8 @@ import { onAuthStateChanged, User, GoogleAuthProvider } from "firebase/auth";
 
 import { getErrorMessage } from "../lib/errors";
 import { DASHBOARD_TABS, type DashboardTab } from "../types/dashboard";
-import { ListingProperty, PropertyAlert } from "../types/listings";
+import { AlertMatch, ListingProperty, PropertyAlert } from "../types/listings";
+import { BASELINE_ZIP, DEFAULT_ALERT_CITY } from "@/lib/ingest/constants";
 import { DocsView } from "./views/DocsView";
 import { AlertsWizardView } from "./views/AlertsWizardView";
 import { ListingsGrid } from "./views/ListingsGrid";
@@ -110,6 +111,7 @@ export default function Dashboard() {
 
   const [properties, setProperties] = useState<ListingProperty[]>([]);
   const [alerts, setAlerts] = useState<PropertyAlert[]>([]);
+  const [alertMatches, setAlertMatches] = useState<AlertMatch[]>([]);
   const [activeTab, setActiveTab] = useState<DashboardTab>("listings");
 
   // Filtering & Search state
@@ -118,7 +120,7 @@ export default function Dashboard() {
 
   // Alert form state
   const [newAlertName, setNewAlertName] = useState("");
-  const [newAlertCity, setNewAlertCity] = useState("Austin");
+  const [newAlertCity, setNewAlertCity] = useState(DEFAULT_ALERT_CITY);
   const [newAlertMaxPrice, setNewAlertMaxPrice] = useState("");
   const [newAlertMinBeds, setNewAlertMinBeds] = useState("2");
 
@@ -162,6 +164,7 @@ export default function Dashboard() {
 
     let unsubProperties = () => {};
     let unsubAlerts = () => {};
+    let unsubAlertMatches = () => {};
 
     // 1. Properties snapshot listener
     try {
@@ -206,13 +209,40 @@ export default function Dashboard() {
       } catch (e) {
         console.error(e);
       }
+      try {
+        const qAlertMatches = query(
+          collection(db, "alert_matches"),
+          where("userId", "==", user.uid),
+        );
+        unsubAlertMatches = onSnapshot(
+          qAlertMatches,
+          (snapshot) => {
+            const loadedMatches: AlertMatch[] = [];
+            snapshot.forEach((doc) => {
+              loadedMatches.push({ id: doc.id, ...doc.data() } as AlertMatch);
+            });
+            loadedMatches.sort(
+              (a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime(),
+            );
+            setAlertMatches(loadedMatches);
+          },
+          (err) => {
+            console.error("Firestore onSnapshot alert_matches error:", err);
+          },
+        );
+      } catch (e) {
+        console.error(e);
+        setAlertMatches([]);
+      }
     } else {
       setAlerts([]);
+      setAlertMatches([]);
     }
 
     return () => {
       unsubProperties();
       unsubAlerts();
+      unsubAlertMatches();
     };
   }, [user, authLoading]);
 
@@ -534,6 +564,14 @@ export default function Dashboard() {
 
   // Filtering calculations
   const cities = Array.from(new Set(properties.map((p) => p.city)));
+  const hasActiveFilters = searchTerm.trim().length > 0 || cityFilter !== "All";
+
+  const resolvedAlertMatches = alertMatches.map((match) => ({
+    match,
+    alert: alerts.find((alert) => alert.id === match.alertId),
+    property: properties.find((property) => property.id === match.listingId),
+  }));
+
   const filteredProperties = properties.filter((prop) => {
     const matchesSearch =
       prop.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -555,7 +593,7 @@ export default function Dashboard() {
               <Building2 className="h-5 w-5" />
             </div>
             <span className="font-sans text-lg font-bold tracking-tight text-stone-900 dark:text-white">
-              Realty
+              Abode Alerts
             </span>
 
             {/* Primary Inner Navigation */}
@@ -698,6 +736,8 @@ export default function Dashboard() {
 
             <ListingsGrid
               properties={filteredProperties}
+              totalPropertyCount={properties.length}
+              hasActiveFilters={hasActiveFilters}
               onExportToSheet={exportListingToGoogleSheet}
               onScheduleViewing={bookCalendarViewingEvent}
               onDeleteProperty={handleDeleteProperty}
@@ -732,7 +772,7 @@ export default function Dashboard() {
                       Google Workspace Auth Required
                     </span>
                     <p className="mb-4 text-[11px] leading-relaxed text-stone-400">
-                      Realty Monitor requires secure OAuth permission to verify and safely parse
+                      Abode Alerts requires secure OAuth permission to verify and safely parse
                       alert emails of listings directly from your inbox. No data is stored outside
                       your account.
                     </p>
@@ -955,7 +995,7 @@ export default function Dashboard() {
                       required
                       value={newAlertName}
                       onChange={(e) => setNewAlertName(e.target.value)}
-                      placeholder="e.g. Budget Properties Austin"
+                      placeholder="e.g. Stow homes under $400k"
                       className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-sans text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
                     />
                   </div>
@@ -969,7 +1009,7 @@ export default function Dashboard() {
                       required
                       value={newAlertCity}
                       onChange={(e) => setNewAlertCity(e.target.value)}
-                      placeholder="e.g. Austin"
+                      placeholder={`e.g. ${DEFAULT_ALERT_CITY}`}
                       className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-sans text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
                     />
                   </div>
@@ -1014,80 +1054,149 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* LIVE ACTIVE ALERTS ROW MATCH LISTING */}
-            <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-lg lg:col-span-8 dark:border-stone-800 dark:bg-stone-900">
-              <div className="mb-4 flex items-center justify-between border-b border-stone-200 pb-4 dark:border-stone-800">
-                <span className="font-sans text-sm font-bold text-white">
-                  Active Monitoring Queries
-                </span>
-                <span className="font-mono text-[10px] text-stone-500 uppercase">
-                  Real-time evaluation rules
-                </span>
-              </div>
-
-              {!user ? (
-                <div className="py-20 text-center font-mono text-xs text-stone-500">
-                  Login with Google to deploy and audit custom alert triggers.
-                </div>
-              ) : alerts.length === 0 ? (
-                <div className="mx-auto max-w-sm py-20 text-center font-mono text-xs text-stone-500">
-                  <Bell className="mx-auto mb-3 h-10 w-10 text-stone-700" />
-                  <span>
-                    No active alert triggers configured in the tracker query systems yet. Keep
-                    watching!
+            <div className="space-y-6 lg:col-span-8">
+              {/* LIVE ACTIVE ALERTS ROW MATCH LISTING */}
+              <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
+                <div className="mb-4 flex items-center justify-between border-b border-stone-200 pb-4 dark:border-stone-800">
+                  <span className="font-sans text-sm font-bold text-white">
+                    Active Monitoring Queries
+                  </span>
+                  <span className="font-mono text-[10px] text-stone-500 uppercase">
+                    {BASELINE_ZIP} area criteria
                   </span>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {alerts.map((a) => (
-                    <div
-                      key={a.id}
-                      className="flex flex-col justify-between rounded-xl border border-stone-200 bg-stone-50 p-4 dark:border-stone-800 dark:bg-stone-950"
-                    >
-                      <div>
-                        <div className="mb-2 flex items-center justify-between">
-                          <h4 className="font-mono text-xs font-bold tracking-wider text-white uppercase">
-                            {a.name}
-                          </h4>
-                          <span className="bg-primary-400 h-2 w-2 animate-pulse rounded-full" />
-                        </div>
-                        <ul className="space-y-1 rounded border border-stone-200 bg-white p-2.5 font-mono text-[10px] text-stone-400 dark:border-stone-900 dark:bg-stone-900/40">
-                          <li>
-                            Target Area:{" "}
-                            <strong className="text-stone-900 dark:text-stone-200">
-                              {a.criteria.city}
-                            </strong>
-                          </li>
-                          {a.criteria.maxPrice && (
+
+                {!user ? (
+                  <div className="py-20 text-center font-mono text-xs text-stone-500">
+                    Login with Google to deploy and audit custom alert triggers.
+                  </div>
+                ) : alerts.length === 0 ? (
+                  <div className="mx-auto max-w-sm py-20 text-center font-mono text-xs text-stone-500">
+                    <Bell className="mx-auto mb-3 h-10 w-10 text-stone-700" />
+                    <span>
+                      No active alert triggers configured yet. Create one to monitor listings around{" "}
+                      {DEFAULT_ALERT_CITY} and the {BASELINE_ZIP} radius.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {alerts.map((a) => (
+                      <div
+                        key={a.id}
+                        className="flex flex-col justify-between rounded-xl border border-stone-200 bg-stone-50 p-4 dark:border-stone-800 dark:bg-stone-950"
+                      >
+                        <div>
+                          <div className="mb-2 flex items-center justify-between">
+                            <h4 className="font-mono text-xs font-bold tracking-wider text-white uppercase">
+                              {a.name}
+                            </h4>
+                            <span className="bg-primary-400 h-2 w-2 animate-pulse rounded-full" />
+                          </div>
+                          <ul className="space-y-1 rounded border border-stone-200 bg-white p-2.5 font-mono text-[10px] text-stone-400 dark:border-stone-900 dark:bg-stone-900/40">
                             <li>
-                              Max Cap Limit:{" "}
+                              Target Area:{" "}
                               <strong className="text-stone-900 dark:text-stone-200">
-                                ${a.criteria.maxPrice.toLocaleString()}
+                                {a.criteria.city}
                               </strong>
                             </li>
-                          )}
-                          <li>
-                            Bedrooms criteria:{" "}
-                            <strong className="text-stone-900 dark:text-stone-200">
-                              {a.criteria.beds}+ Beds
-                            </strong>
-                          </li>
-                        </ul>
+                            {a.criteria.maxPrice && (
+                              <li>
+                                Max Cap Limit:{" "}
+                                <strong className="text-stone-900 dark:text-stone-200">
+                                  ${a.criteria.maxPrice.toLocaleString()}
+                                </strong>
+                              </li>
+                            )}
+                            <li>
+                              Bedrooms criteria:{" "}
+                              <strong className="text-stone-900 dark:text-stone-200">
+                                {a.criteria.beds}+ Beds
+                              </strong>
+                            </li>
+                          </ul>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between border-t border-stone-200 pt-3 dark:border-stone-900">
+                          <span className="font-mono text-[9px] text-stone-500">UUID: {a.id}</span>
+                          <button
+                            onClick={() => handleDeleteAlert(a.id)}
+                            className="flex cursor-pointer items-center space-x-1 font-mono text-[11px] text-red-400 transition hover:text-red-300"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Mute Monitor</span>
+                          </button>
+                        </div>
                       </div>
-                      <div className="mt-4 flex items-center justify-between border-t border-stone-200 pt-3 dark:border-stone-900">
-                        <span className="font-mono text-[9px] text-stone-500">UUID: {a.id}</span>
-                        <button
-                          onClick={() => handleDeleteAlert(a.id)}
-                          className="flex cursor-pointer items-center space-x-1 font-mono text-[11px] text-red-400 transition hover:text-red-300"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          <span>Mute Monitor</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* PERSISTED ALERT MATCHES */}
+              <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
+                <div className="mb-4 flex items-center justify-between border-b border-stone-200 pb-4 dark:border-stone-800">
+                  <span className="font-sans text-sm font-bold text-white">Persisted Alert Matches</span>
+                  <span className="font-mono text-[10px] text-stone-500 uppercase">
+                    Saved from daily refresh
+                  </span>
                 </div>
-              )}
+
+                {!user ? (
+                  <div className="py-12 text-center font-mono text-xs text-stone-500">
+                    Sign in to view alert matches saved by the ingestion pipeline.
+                  </div>
+                ) : resolvedAlertMatches.length === 0 ? (
+                  <div className="mx-auto max-w-lg py-12 text-center">
+                    <Bell className="mx-auto mb-3 h-10 w-10 text-stone-700" />
+                    <p className="font-mono text-xs leading-relaxed text-stone-500">
+                      No persisted matches yet. Matches appear here after daily refresh evaluates
+                      your active alerts against the {BASELINE_ZIP} listing inventory.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {resolvedAlertMatches.map(({ match, alert, property }) => (
+                      <div
+                        key={match.id}
+                        className="flex flex-col gap-3 rounded-xl border border-stone-200 bg-stone-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-stone-800 dark:bg-stone-950"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
+                            <span className="bg-primary-500/10 text-primary-500 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider uppercase">
+                              {alert?.name || "Deleted alert"}
+                            </span>
+                            <span className="font-mono text-[10px] text-stone-500">
+                              Last seen {new Date(match.lastSeenAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <h4 className="truncate text-sm font-bold text-stone-900 dark:text-stone-100">
+                            {property?.title || `Listing ${match.listingId}`}
+                          </h4>
+                          <p className="mt-1 font-mono text-[11px] text-stone-500">
+                            {property
+                              ? `${property.address}, ${property.city} — $${property.price.toLocaleString()}`
+                              : "Listing details unavailable until inventory syncs."}
+                          </p>
+                          <p className="mt-2 font-mono text-[10px] text-stone-400">
+                            Match reason: {match.matchReason}
+                          </p>
+                        </div>
+                        {property && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab("listings");
+                              setSearchTerm(property.title);
+                            }}
+                            className="text-primary-950 hover:bg-primary-50 shrink-0 cursor-pointer rounded bg-white px-4 py-2 text-xs font-bold shadow transition dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800"
+                          >
+                            View Listing
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1096,8 +1205,8 @@ export default function Dashboard() {
       {/* FOOTER */}
       <footer className="mt-12 border-t border-stone-200 bg-stone-100/40 py-6 text-center dark:border-stone-900 dark:bg-stone-950/40">
         <span className="block font-mono text-[10px] text-stone-500">
-          &copy; 2026 Realty Monitor. Created and deployed with precise, ethical workspace
-          standards.
+          &copy; 2026 Abode Alerts. Property monitoring for the {BASELINE_ZIP} Stow/Akron area with
+          real ingestion and alert matching.
         </span>
       </footer>
     </div>

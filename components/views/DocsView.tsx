@@ -68,11 +68,12 @@ export function DocsView() {
           </div>
 
           <h1 id="intro" className="mb-4 text-4xl font-extrabold tracking-tight">
-            Realty Monitor Docs
+            Abode Alerts Docs
           </h1>
           <p className="max-w-2xl text-lg leading-relaxed text-stone-600 dark:text-stone-400">
-            Welcome to the Realty Monitor platform. Our engine connects directly to your Google
-            Workspace to harvest and track real estate listing alerts automatically.
+            Welcome to Abode Alerts. The workspace connects to Google services to harvest listing
+            alerts, runs provider-backed ingestion for the 44224 Stow/Akron radius, and evaluates
+            saved search criteria against real inventory.
           </p>
 
           <hr className="my-10 border-stone-200 dark:border-stone-800" />

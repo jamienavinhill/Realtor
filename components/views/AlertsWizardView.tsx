@@ -1,11 +1,16 @@
 import React, { useState } from "react";
 import { Mail, ArrowRight, BellRing, Sparkles, Building2, Home } from "lucide-react";
+import {
+  BASELINE_ZIP,
+  DEFAULT_ALERT_CITY,
+  DEFAULT_ALERT_STATE,
+} from "@/lib/ingest/constants";
 
 export function AlertsWizardView() {
   const [criteria, setCriteria] = useState({
-    city: "Austin",
-    state: "TX",
-    maxPrice: "1000000",
+    city: DEFAULT_ALERT_CITY,
+    state: DEFAULT_ALERT_STATE,
+    maxPrice: "450000",
     beds: "3",
     emails: true,
   });
@@ -42,8 +47,9 @@ export function AlertsWizardView() {
           Email Alerts Setup Wizard
         </h1>
         <p className="mx-auto max-w-xl text-stone-500">
-          Set your preferred criteria here. We'll generate a personalized cheat sheet to help you
-          subscribe to official MLS, Zillow, and Redfin alerts so our Harvester can catch them.
+          Set your preferred criteria for the {BASELINE_ZIP} Stow/Akron area. We&apos;ll generate a
+          cheat sheet to help you subscribe to Zillow, Redfin, and other listing alerts for
+          ingestion.
         </p>
       </div>
 
@@ -63,6 +69,7 @@ export function AlertsWizardView() {
               <input
                 value={criteria.city}
                 onChange={(e) => setCriteria({ ...criteria, city: e.target.value })}
+                placeholder="e.g. Stow"
                 title="City"
                 className="focus:border-primary-500 focus:ring-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none focus:ring-1 dark:border-stone-800 dark:bg-stone-950"
               />

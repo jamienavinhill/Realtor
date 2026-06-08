@@ -333,7 +333,7 @@ Return raw JSON schema.`;
         );
       }
 
-      // If no spreadsheetId is supplied, we will create a brand new one called "Realty Monitor Hub"
+      // If no spreadsheetId is supplied, we will create a brand new Abode Alerts spreadsheet
       if (!spreadsheetId) {
         const createUrl = "https://sheets.googleapis.com/v4/spreadsheets";
         const createRes = await fetch(createUrl, {
@@ -344,7 +344,7 @@ Return raw JSON schema.`;
           },
           body: JSON.stringify({
             properties: {
-              title: "Realty Monitor Leads Spreadsheet",
+              title: "Abode Alerts Leads Spreadsheet",
             },
           }),
         });

@@ -5,20 +5,20 @@ Status: Complete
 
 ## Dispatches
 
-| Agent | Workstream | Result |
-|-------|------------|--------|
-| 019ea8f4 | WS3-6 pass 1 | Schemas, RealtyAPI adapter, repos, ingest routes, tests |
-| 019ea8f8 | WS2 pass 2 | Abode Alerts branding, 44224 defaults, alert matches UI |
-| 019ea8fd | Browser verify | 5/5 critical flows passed via Playwright |
+| Agent    | Workstream     | Result                                                  |
+| -------- | -------------- | ------------------------------------------------------- |
+| 019ea8f4 | WS3-6 pass 1   | Schemas, RealtyAPI adapter, repos, ingest routes, tests |
+| 019ea8f8 | WS2 pass 2     | Abode Alerts branding, 44224 defaults, alert matches UI |
+| 019ea8fd | Browser verify | 5/5 critical flows passed via Playwright                |
 
 ## Verification
 
 - `npm run verify` — pass (see scratch `verify.log`)
 - Banned fake-data grep — zero matches
-- `npm run test` — 11/11 pass (see scratch `tests.log`)
+- `npm run test` — 13/13 pass (see scratch `tests.log`)
 - Live backfill — 88 listings, idempotent re-run, provenance readback (scratch `backfill.log`, `firestore-readback.log`)
-- Daily refresh API — 401 without token, 200 with token (scratch `daily-refresh.log`)
-- Browser smoke — all flows pass (scratch `browser-smoke.log`, screenshots)
+- Daily refresh — 401 without token; CLI persisted run `2b12ae0d-7f05-47ae-a0de-929289498855` (88 upserted); API 200 in dev logs (scratch `daily-refresh.log`)
+- Browser smoke — all 5 flows pass incl. custom-token avatar (scratch `browser-smoke.log`, screenshots)
 - Secrets audit — no values in tracked diff (scratch `secrets-audit.log`)
 
 ## Commits pushed
@@ -31,6 +31,7 @@ Status: Complete
 
 ## Remaining operator actions
 
-- Deploy `firestore.rules` to Firebase (CLI not installed in session)
-- Add `localhost` to Firebase Auth authorized domains for local Google sign-in
-- Set Vercel env vars: `REALTY_API_KEYS`, `INGEST_JOB_TOKEN`, `GEMINI_API_KEY`, `PATH_TO_FIREBASE_ADMIN_SDK`
+- Deploy `firestore.rules` to Firebase when ready
+- Firestore Blaze or wait for daily read quota reset (stale scan / alert eval skip gracefully)
+- Set Vercel production env vars if not already: `REALTY_API_KEYS`, `INGEST_JOB_TOKEN`, `GEMINI_API_KEY`, Firebase admin creds
+- `localhost` + `abode-alerts.vercel.app` added to Firebase Auth authorized domains via `scripts/add-auth-domains.ts`

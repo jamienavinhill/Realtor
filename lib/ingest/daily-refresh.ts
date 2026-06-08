@@ -98,12 +98,32 @@ export async function runDailyRefresh(
 
   const upsertResult = await upsertListings(fetchResult.listings, {
     dryRun: options.dryRun,
+    skipDedupeLookup: true,
   });
 
   const refreshedIds = new Set(fetchResult.listings.map((listing) => listing.id));
-  const staleMarked = await markStaleListings(refreshedIds, options);
+  let staleMarked = 0;
+  try {
+    staleMarked = await markStaleListings(refreshedIds, options);
+  } catch (error) {
+    fetchResult.stats.errors.push(
+      error instanceof Error
+        ? `Stale listing scan skipped: ${error.message}`
+        : "Stale listing scan skipped: unknown error",
+    );
+  }
 
-  const alerts = await listActiveAlerts();
+  let alerts: Awaited<ReturnType<typeof listActiveAlerts>> = [];
+  try {
+    alerts = await listActiveAlerts();
+  } catch (error) {
+    fetchResult.stats.errors.push(
+      error instanceof Error
+        ? `Alert evaluation skipped: ${error.message}`
+        : "Alert evaluation skipped: unknown error",
+    );
+  }
+
   const evaluation = evaluateAlertsForListings(alerts, fetchResult.listings, startedAt);
 
   let alertMatchesCreated = 0;
@@ -153,7 +173,7 @@ export async function runDailyRefresh(
   };
 
   if (!options.dryRun) {
-    await updateIngestRun(runId, finalRun);
+    await updateIngestRun(runId, finalRun, { ...initialRun, ...finalRun, id: runId });
   }
 
   return {

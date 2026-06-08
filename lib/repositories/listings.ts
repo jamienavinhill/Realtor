@@ -28,7 +28,7 @@ export async function findListingByDedupeKey(dedupeKey: string): Promise<Listing
 
 export async function upsertListing(
   listing: ListingProperty | ProviderListingProperty,
-  options?: { dryRun?: boolean },
+  options?: { dryRun?: boolean; skipDedupeLookup?: boolean },
 ): Promise<ListingUpsertResult> {
   const validation = validateListingProperty(listing);
   if (!validation.success) {
@@ -41,24 +41,33 @@ export async function upsertListing(
   }
 
   const db = getAdminFirestore();
-  const existing = await findListingByDedupeKey(validated.dedupeKey);
-  const docId = existing?.id ?? validated.id;
+  const docId = validated.id;
   const now = new Date().toISOString();
+
+  let existing: ListingProperty | null = null;
+  if (!options?.skipDedupeLookup) {
+    existing = await findListingByDedupeKey(validated.dedupeKey);
+  }
 
   const payload: ListingProperty = {
     ...validated,
-    id: docId,
+    id: existing?.id ?? docId,
     createdAt: existing?.createdAt ?? validated.createdAt ?? now,
     updatedAt: now,
     ingestedAt: validated.ingestedAt ?? now,
   };
 
   if (!options?.dryRun) {
-    await db.collection(COLLECTION).doc(docId).set(payload, { merge: true });
+    const docRef = db.collection(COLLECTION).doc(payload.id);
+    const { createdAt, ...mergeFields } = payload;
+    await docRef.set(mergeFields, { merge: true });
+    if (!existing) {
+      await docRef.set({ createdAt }, { merge: true });
+    }
   }
 
   return {
-    id: docId,
+    id: payload.id,
     dedupeKey: validated.dedupeKey,
     created: !existing,
   };
@@ -66,31 +75,85 @@ export async function upsertListing(
 
 export async function upsertListings(
   listings: ListingProperty[],
-  options?: { dryRun?: boolean },
+  options?: { dryRun?: boolean; skipDedupeLookup?: boolean },
 ): Promise<{ upserted: number; created: number; skipped: number; errors: string[] }> {
-  let upserted = 0;
-  let created = 0;
-  let skipped = 0;
-  const errors: string[] = [];
+  if (!options?.skipDedupeLookup || options?.dryRun) {
+    let upserted = 0;
+    let created = 0;
+    let skipped = 0;
+    const errors: string[] = [];
 
-  for (const listing of listings) {
-    try {
-      const result = await upsertListing(listing, options);
-      upserted += 1;
-      if (result.created) {
-        created += 1;
+    for (const listing of listings) {
+      try {
+        const result = await upsertListing(listing, options);
+        upserted += 1;
+        if (result.created) {
+          created += 1;
+        }
+      } catch (error) {
+        skipped += 1;
+        errors.push(
+          error instanceof Error
+            ? `Listing ${listing.dedupeKey}: ${error.message}`
+            : `Listing ${listing.dedupeKey}: unknown error`,
+        );
       }
+    }
+
+    return { upserted, created, skipped, errors };
+  }
+
+  const db = getAdminFirestore();
+  const errors: string[] = [];
+  let upserted = 0;
+  const now = new Date().toISOString();
+  const batchSize = 400;
+
+  for (let index = 0; index < listings.length; index += batchSize) {
+    const chunk = listings.slice(index, index + batchSize);
+    const batch = db.batch();
+
+    for (const listing of chunk) {
+      try {
+        const validation = validateListingProperty(listing);
+        if (!validation.success) {
+          throw new Error(validation.errors.join("; "));
+        }
+
+        const validated = validation.data;
+        const docRef = db.collection(COLLECTION).doc(validated.id);
+        const mergeFields = {
+          ...validated,
+          updatedAt: now,
+          ingestedAt: validated.ingestedAt ?? now,
+        };
+
+        batch.set(docRef, mergeFields, { merge: true });
+        if (validated.createdAt) {
+          batch.set(docRef, { createdAt: validated.createdAt }, { merge: true });
+        }
+        upserted += 1;
+      } catch (error) {
+        errors.push(
+          error instanceof Error
+            ? `Listing ${listing.dedupeKey ?? listing.id}: ${error.message}`
+            : `Listing ${listing.dedupeKey ?? listing.id}: unknown error`,
+        );
+      }
+    }
+
+    try {
+      await batch.commit();
     } catch (error) {
-      skipped += 1;
       errors.push(
         error instanceof Error
-          ? `Listing ${listing.dedupeKey}: ${error.message}`
-          : `Listing ${listing.dedupeKey}: unknown error`,
+          ? `Batch commit failed: ${error.message}`
+          : "Batch commit failed: unknown error",
       );
     }
   }
 
-  return { upserted, created, skipped, errors };
+  return { upserted, created: 0, skipped: listings.length - upserted, errors };
 }
 
 export async function listActiveListings(): Promise<ListingProperty[]> {

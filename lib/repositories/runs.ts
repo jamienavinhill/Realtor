@@ -14,20 +14,29 @@ export async function createIngestRun(run: IngestRun): Promise<void> {
   await db.collection(COLLECTION).doc(validation.data.id).set(validation.data);
 }
 
-export async function updateIngestRun(runId: string, patch: Partial<IngestRun>): Promise<void> {
+export async function updateIngestRun(
+  runId: string,
+  patch: Partial<IngestRun>,
+  baseRun?: IngestRun,
+): Promise<void> {
   const db = getAdminFirestore();
-  const doc = await db.collection(COLLECTION).doc(runId).get();
-  if (!doc.exists) {
-    throw new Error(`Ingest run ${runId} not found`);
-  }
+  let merged: IngestRun;
 
-  const merged = { id: runId, ...doc.data(), ...patch };
+  if (baseRun) {
+    merged = { ...baseRun, ...patch, id: runId };
+  } else {
+    const doc = await db.collection(COLLECTION).doc(runId).get();
+    if (!doc.exists) {
+      throw new Error(`Ingest run ${runId} not found`);
+    }
+    merged = { id: runId, ...doc.data(), ...patch } as IngestRun;
+  }
   const validation = validateIngestRun(merged);
   if (!validation.success) {
     throw new Error(`Invalid ingest run update: ${validation.errors.join("; ")}`);
   }
 
-  await db.collection(COLLECTION).doc(runId).set(validation.data, { merge: true });
+  await db.collection(COLLECTION).doc(runId).set(patch, { merge: true });
 }
 
 export async function getIngestRun(runId: string): Promise<IngestRun | null> {

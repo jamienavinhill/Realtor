@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import {
+  buildListingTitle,
   haversineDistanceMiles,
   hashRawPayload,
   normalizeRealtyApiListing,
@@ -52,6 +53,25 @@ test("normalizeRealtyApiListing coerces string beds and baths from provider payl
 
   assert.equal(listing.beds, 3);
   assert.equal(listing.baths, 2.5);
+});
+
+test("buildListingTitle omits null-like bed/bath counts for land listings", () => {
+  assert.equal(buildListingTitle(0, 0, "land", "0 Sample Rd"), "Land - 0 Sample Rd");
+});
+
+test("normalizeRealtyApiListing uses parsed counts in title for land with null provider beds/baths", () => {
+  const listing = normalizeRealtyApiListing(
+    { ...fixture, beds: null, baths: null, property_type: "land" },
+    {
+      radiusCenter: { lat: 41.1595, lng: -81.4404, zipCode: "44224" },
+      ingestedAt: "2026-06-08T12:00:00.000Z",
+      keyAlias: "fixture",
+    },
+  );
+
+  assert.equal(listing.title, "Land - 123 Sample St");
+  assert.equal(listing.beds, 0);
+  assert.equal(listing.baths, 0);
 });
 
 test("normalizeRealtyApiListing strips trailing plus from fractional bath counts", () => {

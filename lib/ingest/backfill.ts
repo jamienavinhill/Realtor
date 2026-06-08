@@ -87,7 +87,7 @@ export async function runBackfill44224(options: BackfillOptions = {}): Promise<B
   };
 
   if (!options.dryRun) {
-    await updateIngestRun(runId, finalRun);
+    await updateIngestRun(runId, finalRun, { ...initialRun, ...finalRun, id: runId });
   }
 
   return {

@@ -104,6 +104,21 @@ function mapStatus(value: string): ListingProperty["status"] {
   return "Active";
 }
 
+export function buildListingTitle(
+  beds: number,
+  baths: number,
+  propertyType: string,
+  addressLine: string,
+): string {
+  const typeLabel = mapPropertyType(propertyType);
+  if (typeLabel === "Land" || (beds === 0 && baths === 0)) {
+    return `${typeLabel} - ${addressLine}`;
+  }
+
+  const bathLabel = Number.isInteger(baths) ? String(baths) : baths.toFixed(1).replace(/\.0$/, "");
+  return `${beds}bd ${bathLabel}ba ${typeLabel} - ${addressLine}`;
+}
+
 export function normalizeRealtyApiListing(
   result: RealtyApiSearchResult,
   options: {
@@ -126,18 +141,22 @@ export function normalizeRealtyApiListing(
     result.address.longitude,
   );
 
+  const beds = parseNumericField(result.beds, "beds");
+  const baths = parseNumericField(result.baths, "baths");
+  const propertyType = mapPropertyType(result.property_type);
+
   const listing: ListingProperty = {
     id: sanitizeDocId(result.listing_id || result.property_id),
-    title: `${result.beds}bd ${result.baths}ba ${mapPropertyType(result.property_type)} - ${result.address.line}`,
+    title: buildListingTitle(beds, baths, propertyType, result.address.line),
     address: result.address.line,
     city: result.address.city,
     state: result.address.state_code,
     zipCode: result.address.postal_code,
     price: result.list_price,
-    beds: parseNumericField(result.beds, "beds"),
-    baths: parseNumericField(result.baths, "baths"),
+    beds,
+    baths,
     sqft: result.sqft,
-    propertyType: mapPropertyType(result.property_type),
+    propertyType,
     status: mapStatus(result.status),
     imageUrl,
     imageUrls,

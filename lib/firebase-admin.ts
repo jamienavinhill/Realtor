@@ -6,6 +6,7 @@ import firebaseConfig from "@/firebase-applet-config.json";
 
 let adminApp: App | undefined;
 let adminDb: Firestore | undefined;
+let adminDbSettingsApplied = false;
 
 function stripQuotes(value: string): string {
   return value.replace(/^["']|["']$/g, "");
@@ -51,6 +52,9 @@ export function getAdminFirestore(): Firestore {
 
   const app = getFirebaseAdminApp();
   adminDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-  adminDb.settings({ ignoreUndefinedProperties: true });
+  if (!adminDbSettingsApplied) {
+    adminDb.settings({ ignoreUndefinedProperties: true });
+    adminDbSettingsApplied = true;
+  }
   return adminDb;
 }

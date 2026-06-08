@@ -29,6 +29,8 @@ import {
 } from "../lib/firebase";
 import { onAuthStateChanged, User, GoogleAuthProvider } from "firebase/auth";
 
+import { getErrorMessage } from "../lib/errors";
+import { DASHBOARD_TABS, type DashboardTab } from "../types/dashboard";
 import { ListingProperty, PropertyAlert } from "../types/listings";
 import { DocsView } from "./views/DocsView";
 import { AlertsWizardView } from "./views/AlertsWizardView";
@@ -108,9 +110,7 @@ export default function Dashboard() {
 
   const [properties, setProperties] = useState<ListingProperty[]>([]);
   const [alerts, setAlerts] = useState<PropertyAlert[]>([]);
-  const [activeTab, setActiveTab] = useState<
-    "listings" | "harvester" | "alerts" | "cma" | "docs" | "wizard"
-  >("listings");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("listings");
 
   // Filtering & Search state
   const [searchTerm, setSearchTerm] = useState("");
@@ -227,9 +227,9 @@ export default function Dashboard() {
       } else {
         setLogMessage("Signed in successfully, but Workspace token access was restricted.");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Google Auth error:", error);
-      setLogMessage(`Authorization failed: ${error.message}`);
+      setLogMessage(`Authorization failed: ${getErrorMessage(error)}`);
     }
   };
 
@@ -278,9 +278,9 @@ export default function Dashboard() {
       setLogMessage(
         `Harvest completed: Found ${data.properties?.length || 0} real estate listings inside your Gmail inbox matching "${gmailQuery}".`,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      setLogMessage(`Gmail Harvester Error: ${error.message}`);
+      setLogMessage(`Gmail Harvester Error: ${getErrorMessage(error)}`);
     } finally {
       setIsScanningGmail(false);
     }
@@ -318,9 +318,9 @@ export default function Dashboard() {
       } else {
         setLogMessage("Gemini was unable to recognize any real property details in that string.");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      setLogMessage(`Parser Error: ${error.message}`);
+      setLogMessage(`Parser Error: ${getErrorMessage(error)}`);
     } finally {
       setIsParsingDirect(false);
     }
@@ -342,7 +342,7 @@ export default function Dashboard() {
 
           // Sync with alerts trigger notification
           checkForAlertMatch(prop);
-        } catch (err: any) {
+        } catch (err: unknown) {
           handleFirestoreError(err, OperationType.CREATE, path);
         }
       }
@@ -351,8 +351,8 @@ export default function Dashboard() {
       );
       setHarvestedPreviews([]);
       setActiveTab("listings");
-    } catch (err: any) {
-      setLogMessage(`Commit halted: ${err.message}`);
+    } catch (err: unknown) {
+      setLogMessage(`Commit halted: ${getErrorMessage(err)}`);
     }
   };
 
@@ -387,9 +387,9 @@ export default function Dashboard() {
 
       setSheetLink({ id: data.spreadsheetId, url: data.url });
       setLogMessage(`Logged successfully to Google Sheet! URL: ${data.url}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setLogMessage(`Sheets Integration Error: ${err.message}`);
+      setLogMessage(`Sheets Integration Error: ${getErrorMessage(err)}`);
     } finally {
       setSheetsExportingPropId(null);
     }
@@ -436,9 +436,9 @@ export default function Dashboard() {
       setLogMessage(`Calendar event created successfully! Access standard link: ${data.htmlLink}`);
       // Clear scheduling inputs
       setCalendarEventTime("");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setLogMessage(`Calendar Integration Error: ${err.message}`);
+      setLogMessage(`Calendar Integration Error: ${getErrorMessage(err)}`);
     } finally {
       setCalendarSchedulingPropId(null);
     }
@@ -473,7 +473,7 @@ export default function Dashboard() {
       setLogMessage(
         `Successfully initialized automated matcher: "${alertData.name}". Monitoring incoming streams.`,
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleFirestoreError(err, OperationType.CREATE, path);
     }
   };
@@ -485,7 +485,7 @@ export default function Dashboard() {
     try {
       await deleteDoc(doc(db, "alerts", alertId));
       setLogMessage("Muted search matched alert monitor.");
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleFirestoreError(err, OperationType.DELETE, path);
     }
   };
@@ -497,7 +497,7 @@ export default function Dashboard() {
     try {
       await deleteDoc(doc(db, "properties", propId));
       setLogMessage("Property listing deleted successfully.");
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleFirestoreError(err, OperationType.DELETE, path);
     }
   };
@@ -560,17 +560,11 @@ export default function Dashboard() {
 
             {/* Primary Inner Navigation */}
             <nav className="flex hidden space-x-4 pl-8 lg:flex lg:space-x-8">
-              {[
-                { id: "listings", label: "Leads" },
-                { id: "alerts", label: "Alerts" },
-                { id: "wizard", label: "Setup" },
-                { id: "harvester", label: "Ingest" },
-                { id: "cma", label: "CMA" },
-                { id: "docs", label: "Docs" },
-              ].map((tab) => (
+              {DASHBOARD_TABS.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
                   className={`py-5 text-xs font-semibold tracking-wider uppercase ${
                     activeTab === tab.id
                       ? "text-primary-500 border-primary-500 border-b-2"
@@ -671,7 +665,7 @@ export default function Dashboard() {
           <div className="space-y-6">
             <div className="flex flex-col items-center justify-between gap-4 rounded-xl border border-stone-200 bg-white p-4 shadow-sm md:flex-row dark:border-stone-800 dark:bg-stone-900">
               <div className="relative w-full md:max-w-md">
-                <Search className="-transtone-y-1/2 absolute top-1/2 left-3.5 h-4 w-4 text-stone-500" />
+                <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-stone-500" />
                 <input
                   type="text"
                   placeholder="Search listings address, zip, city or title..."
@@ -701,7 +695,17 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <ListingsGrid properties={filteredProperties} />
+            <ListingsGrid
+              properties={filteredProperties}
+              onExportToSheet={exportListingToGoogleSheet}
+              onScheduleViewing={bookCalendarViewingEvent}
+              onDeleteProperty={handleDeleteProperty}
+              sheetsExportingPropId={sheetsExportingPropId}
+              calendarSchedulingPropId={calendarSchedulingPropId}
+              calendarEventTime={calendarEventTime}
+              onCalendarEventTimeChange={setCalendarEventTime}
+              hasWorkspaceAccess={Boolean(user && accessToken)}
+            />
           </div>
         )}
 
@@ -814,7 +818,7 @@ export default function Dashboard() {
                   <button
                     onClick={triggerDirectTextParse}
                     disabled={isParsingDirect || !directPastedText.trim()}
-                    className="hover:bg-stone-705 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded border border-stone-700 bg-stone-100 p-2.5 text-xs font-bold text-stone-900 transition disabled:opacity-30 dark:bg-stone-800 dark:text-stone-200"
+                    className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded border border-stone-700 bg-stone-100 p-2.5 text-xs font-bold text-stone-900 transition hover:bg-stone-200 disabled:opacity-30 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
                   >
                     {isParsingDirect ? (
                       <>
@@ -899,7 +903,7 @@ export default function Dashboard() {
                           </div>
                         </div>
 
-                        <div className="border-stone-905 flex w-full shrink-0 items-center justify-between border-t pt-2 text-right sm:w-auto sm:flex-col sm:items-end sm:border-t-0 sm:pt-0">
+                        <div className="flex w-full shrink-0 items-center justify-between border-t border-stone-200 pt-2 text-right sm:w-auto sm:flex-col sm:items-end sm:border-t-0 sm:pt-0 dark:border-stone-800">
                           <span className="text-primary-400 block font-mono text-sm font-bold">
                             ${item.price.toLocaleString()}
                           </span>

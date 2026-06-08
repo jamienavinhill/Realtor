@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Mail, CheckCircle2, ArrowRight, BellRing, Sparkles, Building2, Home } from "lucide-react";
+import { Mail, ArrowRight, BellRing, Sparkles, Building2, Home } from "lucide-react";
 
 export function AlertsWizardView() {
   const [criteria, setCriteria] = useState({
@@ -25,7 +25,7 @@ export function AlertsWizardView() {
       });
       const data = await response.json();
       setGuideText(data.text);
-    } catch (e) {
+    } catch {
       setGuideText("Failed to generate instructions. Please check network.");
     } finally {
       setIsGenerating(false);

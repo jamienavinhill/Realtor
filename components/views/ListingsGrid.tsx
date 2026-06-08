@@ -1,9 +1,43 @@
 import React, { useState } from "react";
 import { ListingProperty } from "../../types/listings";
-import { MapPin, BedDouble, Bath, Maximize2, ChevronLeft, ChevronRight, X } from "lucide-react";
+import {
+  MapPin,
+  BedDouble,
+  Bath,
+  Maximize2,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Sheet,
+  Calendar,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
-export function ListingsGrid({ properties }: { properties: ListingProperty[] }) {
+interface ListingsGridProps {
+  properties: ListingProperty[];
+  onExportToSheet?: (property: ListingProperty) => void;
+  onScheduleViewing?: (property: ListingProperty) => void;
+  onDeleteProperty?: (propertyId: string) => void;
+  sheetsExportingPropId?: string | null;
+  calendarSchedulingPropId?: string | null;
+  calendarEventTime?: string;
+  onCalendarEventTimeChange?: (value: string) => void;
+  hasWorkspaceAccess?: boolean;
+}
+
+export function ListingsGrid({
+  properties,
+  onExportToSheet,
+  onScheduleViewing,
+  onDeleteProperty,
+  sheetsExportingPropId = null,
+  calendarSchedulingPropId = null,
+  calendarEventTime = "",
+  onCalendarEventTimeChange,
+  hasWorkspaceAccess = false,
+}: ListingsGridProps) {
   const [selectedProperty, setSelectedProperty] = useState<ListingProperty | null>(null);
 
   if (properties.length === 0) {
@@ -28,6 +62,14 @@ export function ListingsGrid({ properties }: { properties: ListingProperty[] }) 
           <PropertyProfileModal
             property={selectedProperty}
             onClose={() => setSelectedProperty(null)}
+            onExportToSheet={onExportToSheet}
+            onScheduleViewing={onScheduleViewing}
+            onDeleteProperty={onDeleteProperty}
+            sheetsExportingPropId={sheetsExportingPropId}
+            calendarSchedulingPropId={calendarSchedulingPropId}
+            calendarEventTime={calendarEventTime}
+            onCalendarEventTimeChange={onCalendarEventTimeChange}
+            hasWorkspaceAccess={hasWorkspaceAccess}
           />
         )}
       </AnimatePresence>
@@ -51,10 +93,20 @@ function PropertyCard({ property, onClick }: { property: ListingProperty; onClic
     setCurrentImageIdx((prev) => (prev - 1 + images.length) % images.length);
   };
 
+  const handleCardKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
-    <div
+    <article
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="group hover:border-primary-400 dark:hover:border-primary-600 cursor-pointer overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition-all hover:shadow-xl dark:border-stone-800 dark:bg-stone-900"
+      onKeyDown={handleCardKeyDown}
+      className="group hover:border-primary-400 dark:hover:border-primary-600 w-full cursor-pointer overflow-hidden rounded-2xl border border-stone-200 bg-white text-left shadow-sm transition-all hover:shadow-xl dark:border-stone-800 dark:bg-stone-900"
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-stone-100 dark:bg-stone-950">
         {images.length > 0 ? (
@@ -68,25 +120,31 @@ function PropertyCard({ property, onClick }: { property: ListingProperty; onClic
           <NoListingMedia />
         )}
 
-        {/* Navigation Arrows for Carousel */}
         {images.length > 1 && (
-          <div className="absolute inset-0 flex items-center justify-between px-2 opacity-0 transition-opacity group-hover:opacity-100">
+          <div
+            className="absolute inset-0 flex items-center justify-between px-2 opacity-0 transition-opacity group-hover:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <button
+              type="button"
               onClick={handlePrev}
               className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
+              aria-label="Previous image"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
+              type="button"
               onClick={handleNext}
               className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
+              aria-label="Next image"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
         )}
 
-        {/* Carousel Indicators */}
         {images.length > 1 && (
           <div className="absolute inset-x-0 bottom-3 flex justify-center gap-1.5">
             {images.map((_, i) => (
@@ -157,7 +215,7 @@ function PropertyCard({ property, onClick }: { property: ListingProperty; onClic
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -174,17 +232,37 @@ function NoListingMedia() {
   );
 }
 
+interface PropertyProfileModalProps {
+  property: ListingProperty;
+  onClose: () => void;
+  onExportToSheet?: (property: ListingProperty) => void;
+  onScheduleViewing?: (property: ListingProperty) => void;
+  onDeleteProperty?: (propertyId: string) => void;
+  sheetsExportingPropId?: string | null;
+  calendarSchedulingPropId?: string | null;
+  calendarEventTime?: string;
+  onCalendarEventTimeChange?: (value: string) => void;
+  hasWorkspaceAccess?: boolean;
+}
+
 function PropertyProfileModal({
   property,
   onClose,
-}: {
-  property: ListingProperty;
-  onClose: () => void;
-}) {
+  onExportToSheet,
+  onScheduleViewing,
+  onDeleteProperty,
+  sheetsExportingPropId = null,
+  calendarSchedulingPropId = null,
+  calendarEventTime = "",
+  onCalendarEventTimeChange,
+  hasWorkspaceAccess = false,
+}: PropertyProfileModalProps) {
   const images = (
     property.imageUrls && property.imageUrls.length > 0 ? property.imageUrls : [property.imageUrl]
   ).filter(Boolean);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
+  const isExporting = sheetsExportingPropId === property.id;
+  const isScheduling = calendarSchedulingPropId === property.id;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
@@ -202,18 +280,19 @@ function PropertyProfileModal({
         className="relative z-10 flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl md:flex-row dark:bg-stone-900"
       >
         <button
+          type="button"
           onClick={onClose}
           className="absolute top-4 right-4 z-20 rounded-full bg-black/40 p-2 text-white backdrop-blur-md transition hover:bg-black/60"
+          aria-label="Close property details"
         >
           <X className="h-5 w-5" />
         </button>
 
-        {/* Larger Carousel */}
         <div className="relative h-64 w-full bg-stone-950 md:h-auto md:w-3/5">
           {images.length > 0 ? (
             <img
               src={images[currentImageIdx]}
-              alt="Feature"
+              alt={`${property.title} — photo ${currentImageIdx + 1} of ${images.length}`}
               className="h-full w-full object-cover"
             />
           ) : (
@@ -222,16 +301,20 @@ function PropertyProfileModal({
           {images.length > 1 && (
             <div className="absolute inset-y-0 right-0 left-0 flex items-center justify-between px-4">
               <button
+                type="button"
                 onClick={() =>
                   setCurrentImageIdx((prev) => (prev - 1 + images.length) % images.length)
                 }
                 className="rounded-full bg-black/40 p-3 text-white backdrop-blur-md transition hover:bg-black/60"
+                aria-label="Previous image"
               >
                 <ChevronLeft className="h-6 w-6" />
               </button>
               <button
+                type="button"
                 onClick={() => setCurrentImageIdx((prev) => (prev + 1) % images.length)}
                 className="rounded-full bg-black/40 p-3 text-white backdrop-blur-md transition hover:bg-black/60"
+                aria-label="Next image"
               >
                 <ChevronRight className="h-6 w-6" />
               </button>
@@ -239,7 +322,6 @@ function PropertyProfileModal({
           )}
         </div>
 
-        {/* Detail Panel */}
         <div className="w-full overflow-y-auto bg-stone-50 p-8 md:w-2/5 dark:bg-stone-900">
           <div className="mb-6">
             <div className="bg-primary-500/10 text-primary-500 mb-4 inline-block rounded-full px-3 py-1 text-xs font-bold tracking-wider uppercase">
@@ -283,12 +365,78 @@ function PropertyProfileModal({
             </div>
           </div>
 
-          <div>
+          <div className="mb-8">
             <h3 className="mb-3 text-lg font-bold">Property Output Details</h3>
             <p className="text-sm leading-relaxed text-stone-600 dark:text-stone-400">
               {property.description || "No full description provided. Harvested via email agent."}
             </p>
           </div>
+
+          {(onExportToSheet || onScheduleViewing || onDeleteProperty) && (
+            <div className="space-y-4 border-t border-stone-200 pt-6 dark:border-stone-800">
+              <h3 className="text-sm font-bold tracking-wider text-stone-500 uppercase">
+                Workspace Actions
+              </h3>
+
+              {hasWorkspaceAccess && onExportToSheet && (
+                <button
+                  type="button"
+                  onClick={() => onExportToSheet(property)}
+                  disabled={isExporting}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sheet className="h-4 w-4" />
+                  )}
+                  Export to Google Sheets
+                </button>
+              )}
+
+              {hasWorkspaceAccess && onScheduleViewing && onCalendarEventTimeChange && (
+                <div className="space-y-2">
+                  <label
+                    htmlFor={`viewing-time-${property.id}`}
+                    className="block text-xs font-semibold tracking-wider text-stone-500 uppercase"
+                  >
+                    Viewing Date &amp; Time
+                  </label>
+                  <input
+                    id={`viewing-time-${property.id}`}
+                    type="datetime-local"
+                    value={calendarEventTime}
+                    onChange={(e) => onCalendarEventTimeChange(e.target.value)}
+                    className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onScheduleViewing(property)}
+                    disabled={isScheduling || !calendarEventTime}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
+                  >
+                    {isScheduling ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Calendar className="h-4 w-4" />
+                    )}
+                    Schedule Calendar Viewing
+                  </button>
+                </div>
+              )}
+
+              {onDeleteProperty && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteProperty(property.id)}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Listing
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </motion.div>
     </div>

@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
+import { getErrorMessage } from "@/lib/errors";
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,10 +21,10 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ text: response.text });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Gemini API Error:", error);
     return NextResponse.json(
-      { error: error?.message || "Failed to generate content via Gemini" },
+      { error: getErrorMessage(error) || "Failed to generate content via Gemini" },
       { status: 500 },
     );
   }

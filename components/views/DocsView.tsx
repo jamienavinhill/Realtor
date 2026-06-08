@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpen, Map, Settings, Zap, ArrowRight, Shield, Bell } from "lucide-react";
+import { BookOpen, Zap, Shield, Bell } from "lucide-react";
 
 export function DocsView() {
   return (

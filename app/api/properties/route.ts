@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI, Type } from "@google/genai";
+import { getErrorMessage } from "@/lib/errors";
+import { ListingProperty } from "@/types/listings";
+import {
+  GmailHeader,
+  GmailMessageDetail,
+  GmailMessagePayload,
+  GmailSearchResponse,
+} from "@/types/gmail";
 
 function decodeBase64Url(str: string): string {
   // Decode base64url (RFC 4648) to standard string
@@ -7,7 +15,10 @@ function decodeBase64Url(str: string): string {
   return Buffer.from(base64, "base64").toString("utf-8");
 }
 
-function getEmailBody(payload: any): string {
+function getEmailBody(payload: GmailMessagePayload | undefined): string {
+  if (!payload) {
+    return "";
+  }
   let bodyText = "";
 
   if (payload.body && payload.body.data) {
@@ -78,7 +89,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const searchData = await searchRes.json();
+      const searchData = (await searchRes.json()) as GmailSearchResponse;
       const messages = searchData.messages || [];
 
       if (messages.length === 0) {
@@ -88,7 +99,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const parsedProperties: any[] = [];
+      const parsedProperties: ListingProperty[] = [];
 
       // 2. Fetch details for each message
       for (const msgSummary of messages) {
@@ -99,14 +110,13 @@ export async function POST(req: NextRequest) {
 
         if (!detailRes.ok) continue;
 
-        const emailDetail = await detailRes.json();
+        const emailDetail = (await detailRes.json()) as GmailMessageDetail;
         const headers = emailDetail.payload?.headers || [];
-        const subject =
-          headers.find((h: any) => h.name.toLowerCase() === "subject")?.value || "No Subject";
-        const fromHeader =
-          headers.find((h: any) => h.name.toLowerCase() === "from")?.value || "Unknown Sender";
-        const dateHeader =
-          headers.find((h: any) => h.name.toLowerCase() === "date")?.value || "Unknown Date";
+        const findHeader = (name: string) =>
+          headers.find((h: GmailHeader) => h.name.toLowerCase() === name)?.value;
+        const subject = findHeader("subject") || "No Subject";
+        const fromHeader = findHeader("from") || "Unknown Sender";
+        const dateHeader = findHeader("date") || "Unknown Date";
 
         let bodyContentText = getEmailBody(emailDetail.payload);
         // Fallback to snippet if body decoding didn't catch anything or was empty
@@ -385,7 +395,7 @@ Return raw JSON schema.`;
       }
 
       // Format listings values to log
-      const logRows = listings.map((p: any) => [
+      const logRows = (listings as ListingProperty[]).map((p) => [
         p.id,
         p.title,
         p.address,
@@ -494,11 +504,8 @@ Return raw JSON schema.`;
     }
 
     return NextResponse.json({ error: "Action not supported" }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Endpoint catch:", error);
-    return NextResponse.json(
-      { error: error.message || "An unexpected error occurred" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

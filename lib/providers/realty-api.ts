@@ -83,6 +83,9 @@ function parseNumericField(value: number | string | null | undefined, fieldName:
   if (value === null || value === undefined || value === "") {
     return 0;
   }
+  if (typeof value === "string" && value.trim().toLowerCase() === "null") {
+    return 0;
+  }
   if (typeof value === "number") {
     if (!Number.isFinite(value) || value < 0) {
       throw new Error(`${fieldName} must be a number >= 0`);
@@ -111,7 +114,12 @@ export function buildListingTitle(
   addressLine: string,
 ): string {
   const typeLabel = mapPropertyType(propertyType);
-  if (typeLabel === "Land" || (beds === 0 && baths === 0)) {
+  if (
+    typeLabel === "Land" ||
+    !Number.isFinite(beds) ||
+    !Number.isFinite(baths) ||
+    (beds === 0 && baths === 0)
+  ) {
     return `${typeLabel} - ${addressLine}`;
   }
 

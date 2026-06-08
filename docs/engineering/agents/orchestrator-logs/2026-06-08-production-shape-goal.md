@@ -17,7 +17,7 @@ Status: Complete
 - Banned fake-data grep — zero matches
 - `npm run test` — 13/13 pass (see scratch `tests.log`)
 - Live backfill — 88 listings, idempotent re-run, provenance readback (scratch `backfill.log`, `firestore-readback.log`)
-- Daily refresh — 401 without token; CLI persisted run `2b12ae0d-7f05-47ae-a0de-929289498855` (88 upserted); API 200 in dev logs (scratch `daily-refresh.log`)
+- Daily refresh — 401 without token; API POST with token → 200 run `da7556a8-1d3e-4ba9-a015-a0477c29cb37` (88 upserted, 40 alert matches updated); readback in scratch `daily-refresh.log`
 - Browser smoke — OAuth click-through PASS localhost+vercel (`scripts/browser-google-oauth-check.ts`, scratch `browser-smoke.log`)
 - Secrets audit — no values in tracked diff (scratch `secrets-audit.log`)
 

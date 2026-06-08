@@ -69,8 +69,8 @@ function parseForceSignIn(): boolean {
 }
 
 function clearChromiumOriginStorage(profileDir: string, host: string): void {
-  const encoded = host.replace(/[.:]/g, "_");
-  const prefixes = [`http_${encoded}`, `https_${encoded}`];
+  const hostVariants = [host, host.replace(/[.:]/g, "_")];
+  const prefixes = hostVariants.flatMap((variant) => [`http_${variant}`, `https_${variant}`]);
   const idbDir = join(profileDir, "Default", "IndexedDB");
   if (!existsSync(idbDir)) return;
   for (const entry of readdirSync(idbDir)) {
@@ -281,6 +281,10 @@ async function runOAuthCheck(
 
     if (avatar.signedInChrome && !options.forceSignIn) {
       usedSavedSession = true;
+    } else if (options.forceSignIn && avatar.signedInChrome) {
+      blockers.push(
+        "Force sign-in requested but Firebase session still present after origin storage clear",
+      );
     } else if (avatar.signInButtonVisible) {
       const signInButton = page.getByRole("button", { name: /sign in with google/i });
       oauthAttempted = true;
@@ -343,7 +347,9 @@ async function runOAuthCheck(
       oauthCompleted = true;
     }
 
-    const pass = avatar.signedInChrome && (oauthAttempted || usedSavedSession);
+    const pass = options.forceSignIn
+      ? avatar.signedInChrome && oauthAttempted
+      : avatar.signedInChrome && (oauthAttempted || usedSavedSession);
 
     return {
       target: target.name,
@@ -376,7 +382,9 @@ async function runOAuthCheck(
     return {
       target: target.name,
       url: target.url,
-      pass: avatar.signedInChrome && (oauthAttempted || usedSavedSession),
+      pass: options.forceSignIn
+        ? avatar.signedInChrome && oauthAttempted
+        : avatar.signedInChrome && (oauthAttempted || usedSavedSession),
       skipped: false,
       oauthAttempted,
       oauthCompleted,
@@ -493,7 +501,7 @@ async function main() {
         context,
         target,
         { email, password, accountEmail },
-        { forceSignIn: false },
+        { forceSignIn },
       );
       results.push(result);
       logSection(formatRunLog(result, credentialsAvailable));

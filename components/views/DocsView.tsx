@@ -27,9 +27,11 @@ export function DocsView() {
             </a>
           </li>
 
-          <h3 className="mt-8 mb-4 text-sm font-semibold tracking-wider text-stone-500 uppercase">
-            Features
-          </h3>
+        </ul>
+        <h3 className="mt-8 mb-4 text-sm font-semibold tracking-wider text-stone-500 uppercase">
+          Features
+        </h3>
+        <ul className="space-y-3 text-sm">
           <li>
             <a
               href="#harvester"

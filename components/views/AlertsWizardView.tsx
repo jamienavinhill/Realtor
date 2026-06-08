@@ -63,6 +63,7 @@ export function AlertsWizardView() {
               <input
                 value={criteria.city}
                 onChange={(e) => setCriteria({ ...criteria, city: e.target.value })}
+                title="City"
                 className="focus:border-primary-500 focus:ring-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none focus:ring-1 dark:border-stone-800 dark:bg-stone-950"
               />
             </div>
@@ -76,6 +77,7 @@ export function AlertsWizardView() {
                   type="number"
                   value={criteria.maxPrice}
                   onChange={(e) => setCriteria({ ...criteria, maxPrice: e.target.value })}
+                  title="Max Price"
                   className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
                 />
               </div>
@@ -87,6 +89,7 @@ export function AlertsWizardView() {
                   type="number"
                   value={criteria.beds}
                   onChange={(e) => setCriteria({ ...criteria, beds: e.target.value })}
+                  title="Min Beds"
                   className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
                 />
               </div>
@@ -127,7 +130,7 @@ export function AlertsWizardView() {
             <a
               href="https://www.zillow.com"
               target="_blank"
-              rel="noreferrer"
+              rel="noreferrer noopener"
               className="hover:border-primary-500 group block rounded-lg border border-stone-200 bg-white p-3 text-center transition dark:border-stone-800 dark:bg-stone-950"
             >
               <Building2 className="text-primary-500 mx-auto mb-2 h-5 w-5 transition group-hover:scale-110" />
@@ -136,7 +139,7 @@ export function AlertsWizardView() {
             <a
               href="https://www.redfin.com"
               target="_blank"
-              rel="noreferrer"
+              rel="noreferrer noopener"
               className="hover:border-primary-500 group block rounded-lg border border-stone-200 bg-white p-3 text-center transition dark:border-stone-800 dark:bg-stone-950"
             >
               <Home className="text-primary-500 mx-auto mb-2 h-5 w-5 transition group-hover:scale-110" />

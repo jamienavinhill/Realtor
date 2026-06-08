@@ -101,116 +101,112 @@ function PropertyCard({ property, onClick }: { property: ListingProperty; onClic
   };
 
   return (
-    <article
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={handleCardKeyDown}
-      className="group hover:border-primary-400 dark:hover:border-primary-600 w-full cursor-pointer overflow-hidden rounded-2xl border border-stone-200 bg-white text-left shadow-sm transition-all hover:shadow-xl dark:border-stone-800 dark:bg-stone-900"
-    >
-      <div className="relative aspect-[4/3] overflow-hidden bg-stone-100 dark:bg-stone-950">
-        {images.length > 0 ? (
-          <img
-            src={images[currentImageIdx]}
-            alt={property.title}
-            className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <NoListingMedia />
-        )}
+    <article className="group hover:border-primary-400 dark:hover:border-primary-600 w-full overflow-hidden rounded-2xl border border-stone-200 bg-white text-left shadow-sm transition-all hover:shadow-xl dark:border-stone-800 dark:bg-stone-900">
+      <div tabIndex={0} onClick={onClick} onKeyDown={handleCardKeyDown} className="cursor-pointer">
+        <div className="relative aspect-4/3 overflow-hidden bg-stone-100 dark:bg-stone-950">
+          {images.length > 0 ? (
+            <img
+              src={images[currentImageIdx]}
+              alt={property.title}
+              className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <NoListingMedia />
+          )}
 
-        {images.length > 1 && (
-          <div
-            className="absolute inset-0 flex items-center justify-between px-2 opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={handlePrev}
-              className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
-              aria-label="Previous image"
+          {images.length > 1 && (
+            <div
+              className="absolute inset-0 flex items-center justify-between px-2 opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
             >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={handleNext}
-              className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
-              aria-label="Next image"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        )}
+              <button
+                type="button"
+                onClick={handlePrev}
+                className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleNext}
+                className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
-        {images.length > 1 && (
-          <div className="absolute inset-x-0 bottom-3 flex justify-center gap-1.5">
-            {images.map((_, i) => (
-              <div
-                key={i}
-                className={`h-1.5 rounded-full transition-all ${i === currentImageIdx ? "w-4 bg-white" : "w-1.5 bg-white/50"}`}
-              />
-            ))}
-          </div>
-        )}
+          {images.length > 1 && (
+            <div className="absolute inset-x-0 bottom-3 flex justify-center gap-1.5">
+              {images.map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-1.5 rounded-full transition-all ${i === currentImageIdx ? "w-4 bg-white" : "w-1.5 bg-white/50"}`}
+                />
+              ))}
+            </div>
+          )}
 
-        <div className="absolute top-3 left-3 flex gap-2">
-          <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-stone-900 shadow-sm backdrop-blur-md dark:bg-stone-900/90 dark:text-white">
-            {property.status}
-          </span>
-        </div>
-      </div>
-
-      <div className="p-5">
-        <div className="mb-2 flex items-start justify-between">
-          <div>
-            <h3 className="line-clamp-1 text-lg font-bold text-stone-900 dark:text-white">
-              {property.title}
-            </h3>
-            <p className="mt-1 flex items-center text-sm text-stone-500">
-              <MapPin className="mr-1 h-3.5 w-3.5" />
-              {property.address}, {property.city}
-            </p>
+          <div className="absolute top-3 left-3 flex gap-2">
+            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-stone-900 shadow-sm backdrop-blur-md dark:bg-stone-900/90 dark:text-white">
+              {property.status}
+            </span>
           </div>
-          <span className="text-primary-500 font-mono text-lg font-bold">
-            ${property.price.toLocaleString()}
-          </span>
         </div>
 
-        <div className="mt-6 grid grid-cols-3 gap-4 border-t border-stone-100 py-4 dark:border-stone-800">
-          <div className="flex items-center gap-2">
-            <div className="rounded-md bg-stone-50 p-1.5 dark:bg-stone-800">
-              <BedDouble className="h-4 w-4 text-stone-500" />
-            </div>
+        <div className="p-5">
+          <div className="mb-2 flex items-start justify-between">
             <div>
-              <span className="block text-sm font-semibold">{property.beds}</span>
-              <span className="block text-[10px] tracking-wider text-stone-400 uppercase">
-                Beds
-              </span>
+              <h3 className="line-clamp-1 text-lg font-bold text-stone-900 dark:text-white">
+                {property.title}
+              </h3>
+              <p className="mt-1 flex items-center text-sm text-stone-500">
+                <MapPin className="mr-1 h-3.5 w-3.5" />
+                {property.address}, {property.city}
+              </p>
             </div>
+            <span className="text-primary-500 font-mono text-lg font-bold">
+              ${property.price.toLocaleString()}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="rounded-md bg-stone-50 p-1.5 dark:bg-stone-800">
-              <Bath className="h-4 w-4 text-stone-500" />
+
+          <div className="mt-6 grid grid-cols-3 gap-4 border-t border-stone-100 py-4 dark:border-stone-800">
+            <div className="flex items-center gap-2">
+              <div className="rounded-md bg-stone-50 p-1.5 dark:bg-stone-800">
+                <BedDouble className="h-4 w-4 text-stone-500" />
+              </div>
+              <div>
+                <span className="block text-sm font-semibold">{property.beds}</span>
+                <span className="block text-[10px] tracking-wider text-stone-400 uppercase">
+                  Beds
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="block text-sm font-semibold">{property.baths}</span>
-              <span className="block text-[10px] tracking-wider text-stone-400 uppercase">
-                Baths
-              </span>
+            <div className="flex items-center gap-2">
+              <div className="rounded-md bg-stone-50 p-1.5 dark:bg-stone-800">
+                <Bath className="h-4 w-4 text-stone-500" />
+              </div>
+              <div>
+                <span className="block text-sm font-semibold">{property.baths}</span>
+                <span className="block text-[10px] tracking-wider text-stone-400 uppercase">
+                  Baths
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="rounded-md bg-stone-50 p-1.5 dark:bg-stone-800">
-              <Maximize2 className="h-4 w-4 text-stone-500" />
-            </div>
-            <div>
-              <span className="block text-sm font-semibold">{property.sqft}</span>
-              <span className="block text-[10px] tracking-wider text-stone-400 uppercase">
-                SqFt
-              </span>
+            <div className="flex items-center gap-2">
+              <div className="rounded-md bg-stone-50 p-1.5 dark:bg-stone-800">
+                <Maximize2 className="h-4 w-4 text-stone-500" />
+              </div>
+              <div>
+                <span className="block text-sm font-semibold">{property.sqft}</span>
+                <span className="block text-[10px] tracking-wider text-stone-400 uppercase">
+                  SqFt
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -221,7 +217,7 @@ function PropertyCard({ property, onClick }: { property: ListingProperty; onClic
 
 function NoListingMedia() {
   return (
-    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-stone-100 to-stone-200 p-6 text-center dark:from-stone-900 dark:to-stone-950">
+    <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-stone-100 to-stone-200 p-6 text-center dark:from-stone-900 dark:to-stone-950">
       <div>
         <MapPin className="mx-auto mb-3 h-8 w-8 text-stone-400" />
         <p className="text-xs font-semibold tracking-wider text-stone-500 uppercase">

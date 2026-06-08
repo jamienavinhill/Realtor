@@ -559,7 +559,7 @@ export default function Dashboard() {
             </span>
 
             {/* Primary Inner Navigation */}
-            <nav className="flex hidden space-x-4 pl-8 lg:flex lg:space-x-8">
+            <nav className="hidden space-x-4 pl-8 lg:flex lg:space-x-8">
               {DASHBOARD_TABS.map((tab) => (
                 <button
                   key={tab.id}
@@ -643,7 +643,7 @@ export default function Dashboard() {
       )}
 
       {/* 3. HERO DESCRIPTION PANEL */}
-      <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl grow px-4 py-8 sm:px-6 lg:px-8">
         {/* SYSTEM STATUS STATUS LOGGER */}
         {logMessage && (
           <div className="mb-6 flex items-center justify-between rounded-lg border border-stone-200 bg-white p-3.5 font-mono text-xs text-stone-700 transition-all dark:border-stone-800 dark:bg-stone-900/80 dark:text-stone-300">
@@ -683,6 +683,7 @@ export default function Dashboard() {
                 <select
                   value={cityFilter}
                   onChange={(e) => setCityFilter(e.target.value)}
+                  title="Filter by city"
                   className="focus:border-primary-500 rounded-lg border border-stone-200 bg-stone-50 p-2 text-xs font-semibold text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300"
                 >
                   <option value="All">All Cities</option>
@@ -764,6 +765,7 @@ export default function Dashboard() {
                       <select
                         value={gmailMaxResults}
                         onChange={(e) => setGmailMaxResults(parseInt(e.target.value))}
+                        title="Search limit"
                         className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-mono text-xs text-stone-900 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
                       >
                         <option value={3}>Latest 3 Matching Emails</option>
@@ -876,7 +878,7 @@ export default function Dashboard() {
                     </p>
                   </div>
                 ) : (
-                  <div className="max-h-[480px] space-y-4 overflow-y-auto pr-2">
+                  <div className="max-h-120 space-y-4 overflow-y-auto pr-2">
                     {harvestedPreviews.map((item, idx) => (
                       <div
                         key={idx}
@@ -992,6 +994,7 @@ export default function Dashboard() {
                     <select
                       value={newAlertMinBeds}
                       onChange={(e) => setNewAlertMinBeds(e.target.value)}
+                      title="Minimum bedrooms"
                       className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-sans text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
                     >
                       <option value="1">1+ Beds</option>

@@ -12,6 +12,7 @@ export interface ListingProperty {
   propertyType: "Single Family" | "Condo" | "Townhouse" | "Multi-Family" | "Land" | string;
   status: "Active" | "Pending" | "Sold" | "Seed";
   imageUrl: string;
+  imageUrls?: string[];
   coordinates: {
     lat: number;
     lng: number;

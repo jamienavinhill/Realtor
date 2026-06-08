@@ -11,8 +11,7 @@ function stripQuotes(value: string): string {
 }
 
 function resolveCredentialsPath(): string {
-  const raw =
-    process.env.PATH_TO_FIREBASE_ADMIN_SDK ?? process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  const raw = process.env.PATH_TO_FIREBASE_ADMIN_SDK ?? process.env.GOOGLE_APPLICATION_CREDENTIALS;
   if (!raw) {
     throw new Error(
       "Missing Firebase admin credentials path. Set PATH_TO_FIREBASE_ADMIN_SDK or GOOGLE_APPLICATION_CREDENTIALS.",
@@ -49,5 +48,6 @@ export function getAdminFirestore(): Firestore {
 
   const app = getFirebaseAdminApp();
   adminDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+  adminDb.settings({ ignoreUndefinedProperties: true });
   return adminDb;
 }

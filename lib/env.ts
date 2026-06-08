@@ -65,7 +65,9 @@ function collectRtKeysFromEnvFile(envPath: string): RealtyApiKeyEntry[] {
   return entries.sort((a, b) => a.alias.localeCompare(b.alias));
 }
 
-export function collectRealtyApiKeys(envFilePath = resolve(process.cwd(), ".env")): RealtyApiKeyEntry[] {
+export function collectRealtyApiKeys(
+  envFilePath = resolve(process.cwd(), ".env"),
+): RealtyApiKeyEntry[] {
   const fromCommaSeparated = process.env.REALTY_API_KEYS?.split(",")
     .map((value) => stripQuotes(value.trim()))
     .filter((value) => RT_KEY_PATTERN.test(value));

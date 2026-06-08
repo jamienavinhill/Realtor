@@ -14,10 +14,7 @@ export async function createIngestRun(run: IngestRun): Promise<void> {
   await db.collection(COLLECTION).doc(validation.data.id).set(validation.data);
 }
 
-export async function updateIngestRun(
-  runId: string,
-  patch: Partial<IngestRun>,
-): Promise<void> {
+export async function updateIngestRun(runId: string, patch: Partial<IngestRun>): Promise<void> {
   const db = getAdminFirestore();
   const doc = await db.collection(COLLECTION).doc(runId).get();
   if (!doc.exists) {

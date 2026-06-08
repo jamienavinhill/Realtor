@@ -772,9 +772,9 @@ export default function Dashboard() {
                       Google Workspace Auth Required
                     </span>
                     <p className="mb-4 text-[11px] leading-relaxed text-stone-400">
-                      Abode Alerts requires secure OAuth permission to verify and safely parse
-                      alert emails of listings directly from your inbox. No data is stored outside
-                      your account.
+                      Abode Alerts requires secure OAuth permission to verify and safely parse alert
+                      emails of listings directly from your inbox. No data is stored outside your
+                      account.
                     </p>
                     <button
                       onClick={handleGoogleAuth}
@@ -1134,7 +1134,9 @@ export default function Dashboard() {
               {/* PERSISTED ALERT MATCHES */}
               <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
                 <div className="mb-4 flex items-center justify-between border-b border-stone-200 pb-4 dark:border-stone-800">
-                  <span className="font-sans text-sm font-bold text-white">Persisted Alert Matches</span>
+                  <span className="font-sans text-sm font-bold text-white">
+                    Persisted Alert Matches
+                  </span>
                   <span className="font-mono text-[10px] text-stone-500 uppercase">
                     Saved from daily refresh
                   </span>

@@ -26,7 +26,6 @@ export function DocsView() {
               Quickstart
             </a>
           </li>
-
         </ul>
         <h3 className="mt-8 mb-4 text-sm font-semibold tracking-wider text-stone-500 uppercase">
           Features

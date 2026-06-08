@@ -64,5 +64,9 @@ export function mapHttpStatusToProviderError(status: number, body?: string): Pro
   if (status >= 500) {
     return new RealtyApiOutageError(body || "RealtyAPI service unavailable", status);
   }
-  return new ProviderError(body || `RealtyAPI request failed with status ${status}`, "REQUEST_FAILED", status);
+  return new ProviderError(
+    body || `RealtyAPI request failed with status ${status}`,
+    "REQUEST_FAILED",
+    status,
+  );
 }

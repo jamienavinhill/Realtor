@@ -79,10 +79,7 @@ function mapPropertyType(value: string): string {
   return value;
 }
 
-function parseNumericField(
-  value: number | string | null | undefined,
-  fieldName: string,
-): number {
+function parseNumericField(value: number | string | null | undefined, fieldName: string): number {
   if (value === null || value === undefined || value === "") {
     return 0;
   }
@@ -191,7 +188,8 @@ function validateSearchResponse(payload: unknown): RealtyApiSearchResponse {
   return {
     total: typeof data.total === "number" ? data.total : 0,
     nextPage: Boolean(data.nextPage),
-    resultCount: typeof data.resultCount === "number" ? data.resultCount : data.searchResults.length,
+    resultCount:
+      typeof data.resultCount === "number" ? data.resultCount : data.searchResults.length,
     searchResults: data.searchResults as RealtyApiSearchResult[],
   };
 }

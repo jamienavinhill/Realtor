@@ -1,6 +1,4 @@
-export type ValidationResult<T> =
-  | { success: true; data: T }
-  | { success: false; errors: string[] };
+export type ValidationResult<T> = { success: true; data: T } | { success: false; errors: string[] };
 
 export function isNonEmptyString(value: unknown, maxLength = 1000): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= maxLength;

@@ -10,9 +10,7 @@ export interface ListingUpsertResult {
   created: boolean;
 }
 
-export async function findListingByDedupeKey(
-  dedupeKey: string,
-): Promise<ListingProperty | null> {
+export async function findListingByDedupeKey(dedupeKey: string): Promise<ListingProperty | null> {
   const db = getAdminFirestore();
   const snapshot = await db
     .collection(COLLECTION)
@@ -97,10 +95,7 @@ export async function upsertListings(
 
 export async function listActiveListings(): Promise<ListingProperty[]> {
   const db = getAdminFirestore();
-  const snapshot = await db
-    .collection(COLLECTION)
-    .where("status", "==", "Active")
-    .get();
+  const snapshot = await db.collection(COLLECTION).where("status", "==", "Active").get();
 
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as ListingProperty);
 }

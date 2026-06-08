@@ -17,9 +17,6 @@
     "longitude": -81.44
   },
   "primary_photo": "https://images.example.test/primary.jpg",
-  "photos": [
-    "https://images.example.test/primary.jpg",
-    "https://images.example.test/kitchen.jpg"
-  ],
+  "photos": ["https://images.example.test/primary.jpg", "https://images.example.test/kitchen.jpg"],
   "list_date": "2026-05-01"
 }

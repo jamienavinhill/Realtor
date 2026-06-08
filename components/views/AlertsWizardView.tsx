@@ -1,10 +1,6 @@
 import React, { useState } from "react";
 import { Mail, ArrowRight, BellRing, Sparkles, Building2, Home } from "lucide-react";
-import {
-  BASELINE_ZIP,
-  DEFAULT_ALERT_CITY,
-  DEFAULT_ALERT_STATE,
-} from "@/lib/ingest/constants";
+import { BASELINE_ZIP, DEFAULT_ALERT_CITY, DEFAULT_ALERT_STATE } from "@/lib/ingest/constants";
 
 export function AlertsWizardView() {
   const [criteria, setCriteria] = useState({

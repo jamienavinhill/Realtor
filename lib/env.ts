@@ -21,6 +21,13 @@ function stripQuotes(value: string): string {
   return value.replace(/^["']|["']$/g, "");
 }
 
+function normalizeCredentialsPath(value: string): string {
+  const stripped = stripQuotes(value.trim());
+  // Dotenv on Windows can turn `\realtor` into a carriage return; recover common paths.
+  const repaired = stripped.includes("\r") ? stripped.replace(/\r/g, "\\r") : stripped;
+  return resolve(repaired.replace(/\\/g, "/"));
+}
+
 function collectRtKeysFromProcessEnv(): RealtyApiKeyEntry[] {
   const entries: RealtyApiKeyEntry[] = [];
   const seen = new Set<string>();
@@ -111,9 +118,11 @@ export function getServerEnv(options?: { envFilePath?: string }): ServerEnv {
 
   const ingestJobToken = requireNonEmpty("INGEST_JOB_TOKEN", process.env.INGEST_JOB_TOKEN);
 
-  const firebaseAdminCredentialsPath = requireNonEmpty(
-    "PATH_TO_FIREBASE_ADMIN_SDK or GOOGLE_APPLICATION_CREDENTIALS",
-    process.env.PATH_TO_FIREBASE_ADMIN_SDK ?? process.env.GOOGLE_APPLICATION_CREDENTIALS,
+  const firebaseAdminCredentialsPath = normalizeCredentialsPath(
+    requireNonEmpty(
+      "PATH_TO_FIREBASE_ADMIN_SDK or GOOGLE_APPLICATION_CREDENTIALS",
+      process.env.PATH_TO_FIREBASE_ADMIN_SDK ?? process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    ),
   );
 
   if (!existsSync(firebaseAdminCredentialsPath)) {

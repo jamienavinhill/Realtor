@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import firebaseConfig from "@/firebase-applet-config.json";
@@ -17,7 +18,9 @@ function resolveCredentialsPath(): string {
       "Missing Firebase admin credentials path. Set PATH_TO_FIREBASE_ADMIN_SDK or GOOGLE_APPLICATION_CREDENTIALS.",
     );
   }
-  return stripQuotes(raw.trim());
+  const stripped = stripQuotes(raw.trim());
+  const repaired = stripped.includes("\r") ? stripped.replace(/\r/g, "\\r") : stripped;
+  return resolve(repaired.replace(/\\/g, "/"));
 }
 
 export function getFirebaseAdminApp(): App {

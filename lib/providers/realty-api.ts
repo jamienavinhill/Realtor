@@ -79,6 +79,27 @@ function mapPropertyType(value: string): string {
   return value;
 }
 
+function parseNumericField(
+  value: number | string | null | undefined,
+  fieldName: string,
+): number {
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(`${fieldName} must be a number >= 0`);
+    }
+    return value;
+  }
+  const cleaned = String(value).trim().replace(/\+$/, "");
+  const parsed = Number(cleaned);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${fieldName} must be a number >= 0`);
+  }
+  return parsed;
+}
+
 function mapStatus(value: string): ListingProperty["status"] {
   const normalized = value.trim().toLowerCase();
   if (normalized.includes("pending")) return "Pending";
@@ -116,8 +137,8 @@ export function normalizeRealtyApiListing(
     state: result.address.state_code,
     zipCode: result.address.postal_code,
     price: result.list_price,
-    beds: result.beds,
-    baths: result.baths,
+    beds: parseNumericField(result.beds, "beds"),
+    baths: parseNumericField(result.baths, "baths"),
     sqft: result.sqft,
     propertyType: mapPropertyType(result.property_type),
     status: mapStatus(result.status),
@@ -257,6 +278,11 @@ export class RealtyApiClient {
         pagesFetched += 1;
 
         for (const result of response.searchResults) {
+          if (!result.listing_id && !result.property_id) {
+            errors.push("Skipped search result with no listing_id or property_id");
+            continue;
+          }
+
           try {
             const listing = normalizeRealtyApiListing(result, {
               radiusCenter,

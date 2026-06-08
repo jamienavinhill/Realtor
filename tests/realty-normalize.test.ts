@@ -40,6 +40,33 @@ test("hashRawPayload is stable for identical payloads", () => {
   assert.equal(first, second);
 });
 
+test("normalizeRealtyApiListing coerces string beds and baths from provider payloads", () => {
+  const listing = normalizeRealtyApiListing(
+    { ...fixture, beds: "3", baths: "2.5" },
+    {
+      radiusCenter: { lat: 41.1595, lng: -81.4404, zipCode: "44224" },
+      ingestedAt: "2026-06-08T12:00:00.000Z",
+      keyAlias: "fixture",
+    },
+  );
+
+  assert.equal(listing.beds, 3);
+  assert.equal(listing.baths, 2.5);
+});
+
+test("normalizeRealtyApiListing strips trailing plus from fractional bath counts", () => {
+  const listing = normalizeRealtyApiListing(
+    { ...fixture, beds: 4, baths: "4.5+" },
+    {
+      radiusCenter: { lat: 41.1595, lng: -81.4404, zipCode: "44224" },
+      ingestedAt: "2026-06-08T12:00:00.000Z",
+      keyAlias: "fixture",
+    },
+  );
+
+  assert.equal(listing.baths, 4.5);
+});
+
 test("haversineDistanceMiles returns near-zero for identical coordinates", () => {
   const distance = haversineDistanceMiles(41.1595, -81.4404, 41.1595, -81.4404);
   assert.equal(distance, 0);

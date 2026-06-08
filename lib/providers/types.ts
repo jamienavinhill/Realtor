@@ -13,8 +13,8 @@ export interface RealtyApiSearchResult {
   status: string;
   href: string;
   list_price: number;
-  beds: number;
-  baths: number;
+  beds: number | string | null;
+  baths: number | string | null;
   sqft: number;
   property_type: string;
   address: RealtyApiAddress;

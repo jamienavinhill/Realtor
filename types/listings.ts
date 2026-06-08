@@ -1,3 +1,21 @@
+export interface ListingMedia {
+  url: string;
+  type?: "photo" | "primary";
+  sourceUrl?: string;
+}
+
+export interface RadiusCenter {
+  lat: number;
+  lng: number;
+  zipCode: string;
+}
+
+export interface ListingProvenance {
+  providerRunId?: string;
+  keyAlias?: string;
+  fetchPage?: number;
+}
+
 export interface ListingProperty {
   id: string;
   title: string;
@@ -22,6 +40,27 @@ export interface ListingProperty {
   source: string;
   createdAt: string;
   updatedAt: string;
+  sourceProvider?: string;
+  sourceUrl?: string;
+  sourceListingId?: string;
+  sourceUpdatedAt?: string;
+  ingestedAt?: string;
+  provenance?: ListingProvenance;
+  media?: ListingMedia[];
+  rawHash?: string;
+  dedupeKey?: string;
+  distanceMiles?: number;
+  radiusCenter?: RadiusCenter;
+}
+
+export interface ProviderListingProperty extends ListingProperty {
+  sourceProvider: string;
+  sourceUrl: string;
+  sourceListingId: string;
+  ingestedAt: string;
+  media: ListingMedia[];
+  rawHash: string;
+  dedupeKey: string;
 }
 
 export interface PropertyAlert {
@@ -38,4 +77,34 @@ export interface PropertyAlert {
   };
   isActive: boolean;
   createdAt: string;
+}
+
+export interface AlertMatch {
+  id: string;
+  alertId: string;
+  listingId: string;
+  userId: string;
+  matchReason: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
+export interface IngestRun {
+  id: string;
+  type: "backfill" | "daily";
+  status: "running" | "completed" | "failed" | "partial";
+  startedAt: string;
+  finishedAt?: string;
+  idempotencyKey: string;
+  zipCode?: string;
+  radiusMiles?: number;
+  radiusCenter?: RadiusCenter;
+  keyAliasesUsed: string[];
+  quotaUsed: Record<string, number>;
+  listingsFetched: number;
+  listingsUpserted: number;
+  listingsSkipped: number;
+  alertMatchesCreated: number;
+  alertMatchesUpdated: number;
+  errors: string[];
 }

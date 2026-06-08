@@ -1,0 +1,25 @@
+{
+  "property_id": "fixture_property_001",
+  "listing_id": "fixture_listing_001",
+  "status": "for_sale",
+  "href": "https://example.test/listing/fixture_listing_001",
+  "list_price": 325000,
+  "beds": 3,
+  "baths": 2,
+  "sqft": 1650,
+  "property_type": "single_family",
+  "address": {
+    "line": "123 Sample St",
+    "city": "Stow",
+    "state_code": "OH",
+    "postal_code": "44224",
+    "latitude": 41.16,
+    "longitude": -81.44
+  },
+  "primary_photo": "https://images.example.test/primary.jpg",
+  "photos": [
+    "https://images.example.test/primary.jpg",
+    "https://images.example.test/kitchen.jpg"
+  ],
+  "list_date": "2026-05-01"
+}

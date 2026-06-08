@@ -1,0 +1,9 @@
+import type { RadiusCenter } from "@/types/listings";
+
+export const BASELINE_ZIP = "44224";
+export const BASELINE_RADIUS_MILES = 10;
+export const BASELINE_CENTER: RadiusCenter = {
+  lat: 41.1595,
+  lng: -81.4404,
+  zipCode: BASELINE_ZIP,
+};

@@ -24,11 +24,31 @@ service cloud.firestore {
       return resource.data;
     }
 
+    function optionalString(data, field, maxLen) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function optionalNumber(data, field) {
+      return !(field in data) || (data[field] is number && data[field] >= 0);
+    }
+
+    function optionalCoordinates(data) {
+      return !(data.keys().hasAll(['coordinates']))
+        || (data.coordinates is map
+          && data.coordinates.lat is number
+          && data.coordinates.lng is number);
+    }
+
+    function optionalMediaArray(data) {
+      return !(data.keys().hasAll(['media']))
+        || (data.media is list && data.media.size() <= 100);
+    }
+
     // --- Entity Validators ---
 
     function isValidProperty(data) {
       return data.keys().hasAll(['id', 'title', 'address', 'city', 'state', 'zipCode', 'price', 'beds', 'baths', 'sqft', 'propertyType', 'status', 'imageUrl', 'createdAt', 'updatedAt'])
-        && data.keys().size() <= 20
+        && data.keys().size() <= 40
         && data.id is string && data.id.size() <= 128
         && data.title is string && data.title.size() <= 200
         && data.address is string && data.address.size() <= 200
@@ -42,7 +62,17 @@ service cloud.firestore {
         && data.propertyType is string && data.propertyType.size() <= 50
         && data.status is string && data.status.size() <= 50
         && data.imageUrl is string && data.imageUrl.size() <= 1000
-        && data.source is string && data.source.size() <= 50
+        && optionalString(data, 'source', 50)
+        && optionalString(data, 'sourceProvider', 50)
+        && optionalString(data, 'sourceUrl', 2000)
+        && optionalString(data, 'sourceListingId', 128)
+        && optionalString(data, 'sourceUpdatedAt', 64)
+        && optionalString(data, 'ingestedAt', 64)
+        && optionalString(data, 'rawHash', 128)
+        && optionalString(data, 'dedupeKey', 256)
+        && optionalNumber(data, 'distanceMiles')
+        && optionalCoordinates(data)
+        && optionalMediaArray(data)
         && data.createdAt is string
         && data.updatedAt is string;
     }
@@ -59,11 +89,23 @@ service cloud.firestore {
         && data.createdAt is string;
     }
 
+    function isValidAlertMatch(data) {
+      return data.keys().hasAll(['id', 'alertId', 'listingId', 'userId', 'matchReason', 'firstSeenAt', 'lastSeenAt'])
+        && data.keys().size() <= 12
+        && data.id is string && data.id.size() <= 256
+        && data.alertId is string && data.alertId.size() <= 128
+        && data.listingId is string && data.listingId.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.matchReason is string && data.matchReason.size() <= 500
+        && data.firstSeenAt is string
+        && data.lastSeenAt is string;
+    }
+
     // --- Path Rules ---
 
     match /properties/{propertyId} {
       allow list, get: if true; // Public property listings read
-      // Allow creation/modification for any signed-in user for bulk filling/backfilling
+      // Client writes remain for Gmail/manual extraction flows; server ingestion uses Admin SDK bypass.
       allow create: if isSignedIn() && isValidId(propertyId) && isValidProperty(incoming());
       allow update: if isSignedIn() && isValidId(propertyId) && isValidProperty(incoming());
       allow delete: if isSignedIn() && isValidId(propertyId);
@@ -74,6 +116,17 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidId(alertId) && isValidAlert(incoming());
       allow update: if isSignedIn() && isValidId(alertId) && isValidAlert(incoming()) && incoming().userId == existing().userId;
       allow delete: if isSignedIn() && isValidId(alertId) && existing().userId == request.auth.uid;
+    }
+
+    match /alert_matches/{matchId} {
+      allow list, get: if isSignedIn() && existing().userId == request.auth.uid;
+      // Server-side ingestion writes via Firebase Admin SDK bypass.
+      allow create, update, delete: if false;
+    }
+
+    match /ingest_runs/{runId} {
+      // Operator/server records only. Admin SDK bypasses rules for ingestion jobs.
+      allow read, write: if false;
     }
   }
 }

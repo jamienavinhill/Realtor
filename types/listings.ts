@@ -10,7 +10,7 @@ export interface ListingProperty {
   baths: number;
   sqft: number;
   propertyType: "Single Family" | "Condo" | "Townhouse" | "Multi-Family" | "Land" | string;
-  status: "Active" | "Pending" | "Sold" | "Seed";
+  status: "Active" | "Pending" | "Sold" | string;
   imageUrl: string;
   imageUrls?: string[];
   coordinates: {
@@ -19,7 +19,7 @@ export interface ListingProperty {
   };
   yearBuilt?: number;
   description?: string;
-  source: string; // 'realty_api', 'seeded', 'manual', etc.
+  source: string;
   createdAt: string;
   updatedAt: string;
 }

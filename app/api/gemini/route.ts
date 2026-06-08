@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     if (!key) {
       return NextResponse.json(
         { error: "GEMINI_API_KEY environment variable is not defined on the server." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     console.error("Gemini API Error:", error);
     return NextResponse.json(
       { error: error?.message || "Failed to generate content via Gemini" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -32,8 +32,11 @@ export async function POST(req: NextRequest) {
     const key = process.env.GEMINI_API_KEY;
     if (!key) {
       return NextResponse.json(
-        { error: "GEMINI_API_KEY environment variable is missing on the server. Please check settings." },
-        { status: 500 }
+        {
+          error:
+            "GEMINI_API_KEY environment variable is missing on the server. Please check settings.",
+        },
+        { status: 500 },
       );
     }
 
@@ -52,7 +55,10 @@ export async function POST(req: NextRequest) {
     // 1. GMAIL ACTION - Parse real estate emails
     if (action === "parse_gmail") {
       if (!authHeader) {
-        return NextResponse.json({ error: "Missing Authorization header for Google Workspace call." }, { status: 401 });
+        return NextResponse.json(
+          { error: "Missing Authorization header for Google Workspace call." },
+          { status: 401 },
+        );
       }
 
       const queryFilter = payload.query || 'subject:"Redfin" OR subject:"Zillow" OR "new listing"';
@@ -66,14 +72,20 @@ export async function POST(req: NextRequest) {
 
       if (!searchRes.ok) {
         const errorText = await searchRes.text();
-        return NextResponse.json({ error: `Gmail Search Error: ${errorText}` }, { status: searchRes.status });
+        return NextResponse.json(
+          { error: `Gmail Search Error: ${errorText}` },
+          { status: searchRes.status },
+        );
       }
 
       const searchData = await searchRes.json();
       const messages = searchData.messages || [];
 
       if (messages.length === 0) {
-        return NextResponse.json({ properties: [], message: `No email updates matching "${queryFilter}" were found in your Gmail inbox.` });
+        return NextResponse.json({
+          properties: [],
+          message: `No email updates matching "${queryFilter}" were found in your Gmail inbox.`,
+        });
       }
 
       const parsedProperties: any[] = [];
@@ -89,10 +101,13 @@ export async function POST(req: NextRequest) {
 
         const emailDetail = await detailRes.json();
         const headers = emailDetail.payload?.headers || [];
-        const subject = headers.find((h: any) => h.name.toLowerCase() === "subject")?.value || "No Subject";
-        const fromHeader = headers.find((h: any) => h.name.toLowerCase() === "from")?.value || "Unknown Sender";
-        const dateHeader = headers.find((h: any) => h.name.toLowerCase() === "date")?.value || "Unknown Date";
-        
+        const subject =
+          headers.find((h: any) => h.name.toLowerCase() === "subject")?.value || "No Subject";
+        const fromHeader =
+          headers.find((h: any) => h.name.toLowerCase() === "from")?.value || "Unknown Sender";
+        const dateHeader =
+          headers.find((h: any) => h.name.toLowerCase() === "date")?.value || "Unknown Date";
+
         let bodyContentText = getEmailBody(emailDetail.payload);
         // Fallback to snippet if body decoding didn't catch anything or was empty
         if (!bodyContentText || bodyContentText.trim().length === 0) {
@@ -111,7 +126,7 @@ ${bodyContentText.slice(0, 18000)}
 `.trim();
 
         // 3. Invoke Gemini to extract properties from this specific email content
-        const systemPrompt = `You are an elite real-estate data harvester. 
+        const systemPrompt = `You are an elite real-estate data harvester.
 Your task is to analyze the following email text and extract any real estate properties mentioned there.
 If NO legitimate real estate listing is found inside the text, return an empty array: [].
 Do NOT hallucinate properties if they are not inside this text.
@@ -124,11 +139,7 @@ Analyze the text to extract:
 - Property Type ("Single Family", "Condo", "Townhouse", "Multi-Family", "Land")
 - Year Built (if found)
 - Brief summary/description (extract features from text)
-- Image URL: Extract visual or primary thumbnail URLs if present in the text, otherwise use one of these safe Unsplash stock real estate images:
-  - "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=800&q=80"
-  - "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-  - "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80"
-  - "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80"
+- Image URL: Extract visual or primary thumbnail URLs only when they are present in the source text. If no real listing media URL is present, return an empty string. Never invent or substitute stock photos.
 
 Specify the source as "realty_api" so it fits our dashboard.
 Returns a JSON array of parsed properties matching the schema. Do NOT return markdown formatting. Return raw JSON.`;
@@ -136,10 +147,7 @@ Returns a JSON array of parsed properties matching the schema. Do NOT return mar
         try {
           const res = await ai.models.generateContent({
             model: "gemini-3.5-flash",
-            contents: [
-              { text: systemPrompt },
-              { text: combinedEmailText }
-            ],
+            contents: [{ text: systemPrompt }, { text: combinedEmailText }],
             config: {
               responseMimeType: "application/json",
               responseSchema: {
@@ -147,7 +155,10 @@ Returns a JSON array of parsed properties matching the schema. Do NOT return mar
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    id: { type: Type.STRING, description: "A unique id starting with prop_gmail_ and a random hash" },
+                    id: {
+                      type: Type.STRING,
+                      description: "A unique id starting with prop_gmail_ and a random hash",
+                    },
                     title: { type: Type.STRING },
                     address: { type: Type.STRING },
                     city: { type: Type.STRING },
@@ -165,15 +176,29 @@ Returns a JSON array of parsed properties matching the schema. Do NOT return mar
                       type: Type.OBJECT,
                       properties: {
                         lat: { type: Type.NUMBER },
-                        lng: { type: Type.NUMBER }
+                        lng: { type: Type.NUMBER },
                       },
-                      required: ["lat", "lng"]
-                    }
+                      required: ["lat", "lng"],
+                    },
                   },
-                  required: ["id", "title", "address", "city", "state", "zipCode", "price", "beds", "baths", "sqft", "propertyType", "description", "imageUrl"]
-                }
-              }
-            }
+                  required: [
+                    "id",
+                    "title",
+                    "address",
+                    "city",
+                    "state",
+                    "zipCode",
+                    "price",
+                    "beds",
+                    "baths",
+                    "sqft",
+                    "propertyType",
+                    "description",
+                    "imageUrl",
+                  ],
+                },
+              },
+            },
           });
 
           const responseText = res.text?.trim() || "[]";
@@ -190,7 +215,7 @@ Returns a JSON array of parsed properties matching the schema. Do NOT return mar
                 id: msgSummary.id,
                 subject,
                 from: fromHeader,
-                date: dateHeader
+                date: dateHeader,
               };
               parsedProperties.push(p);
             });
@@ -213,24 +238,22 @@ Returns a JSON array of parsed properties matching the schema. Do NOT return mar
       const systemPrompt = `You are an elite real-estate data harvester.
 Parse the pasted real estate details, alert string, or webpage snippet and return a structured property listing profile.
 If no listing can be found, return empty properties.
-Do not hallucinate facts or values. Use the stocks below as a fallback image if no valid image is found:
-- "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=800&q=80"
-- "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
+Do not hallucinate facts or values. Extract an image URL only when the pasted source contains real listing media. If no valid image is found, return an empty string for imageUrl. Never invent or substitute stock photos.
 
 Return raw JSON schema.`;
 
       const res = await ai.models.generateContent({
         model: "gemini-3.5-flash",
-        contents: [
-          { text: systemPrompt },
-          { text: rawText }
-        ],
+        contents: [{ text: systemPrompt }, { text: rawText }],
         config: {
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              id: { type: Type.STRING, description: "Generate a unique ID formatted like 'prop_pasted_'" },
+              id: {
+                type: Type.STRING,
+                description: "Generate a unique ID formatted like 'prop_pasted_'",
+              },
               title: { type: Type.STRING },
               address: { type: Type.STRING },
               city: { type: Type.STRING },
@@ -248,14 +271,28 @@ Return raw JSON schema.`;
                 type: Type.OBJECT,
                 properties: {
                   lat: { type: Type.NUMBER },
-                  lng: { type: Type.NUMBER }
+                  lng: { type: Type.NUMBER },
                 },
-                required: ["lat", "lng"]
-              }
+                required: ["lat", "lng"],
+              },
             },
-            required: ["id", "title", "address", "city", "state", "zipCode", "price", "beds", "baths", "sqft", "propertyType", "description", "imageUrl"]
-          }
-        }
+            required: [
+              "id",
+              "title",
+              "address",
+              "city",
+              "state",
+              "zipCode",
+              "price",
+              "beds",
+              "baths",
+              "sqft",
+              "propertyType",
+              "description",
+              "imageUrl",
+            ],
+          },
+        },
       });
 
       const parsed = JSON.parse(res.text || "{}");
@@ -270,14 +307,20 @@ Return raw JSON schema.`;
     // 3. EXPORT SHEETS ACTION - Log properties to Google Sheets
     if (action === "export_sheets") {
       if (!authHeader) {
-        return NextResponse.json({ error: "Missing Authorization header for Sheets." }, { status: 401 });
+        return NextResponse.json(
+          { error: "Missing Authorization header for Sheets." },
+          { status: 401 },
+        );
       }
 
       let spreadsheetId = payload.spreadsheetId;
       const listings = payload.listings || [];
 
       if (!listings || listings.length === 0) {
-        return NextResponse.json({ error: "No properties selected for Google Sheets export." }, { status: 400 });
+        return NextResponse.json(
+          { error: "No properties selected for Google Sheets export." },
+          { status: 400 },
+        );
       }
 
       // If no spreadsheetId is supplied, we will create a brand new one called "Realty Monitor Hub"
@@ -298,26 +341,47 @@ Return raw JSON schema.`;
 
         if (!createRes.ok) {
           const errorMsg = await createRes.text();
-          return NextResponse.json({ error: `Create Sheet Failed: ${errorMsg}` }, { status: createRes.status });
+          return NextResponse.json(
+            { error: `Create Sheet Failed: ${errorMsg}` },
+            { status: createRes.status },
+          );
         }
 
         const createData = await createRes.json();
         spreadsheetId = createData.spreadsheetId;
 
         // Initialize header row
-        const headers = [["ID", "Property Title", "Address", "City", "State", "Price", "Beds", "Baths", "SqFt", "Property Type", "Description", "Created At"]];
-        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A1:L1?valueInputOption=USER_ENTERED`, {
-          method: "PUT",
-          headers: {
-            Authorization: authHeader,
-            "Content-Type": "application/json",
+        const headers = [
+          [
+            "ID",
+            "Property Title",
+            "Address",
+            "City",
+            "State",
+            "Price",
+            "Beds",
+            "Baths",
+            "SqFt",
+            "Property Type",
+            "Description",
+            "Created At",
+          ],
+        ];
+        await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A1:L1?valueInputOption=USER_ENTERED`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: authHeader,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              range: "Sheet1!A1:L1",
+              majorDimension: "ROWS",
+              values: headers,
+            }),
           },
-          body: JSON.stringify({
-            range: "Sheet1!A1:L1",
-            majorDimension: "ROWS",
-            values: headers,
-          }),
-        });
+        );
       }
 
       // Format listings values to log
@@ -352,24 +416,38 @@ Return raw JSON schema.`;
 
       if (!appendRes.ok) {
         const errorMsg = await appendRes.text();
-        return NextResponse.json({ error: `Sheets Insert Failed: ${errorMsg}` }, { status: appendRes.status });
+        return NextResponse.json(
+          { error: `Sheets Insert Failed: ${errorMsg}` },
+          { status: appendRes.status },
+        );
       }
 
-      return NextResponse.json({ success: true, spreadsheetId, url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}` });
+      return NextResponse.json({
+        success: true,
+        spreadsheetId,
+        url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
+      });
     }
 
     // 4. CREATE CALENDAR ACTION - Add tours/alerts schedule
     if (action === "create_calendar_event") {
       if (!authHeader) {
-        return NextResponse.json({ error: "Missing Authorization header for Calendar." }, { status: 401 });
+        return NextResponse.json(
+          { error: "Missing Authorization header for Calendar." },
+          { status: 401 },
+        );
       }
 
       const prop = payload.property;
-      const startDateTime = payload.startDateTime || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // Default to tomorrow same time
+      const startDateTime =
+        payload.startDateTime || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // Default to tomorrow same time
       const parsedEnd = new Date(new Date(startDateTime).getTime() + 60 * 60 * 1000).toISOString(); // Default to 1 hr duration
 
       if (!prop) {
-        return NextResponse.json({ error: "Property metadata is required to schedule viewing calendar." }, { status: 400 });
+        return NextResponse.json(
+          { error: "Property metadata is required to schedule viewing calendar." },
+          { status: 400 },
+        );
       }
 
       const calendarUrl = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
@@ -401,16 +479,26 @@ Return raw JSON schema.`;
 
       if (!calRes.ok) {
         const errorMsg = await calRes.text();
-        return NextResponse.json({ error: `Calendar Event Insert Failed: ${errorMsg}` }, { status: calRes.status });
+        return NextResponse.json(
+          { error: `Calendar Event Insert Failed: ${errorMsg}` },
+          { status: calRes.status },
+        );
       }
 
       const eventData = await calRes.json();
-      return NextResponse.json({ success: true, eventId: eventData.id, htmlLink: eventData.htmlLink });
+      return NextResponse.json({
+        success: true,
+        eventId: eventData.id,
+        htmlLink: eventData.htmlLink,
+      });
     }
 
     return NextResponse.json({ error: "Action not supported" }, { status: 400 });
   } catch (error: any) {
     console.error("Endpoint catch:", error);
-    return NextResponse.json({ error: error.message || "An unexpected error occurred" }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "An unexpected error occurred" },
+      { status: 500 },
+    );
   }
 }

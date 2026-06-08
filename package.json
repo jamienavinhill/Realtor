@@ -6,7 +6,11 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "npm run lint && npm run typecheck && npm run format:check && npm run build"
   },
   "type": "module",
   "dependencies": {
@@ -14,7 +18,7 @@
     "firebase": "^12.14.0",
     "lucide-react": "^0.400.0",
     "motion": "^11.11.0",
-    "next": "15.1.11",
+    "next": "^15.5.19",
     "next-themes": "^0.4.6",
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -25,7 +29,11 @@
     "@types/node": "^20.12.7",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^15.1.11",
     "postcss": "^8.4.38",
+    "prettier": "^3.8.3",
+    "prettier-plugin-tailwindcss": "^0.6.14",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.4.5"
   }

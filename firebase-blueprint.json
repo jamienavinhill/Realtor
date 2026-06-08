@@ -25,7 +25,23 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "title", "address", "city", "state", "zipCode", "price", "beds", "baths", "sqft", "propertyType", "status", "imageUrl", "createdAt", "updatedAt"]
+      "required": [
+        "id",
+        "title",
+        "address",
+        "city",
+        "state",
+        "zipCode",
+        "price",
+        "beds",
+        "baths",
+        "sqft",
+        "propertyType",
+        "status",
+        "imageUrl",
+        "createdAt",
+        "updatedAt"
+      ]
     },
     "alerts": {
       "title": "Property Alert",

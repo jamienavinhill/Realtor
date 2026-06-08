@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Global Catch-All Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validators ---
+
+    function isValidProperty(data) {
+      return data.keys().hasAll(['id', 'title', 'address', 'city', 'state', 'zipCode', 'price', 'beds', 'baths', 'sqft', 'propertyType', 'status', 'imageUrl', 'createdAt', 'updatedAt'])
+        && data.keys().size() <= 20
+        && data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() <= 200
+        && data.address is string && data.address.size() <= 200
+        && data.city is string && data.city.size() <= 100
+        && data.state is string && data.state.size() <= 5
+        && data.zipCode is string && data.zipCode.size() <= 15
+        && data.price is number && data.price >= 0
+        && data.beds is number && data.beds >= 0
+        && data.baths is number && data.baths >= 0
+        && data.sqft is number && data.sqft >= 0
+        && data.propertyType is string && data.propertyType.size() <= 50
+        && data.status is string && data.status.size() <= 50
+        && data.imageUrl is string && data.imageUrl.size() <= 1000
+        && data.source is string && data.source.size() <= 50
+        && data.createdAt is string
+        && data.updatedAt is string;
+    }
+
+    function isValidAlert(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'criteria', 'isActive', 'createdAt'])
+        && data.keys().size() <= 10
+        && data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.userId == request.auth.uid
+        && data.name is string && data.name.size() <= 100
+        && data.criteria is map
+        && data.isActive is bool
+        && data.createdAt is string;
+    }
+
+    // --- Path Rules ---
+
+    match /properties/{propertyId} {
+      allow list, get: if true; // Public property listings read
+      // Allow creation/modification for any signed-in user for bulk filling/backfilling
+      allow create: if isSignedIn() && isValidId(propertyId) && isValidProperty(incoming());
+      allow update: if isSignedIn() && isValidId(propertyId) && isValidProperty(incoming());
+      allow delete: if isSignedIn() && isValidId(propertyId);
+    }
+
+    match /alerts/{alertId} {
+      allow list, get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(alertId) && isValidAlert(incoming());
+      allow update: if isSignedIn() && isValidId(alertId) && isValidAlert(incoming()) && incoming().userId == existing().userId;
+      allow delete: if isSignedIn() && isValidId(alertId) && existing().userId == request.auth.uid;
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "properties": {
+      "title": "Property Listing",
+      "description": "A property listing scraped, backfilled, or manually entered for tracking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique key identifier" },
+        "title": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "zipCode": { "type": "string" },
+        "price": { "type": "number" },
+        "beds": { "type": "number" },
+        "baths": { "type": "number" },
+        "sqft": { "type": "number" },
+        "propertyType": { "type": "string" },
+        "status": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "coordinates": { "type": "object" },
+        "yearBuilt": { "type": "number" },
+        "description": { "type": "string" },
+        "source": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "address", "city", "state", "zipCode", "price", "beds", "baths", "sqft", "propertyType", "status", "imageUrl", "createdAt", "updatedAt"]
+    },
+    "alerts": {
+      "title": "Property Alert",
+      "description": "User criteria definition for getting alerts on matched property listings.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "criteria": { "type": "object" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "name", "criteria", "isActive", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/properties/{propertyId}": {
+      "schema": "properties",
+      "description": "Property listing documents"
+    },
+    "/alerts/{alertId}": {
+      "schema": "alerts",
+      "description": "Alert criteria documents"
+    }
+  }
+}

@@ -1336,19 +1336,37 @@ Required before marking this plan complete:
 
 ## Orchestrator Checkpoints
 
-Directive: re-run the "completed" workstreams (WS1, WS2, WS3, WS6, WS10/WS11 baselines) to production shape; ≥2 fresh-context AUDIT/EXECUTE passes each, serialized on shared surfaces.
+Directive: drive the ENTIRE roadmap to completion -- exhausted, verified, polished. Every workstream gets >=2 fresh-context AUDIT/EXECUTE passes, serialized on shared surfaces, gated and checkpointed. Orchestrator coordinates; subagents execute.
 
-| Stream | Pass         | Commit                 | Result                                                                                                                                                                                                                 | Status                                                         |
-| ------ | ------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| WS4    | 1+2 (re-run) | `10b541e6`,`<pending>` | fixed `compareQueue` PERMISSION_DENIED (modeled as `{queueId}` subcollection doc, canonical id `main`); added optional `note` (type/schema/rules); +emulator coverage (cap-of-4, userId-spoof, note, cross-user queue) | **CLOSED** (`test:rules` GREEN 6 cases; verify GREEN)          |
-| WS3    | 1+2 (re-run) | `12b64b3c`,`323b3703`  | enrichment/history/run-type contracts; provider_quota rules deny; +tests/doc                                                                                                                                           | **CLOSED** (verify green, 34 tests)                            |
-| WS1    | 1+2 (re-run) | `c4978d0e`,`6298b1d7`  | fixed RED gate (react-is@19, rules-unit-testing@5, emulator test relocated); dev-workflow doc; lockfile sync                                                                                                           | **CLOSED** (verify GREEN)                                      |
-| WS2    | 1+2 (re-run) | `098209fc`,`b31ac438`  | constant-time token compare, no key-leak admin init, env-and-deploy doc, auth-domain reconcile                                                                                                                         | **CLOSED** (37 tests); 3 operator-pending `[!]`                |
-| WS6    | 1+2 (re-run) | `59a15a8a`,`e426739a`  | fixed orphaned-run + dry-run-burns-quota bugs; DI seam + idempotency/lifecycle tests; provider-ingestion doc                                                                                                           | **CLOSED** (49 tests); live re-backfill operator-pending `[!]` |
-| WS11   | 1+2 (re-run) | `da44fca1`,`072b172e`  | brand→Abode Alerts (Calendar copy, Austin sample title, `aistudio-build` User-Agent); confirmed no-fake-data/no-stock-media; Stow/44224 defaults; signed-out smoke                                                     | **CLOSED** (verify GREEN, 49 tests)                            |
-| WS10   | 1+2 (re-run) | `d3a7a40d`,`e877b514`  | compact auth chrome: "Sign in" label only, mutually-exclusive sign-in/avatar, `ProfileMenu` (name+Sign out, a11y), removed Connect/logout buttons, icon-only accent picker (no swatch)                                 | **CLOSED** (verify GREEN, 49 tests); signed-out smoke OK       |
+### Completed (re-run to production shape, two passes each, CLOSED)
 
-Carried forward (NOT in completed-re-run scope; logged for their streams): **WS5** -- `lib/providers/quota.ts` in-memory and mislabeled "daily" (real ~250/MONTH per key); dedupe is provider-id-only, not the composite the roadmap claims. **Operator-pending** -- run `add-auth-domains.ts` + `vercel-listings-check.ts` against prod; GCP budget alert; live 44224 re-backfill + Firestore readback.
+| Stream           | Commits               | Result                                                                                               |
+| ---------------- | --------------------- | ---------------------------------------------------------------------------------------------------- |
+| WS1 tooling      | `c4978d0e`,`6298b1d7` | fixed RED verify gate (react-is@19, rules-unit-testing@5, emulator test relocated); dev-workflow doc |
+| WS2 env/admin    | `098209fc`,`b31ac438` | constant-time token compare, no key-leak admin init, env-and-deploy doc, auth-domain reconcile       |
+| WS3 contracts    | `12b64b3c`,`323b3703` | enrichment/history/run-type contracts; provider_quota rules deny; +tests/doc                         |
+| WS4 prefs        | `9ad47979`,`a4729cb5` | compareQueue path fixed (`main`); optional note; create-rule listingId==docId; `test:rules` 7/7      |
+| WS6 backfill     | `59a15a8a`,`e426739a` | fixed orphaned-run + dry-run-burns-quota bugs; DI seam + idempotency/lifecycle tests                 |
+| WS10 auth chrome | `d3a7a40d`,`e877b514` | "Sign in" label only, mutually-exclusive sign-in/avatar, ProfileMenu, icon-only accent picker        |
+| WS11 UI honesty  | `da44fca1`,`072b172e` | removed AI-Studio/Austin/Realty-Monitor residue; honest empty/no-media states; 44224 defaults        |
+
+### Forward streams (in progress / pending)
+
+| Stream                                                                     | Status                        |
+| -------------------------------------------------------------------------- | ----------------------------- |
+| WS5 RealtyAPI + search adapters (monthly quota fix, google-search adapter) | dispatching pass 1            |
+| WS9 toast system                                                           | pending                       |
+| WS7 email-triggered ingestion + multiselect                                | pending (needs WS9, WS5)      |
+| WS8 refresh/alert eval + re-watch/poll + monthly quota accounting          | pending (needs WS5, WS9)      |
+| WS12 compact listing dialog + actions                                      | pending (needs WS4, WS9)      |
+| WS13 CMA analytics rebuild                                                 | pending (needs WS6, WS12)     |
+| WS14 docs layout + content                                                 | pending                       |
+| WS15 product flows / metadata / page wiring                                | pending (needs WS8/WS12/WS13) |
+| WS18 account sharing                                                       | pending (needs WS16 rules)    |
+| WS16 auth/rules/secret hardening                                           | pending (needs WS18)          |
+| WS17 tests/CI/release gate + production smoke                              | pending (last)                |
+
+Operator-pending (account/dashboard, cannot be done in code): run `add-auth-domains.ts` + `vercel-listings-check.ts` against prod; GCP budget alert; live 44224 re-backfill + Firestore readback; Gmail `watch`/Pub/Sub registration; OAuth consent-screen scopes/verification.
 
 ## Expansion Track
 

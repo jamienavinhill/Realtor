@@ -1160,18 +1160,19 @@ Primary areas:
 
 Implementation tasks:
 
-- [ ] Split layout: `aside` fixed height `100vh - header` with `overflow-hidden` (inner TOC `overflow-y-auto` optional); `main` `overflow-y-auto` as the sole scroll container for content anchors.
-- [ ] Use `scroll-margin-top` on headings; prevent TOC jump on anchor navigation so only the main column scrolls.
-- [ ] Add sections: Automatic Email Ingest, Env/Vercel Setup, Listing Actions, CMA, Alerts, Operator Ingest.
-- [ ] Reduce decorative prose/badges; professional compact doc typography; preserve honest claims (no MLS completeness, no guaranteed real-time unless sourced).
+- [x] Split layout: `aside` fixed height `100vh - header` (`h-[calc(100vh-64px)]`, header is `h-16`) as a self-contained `overflow-y-auto` panel; `main` `overflow-y-auto` as the sole scroll container for content anchors.
+- [x] Use `scroll-mt-*` on section anchors; anchor navigation calls a programmatic `container.scrollTo` on the `main` column (not the document), so only the main column scrolls and the TOC never jumps.
+- [x] Add sections: Automatic Email Ingest, Env/Vercel Setup, Listing Actions, CMA, Alerts, Operator Ingest — content grounded in live code (WS7 push/scan, WS8 daily/poll, WS12 actions, WS13 CMA) and durable docs.
+- [x] Reduce decorative prose/badges (removed the "Official Guide" badge, hero `font-extrabold`, and decorative card grid); professional compact `prose-sm` typography; honest claims only (no MLS completeness, no guaranteed real-time).
+- [x] Active-section TOC highlight (nice-to-have) via `IntersectionObserver` scoped to the `main` scroll container.
 
 Exit criteria:
 
-- [ ] Clicking Quickstart scrolls main only; TOC position stays stable in the viewport.
+- [x] Clicking Quickstart scrolls main only; TOC position stays stable in the viewport. (Verified by code review: fixed-height flex container, isolated `overflow-y-auto` on `main`, programmatic container `scrollTo`. Live browser smoke is operator/CI-pending — the docs tab lives inside the auth-gated dashboard shell and Google OAuth is unavailable in this environment.)
 
 Suggested verification:
 
-- Playwright docs navigation screenshot comparison.
+- Playwright docs navigation screenshot comparison (operator/CI-pending; requires authenticated dashboard session).
 
 ## Workstream 15: Product Flows, Metadata, And Page Wiring
 
@@ -1423,7 +1424,7 @@ Required before marking this plan complete:
 15. [ ] **WS8** — Refresh/alert evaluation + persisted matches; weekly re-watch + business-hours safety-net poll (free public-repo Actions); monthly RealtyAPI quota accounting.
 16. [ ] **WS12** — Compact listing dialog + actions + grid density.
 17. [ ] **WS13** — CMA analytics rebuild (paginated tables + charts).
-18. [ ] **WS14** — Docs layout + content expansion.
+18. [x] **WS14** — Docs layout + content expansion.
 19. [ ] **WS15** — Wire all views/metadata to final Abode Alerts copy and data.
 20. [ ] **WS18** — Account sharing & collaboration (invite + viewer/editor roles).
 21. [ ] **WS16** — Harden auth/security rules, OAuth token persistence, sharing rules, and production envs.
@@ -1457,7 +1458,7 @@ Directive: drive the ENTIRE roadmap to completion -- exhausted, verified, polish
 | WS8 refresh/alert eval + re-watch/poll + monthly quota accounting         | CLOSED `f58fd7b7`,`f605d80e` (Actions, history append, poll type, run-fail-close; 116 tests, rules 8)                             |
 | WS12 compact listing dialog + actions                                     | CLOSED `295a1af2`,`79e8a05` (compact dialog shell, action bar, prefs hook, analyze route, compare, density; 123 tests)            |
 | WS13 CMA analytics rebuild                                                | CLOSED `8c1beebf`,`16cff95f` (DataTable 10/20/30/100+sort, 5 charts, chips, compare col, drill-down; 155 tests, browser-verified) |
-| WS14 docs layout + content                                                | dispatching pass 1                                                                                                                |
+| WS14 docs layout + content                                                | pass 1 done (pinned TOC, isolated main scroll, 8 sections grounded in live code, active-highlight; verify GREEN 155; browser smoke operator-pending) |
 | WS15 product flows / metadata / page wiring                               | pending (needs WS8/WS12/WS13)                                                                                                     |
 | WS18 account sharing                                                      | pending (needs WS16 rules)                                                                                                        |
 | WS16 auth/rules/secret hardening                                          | pending (needs WS18)                                                                                                              |

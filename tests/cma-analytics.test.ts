@@ -111,6 +111,47 @@ describe("sortByAccessor", () => {
       ["a", "b", "c"],
     );
   });
+
+  it("sinks missing values to the bottom in ascending order", () => {
+    const mixed = [
+      listing("a", { sqft: 1000 }), // $/sqft present
+      listing("b", { sqft: 0 }), // $/sqft null (missing)
+      listing("c", { sqft: 2000 }), // $/sqft present
+    ];
+    const result = sortByAccessor(mixed, (r) => pricePerSqft(r), "asc");
+    // Present values sort ascending; the null lands last, not first.
+    assert.deepEqual(
+      result.map((r) => r.id),
+      ["c", "a", "b"],
+    );
+  });
+
+  it("keeps missing values at the bottom in descending order too", () => {
+    const mixed = [
+      listing("a", { sqft: 1000 }),
+      listing("b", { sqft: 0 }), // missing
+      listing("c", { sqft: 2000 }),
+    ];
+    const result = sortByAccessor(mixed, (r) => pricePerSqft(r), "desc");
+    // Present values sort descending; the null still trails, never leads.
+    assert.deepEqual(
+      result.map((r) => r.id),
+      ["a", "c", "b"],
+    );
+  });
+
+  it("preserves input order among multiple missing values", () => {
+    const mixed = [
+      listing("a", { sqft: 0 }),
+      listing("b", { sqft: 1000 }),
+      listing("c", { sqft: 0 }),
+    ];
+    const result = sortByAccessor(mixed, (r) => pricePerSqft(r), "desc");
+    assert.deepEqual(
+      result.map((r) => r.id),
+      ["b", "a", "c"],
+    );
+  });
 });
 
 describe("nextSortState", () => {

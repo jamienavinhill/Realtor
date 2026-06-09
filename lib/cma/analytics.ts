@@ -40,23 +40,22 @@ export function sortByAccessor<T>(
     .sort((a, b) => {
       const av = accessor(a.item);
       const bv = accessor(b.item);
+      // Missing values always sink to the bottom regardless of direction, so the
+      // direction factor must NOT flip them. We resolve missingness before applying
+      // the factor and short-circuit when only one side is missing.
+      const aMissing = av === null || av === undefined;
+      const bMissing = bv === null || bv === undefined;
+      if (aMissing || bMissing) {
+        if (aMissing && bMissing) return a.index - b.index;
+        return aMissing ? 1 : -1;
+      }
       const cmp = compareValues(av, bv);
       return cmp !== 0 ? cmp * factor : a.index - b.index;
     })
     .map((entry) => entry.item);
 }
 
-function compareValues(
-  a: string | number | null | undefined,
-  b: string | number | null | undefined,
-): number {
-  const aMissing = a === null || a === undefined;
-  const bMissing = b === null || b === undefined;
-  // Missing values always sort last regardless of direction is impossible without
-  // direction context, so we keep them low and let the caller's factor flip them.
-  if (aMissing && bMissing) return 0;
-  if (aMissing) return -1;
-  if (bMissing) return 1;
+function compareValues(a: string | number, b: string | number): number {
   if (typeof a === "number" && typeof b === "number") return a - b;
   return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
 }

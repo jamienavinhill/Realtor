@@ -200,12 +200,16 @@ export function CMAView({
             className="inline-flex rounded-xl border border-stone-200 bg-white p-1 text-sm dark:border-stone-800 dark:bg-stone-900"
           >
             <ViewTab
+              id="cma-tab-charts"
+              controls="cma-panel-charts"
               active={view === "charts"}
               onClick={() => setView("charts")}
               icon={<LayoutGrid className="h-4 w-4" />}
               label="Charts"
             />
             <ViewTab
+              id="cma-tab-data"
+              controls="cma-panel-data"
               active={view === "data"}
               onClick={() => setView("data")}
               icon={<TableIcon className="h-4 w-4" />}
@@ -239,7 +243,12 @@ export function CMAView({
           </div>
 
           {view === "charts" ? (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div
+              id="cma-panel-charts"
+              role="tabpanel"
+              aria-labelledby="cma-tab-charts"
+              className="grid grid-cols-1 gap-6 lg:grid-cols-2"
+            >
               <ChartCard
                 title="Price distribution"
                 icon={<BarChart3 className="text-primary-500 h-4 w-4" />}
@@ -409,7 +418,12 @@ export function CMAView({
               </ChartCard>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-stone-800 dark:bg-stone-900">
+            <div
+              id="cma-panel-data"
+              role="tabpanel"
+              aria-labelledby="cma-tab-data"
+              className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-stone-800 dark:bg-stone-900"
+            >
               <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3 dark:border-stone-800">
                 <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">
                   CMA basis data
@@ -449,11 +463,15 @@ const TOOLTIP_STYLE = {
 } as const;
 
 function ViewTab({
+  id,
+  controls,
   active,
   onClick,
   icon,
   label,
 }: {
+  id: string;
+  controls: string;
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
@@ -462,8 +480,10 @@ function ViewTab({
   return (
     <button
       type="button"
+      id={id}
       role="tab"
       aria-selected={active}
+      aria-controls={controls}
       onClick={onClick}
       className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium transition ${
         active

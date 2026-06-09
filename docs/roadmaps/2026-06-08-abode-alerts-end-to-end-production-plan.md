@@ -1134,6 +1134,14 @@ Verification (2026-06-09, pass 1):
 - `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm run build`, and full `npm run test` (152 tests) green.
 - Playwright CMA smoke against real Firestore inventory (88 active listings): heading + compact chips render, 11 recharts surfaces draw, Data tab defaults to 10 rows ("1–10 of 88", "Page 1 of 9"), price column sortable and reorders, no console errors. Compare column appears only when signed in (per-user WS4 queue).
 
+Hardening (2026-06-09, pass 2):
+
+- Audit confirmed metric/chart math, DataTable pagination clamps, compare-queue wiring (cap via `useListingPreferences`), and the WS12 `Dialog` reuse are correct and honest (no synthetic/0/NaN values; empty inventory shows the honest "not loaded" state).
+- Fixed a real sort bug in `sortByAccessor`: missing values (e.g. null `$/sqft` from zero-sqft listings) were sorted by `±1` then multiplied by the direction factor, so they flipped to the TOP under descending sort. They now always sink to the bottom regardless of direction, with input order preserved among ties. (`lib/cma/analytics.ts`.)
+- A11y: completed the tablist pattern — Charts/Data tabs now carry `id` + `aria-controls`, and each panel is a `role="tabpanel"` linked back via `aria-labelledby`.
+- Extended `tests/cma-analytics.test.ts` with 3 sort cases (missing sinks last in asc + desc, stable among multiple missing). Suite now 32 CMA tests / 155 total. `npm run verify` green (lint, typecheck, format:check, tests, build).
+- Drill-down note (carried): the CMA dialog reuses the shared WS12 `Dialog` shell but renders a slimmer, CMA-focused body. It is intentionally NOT the full `ListingsGrid` modal; sharing the full modal body would require restructuring WS12 internals beyond importing an export, so it is left as a deliberate compact drill-down.
+
 ## Workstream 14: Docs Layout And Content Expansion
 
 Goal: Pinned TOC, independent main scroll, and richer documentation.

@@ -31,12 +31,13 @@ function loadServiceAccount(): Record<string, unknown> {
   const inlineJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
   if (inlineJson) {
     try {
+      // Do not echo the parse error verbatim — a malformed value could surface a
+      // fragment of the private key in logs. Keep the message source-only.
       return JSON.parse(inlineJson) as Record<string, unknown>;
-    } catch (error) {
+    } catch {
       throw new Error(
-        `FIREBASE_SERVICE_ACCOUNT_JSON is set but is not valid JSON: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        "FIREBASE_SERVICE_ACCOUNT_JSON is set but is not valid JSON. " +
+          "Provide the full service-account JSON as a single inline string.",
       );
     }
   }
@@ -71,7 +72,13 @@ export function getAdminFirestore(): Firestore {
   }
 
   const app = getFirebaseAdminApp();
-  adminDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+  const databaseId = firebaseConfig.firestoreDatabaseId;
+  if (!databaseId) {
+    throw new Error(
+      "firebase-applet-config.json is missing firestoreDatabaseId (expected 'abode-alerts').",
+    );
+  }
+  adminDb = getFirestore(app, databaseId);
   if (!adminDbSettingsApplied) {
     adminDb.settings({ ignoreUndefinedProperties: true });
     adminDbSettingsApplied = true;

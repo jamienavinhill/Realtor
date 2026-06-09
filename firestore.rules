@@ -157,6 +157,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /provider_quota/{month} {
+      // RealtyAPI monthly budget accounting. Server/Admin SDK only; never client-readable.
+      allow read, write: if false;
+    }
+
     match /users/{userId}/listingPreferences/{listingId} {
       allow list, get: if isOwner(userId);
       allow create: if isOwner(userId) && isValidId(listingId) && isValidListingPreference(incoming());

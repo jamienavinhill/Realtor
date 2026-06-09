@@ -24,6 +24,8 @@ Abode Alerts stores a shared listing catalog, user-owned alerts and matches, and
 | `alert_matches/{matchId}` | `AlertMatch`      | owner                        | Admin SDK only                                                              | `lib/repositories/matches.ts`  |
 | `ingest_runs/{runId}`     | `IngestRun`       | denied to clients            | Admin SDK only                                                              | `lib/repositories/runs.ts`     |
 
+`firestore.rules` also carries an explicit server-only deny block for `provider_quota/{YYYY-MM}` (RealtyAPI monthly budget accounting) so the base access model matches the Collection Map. Its `ProviderQuotaMonth` contract type and repository land with WS5 — the rules deny is intentionally in place ahead of the writer so the path is never client-readable.
+
 ### Provider-ingested listing fields
 
 Server ingestion (RealtyAPI backfill/daily refresh) requires these provenance and dedupe fields on every write:
@@ -100,9 +102,12 @@ Names only — values live in `.env` (local) or Vercel/GitHub encrypted secrets.
 
 ## Tests
 
-- `tests/schemas.test.ts` — listing validator + RealtyAPI normalization fixture
-- `tests/ingest-auth.test.ts` — ingest token auth helper
+- `tests/schemas.test.ts` — listing validator (provenance, enrichment, history) over the RealtyAPI fixture
+- `tests/realty-normalize.test.ts` — RealtyAPI normalization + raw-payload hashing
+- `tests/ingest-schema.test.ts` — ingest run validator (status, quota, run types)
 - `tests/env.test.ts` — env validation error surfaces (no secrets required)
-- `tests/ingest-schema.test.ts` — ingest run validator
+- `tests/ingest-auth.test.ts` — ingest token auth helper
+- `tests/firestore-rules-structure.test.ts` — base access model + WS4 preference/compare paths
+- `tests/listing-preferences.test.ts` — WS4 preference/compare validators
 
-Run `npm run test` after schema, env, or repository changes.
+Run `npm run test` after schema, env, or repository changes. Firestore-rules emulator coverage runs separately under `npm run test:rules`.

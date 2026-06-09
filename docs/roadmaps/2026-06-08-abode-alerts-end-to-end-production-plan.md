@@ -673,6 +673,13 @@ Implementation tasks:
 - [x] Write repository functions for listings, alerts, and ingest runs.
 - [x] Document schema ownership and migrations in `docs/architecture/data-model.md`.
 
+Re-run findings (WS3 audit pass 2, 2026-06-09) — surface was already largely complete; gaps closed:
+
+- [x] Added an explicit server-only deny block for `provider_quota/{YYYY-MM}` in `firestore.rules` so the base access model matches the Collection Map exactly (`ingest_runs` and `provider_quota` both `allow read, write: if false`). The `ProviderQuotaMonth` type/repo still land with WS5; only the base-model rules deny is in WS3 lane.
+- [x] Extended `tests/firestore-rules-structure.test.ts` to assert the WS3 base model (global deny-by-default, public `properties` read, owner-scoped `alerts`/`alert_matches`, server-only `ingest_runs`/`provider_quota`) — previously it covered only the WS4 preference/compare paths.
+- [x] Reconciled the `docs/architecture/data-model.md` Tests list and added the `provider_quota` rules note (no contract drift found in schemas/repositories/env vs. live code).
+- [x] Audited validators (`lib/schemas/*`): all handwritten, uniform `ValidationResult`/`fail`/`ok` style, reject malformed payloads, and stay backward-compatible with the 88 live listings (which carry every required provider field). Repositories all validate-before-write and persist ISO-8601 timestamps + provenance with one consistent pattern. `lib/env.ts` accepts inline JSON or local path with actionable per-var errors. No further changes needed.
+
 Exit criteria:
 
 - [x] API routes and scripts validate external/provider payloads before writing Firestore.
@@ -1285,11 +1292,12 @@ Required before marking this plan complete:
 
 ## Orchestrator Checkpoints
 
-| Agent / pass  | Workstream          | Ownership                                                                                                                                      | Dispatched | Status                                                                                                     | Next action                                  |
-| ------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| orchestrator  | WS4 pass 1          | `types/`, `lib/schemas/`, `lib/repositories/listing-preferences.ts`, `firestore.rules`, `tests/`                                               | 2026-06-09 | landed `10b541e6`                                                                                          | superseded by re-run sequence                |
-| ac5ddae3      | WS3 pass 1 (re-run) | `types/`, `lib/schemas/`, `lib/repositories/`, `firestore.rules`, `docs/architecture/data-model.md`                                            | 2026-06-09 | landed `12b64b3c` (12 files/448 LOC → needs pass 2); flagged RED build (react-is + firebase peer conflict) | Re-run WS1 to fix toolchain, then WS3 pass 2 |
-| (dispatching) | WS1 pass 1 (re-run) | `package.json` deps/scripts, lint/format/ts config, `.env.example`, `.gitignore`, `README.md`, `docs/` index; fix RED `npm run build`/`verify` | 2026-06-09 | dispatching                                                                                                | Gate on commit; then WS3 pass 2              |
+| Agent / pass  | Workstream          | Ownership                                                                                                                  | Dispatched | Status                                                                                                             | Next action                   |
+| ------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| orchestrator  | WS4 pass 1          | `types/`, `lib/schemas/`, `lib/repositories/listing-preferences.ts`, `firestore.rules`, `tests/`                           | 2026-06-09 | landed `10b541e6`                                                                                                  | superseded by re-run sequence |
+| ac5ddae3      | WS3 pass 1 (re-run) | `types/`, `lib/schemas/`, `lib/repositories/`, `firestore.rules`, `docs/architecture/data-model.md`                        | 2026-06-09 | landed `12b64b3c` (12 files/448 LOC → needs pass 2)                                                                | WS3 pass 2 now                |
+| aefd1fdc      | WS1 pass 1 (re-run) | `package.json` deps/scripts, configs, `.env.example`, `.gitignore`, `README.md`, `docs/operations/development-workflow.md` | 2026-06-09 | landed `c4978d0e`; **verify gate GREEN**; flagged WS4 defect (compareQueue rule PERMISSION_DENIED in `test:rules`) | WS1 pass 2 after WS3          |
+| (dispatching) | WS3 pass 2 (re-run) | same WS3 surface; confirm quiet + close exit criteria                                                                      | 2026-06-09 | dispatching                                                                                                        | Gate; then WS1 pass 2         |
 
 ## Expansion Track
 

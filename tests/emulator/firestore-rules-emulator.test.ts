@@ -78,6 +78,32 @@ describe("firestore rules emulator — listing preferences own-only", () => {
     await assertFails(otherWrite.set(preferenceDoc("listing-2", "other-uid")));
   });
 
+  it("allows an owner note on a listing preference", async () => {
+    const owner = testEnv.authenticatedContext("owner-uid");
+    const ref = owner
+      .firestore()
+      .collection("users")
+      .doc("owner-uid")
+      .collection("listingPreferences")
+      .doc("listing-note");
+
+    await assertSucceeds(
+      ref.set({ ...preferenceDoc("listing-note", "owner-uid"), note: "Great backyard" }),
+    );
+  });
+
+  it("denies a listing preference whose userId does not match the path/auth", async () => {
+    const owner = testEnv.authenticatedContext("owner-uid");
+    const ref = owner
+      .firestore()
+      .collection("users")
+      .doc("owner-uid")
+      .collection("listingPreferences")
+      .doc("listing-spoof");
+
+    await assertFails(ref.set(preferenceDoc("listing-spoof", "someone-else")));
+  });
+
   it("allows owner compareQueue and denies cross-user access", async () => {
     const owner = testEnv.authenticatedContext("owner-uid");
     const other = testEnv.authenticatedContext("other-uid");
@@ -88,20 +114,52 @@ describe("firestore rules emulator — listing preferences own-only", () => {
       .collection("users")
       .doc("owner-uid")
       .collection("compareQueue")
-      .doc("default");
+      .doc("main");
     await assertSucceeds(
       queueRef.set({
         userId: "owner-uid",
-        listingIds: ["a", "b"],
+        listingIds: ["a", "b", "c", "d"],
         updatedAt: new Date().toISOString(),
       }),
     );
+    await assertSucceeds(queueRef.get());
 
     const otherRead = otherDb
       .collection("users")
       .doc("owner-uid")
       .collection("compareQueue")
-      .doc("default");
+      .doc("main");
     await assertFails(otherRead.get());
+
+    const otherWrite = otherDb
+      .collection("users")
+      .doc("owner-uid")
+      .collection("compareQueue")
+      .doc("main");
+    await assertFails(
+      otherWrite.set({
+        userId: "owner-uid",
+        listingIds: ["a"],
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+  });
+
+  it("denies a compareQueue write over the max of 4 listings", async () => {
+    const owner = testEnv.authenticatedContext("owner-uid");
+    const queueRef = owner
+      .firestore()
+      .collection("users")
+      .doc("owner-uid")
+      .collection("compareQueue")
+      .doc("main");
+
+    await assertFails(
+      queueRef.set({
+        userId: "owner-uid",
+        listingIds: ["a", "b", "c", "d", "e"],
+        updatedAt: new Date().toISOString(),
+      }),
+    );
   });
 });

@@ -1,5 +1,5 @@
 import type { CompareQueue, ListingUserPreference, ListingUserState } from "@/types/listings";
-import { MAX_COMPARE_LISTINGS } from "@/types/listings";
+import { COMPARE_QUEUE_DOC_ID, MAX_COMPARE_LISTINGS } from "@/types/listings";
 import { getAdminFirestore } from "@/lib/firebase-admin";
 import {
   validateCompareQueue,
@@ -11,7 +11,7 @@ function preferencesPath(userId: string, listingId: string): string {
 }
 
 function compareQueuePath(userId: string): string {
-  return `users/${userId}/compareQueue`;
+  return `users/${userId}/compareQueue/${COMPARE_QUEUE_DOC_ID}`;
 }
 
 export async function getListingPreference(
@@ -47,6 +47,7 @@ export async function upsertListingPreference(
   userId: string,
   listingId: string,
   state: ListingUserState,
+  note?: string,
 ): Promise<ListingUserPreference> {
   const db = getAdminFirestore();
   const ref = db.doc(preferencesPath(userId, listingId));
@@ -60,6 +61,9 @@ export async function upsertListingPreference(
     createdAt: existing.exists ? ((existing.data()?.createdAt as string) ?? now) : now,
     updatedAt: now,
   };
+  if (typeof note === "string") {
+    record.note = note;
+  }
 
   const validation = validateListingUserPreference(record);
   if (!validation.success) {

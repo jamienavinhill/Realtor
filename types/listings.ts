@@ -133,6 +133,8 @@ export interface ListingUserPreference {
   listingId: string;
   userId: string;
   state: ListingUserState;
+  /** Optional free-text note the owner attaches to this listing. */
+  note?: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -144,6 +146,15 @@ export interface CompareQueue {
 }
 
 export const MAX_COMPARE_LISTINGS = 4;
+
+/**
+ * Canonical document id for the single per-user compare queue stored under the
+ * `users/{uid}/compareQueue/{COMPARE_QUEUE_DOC_ID}` subcollection. Modeling the
+ * queue as a fixed doc inside a subcollection (rather than a bare document)
+ * keeps the Firestore path uniform with `listingPreferences` and matches the
+ * roadmap collection map.
+ */
+export const COMPARE_QUEUE_DOC_ID = "main";
 
 export type IngestRunType = "backfill" | "daily" | "email" | "poll";
 

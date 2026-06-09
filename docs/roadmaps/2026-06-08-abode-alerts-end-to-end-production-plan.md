@@ -711,7 +711,7 @@ Goal: Per-user interested, favorite, hidden, and compare-set state in Firestore.
 
 Depends on:
 
-- [ ] WS3 base contracts/repositories (shared types).
+- [x] WS3 base contracts/repositories (shared types).
 
 Enables:
 
@@ -719,22 +719,22 @@ Enables:
 
 Primary areas:
 
-- `types/listings.ts`, `lib/schemas/`, `lib/repositories/listing-preferences.ts`, `firestore.rules`
+- `types/listings.ts`, `lib/schemas/listing-preferences.ts`, `lib/repositories/listing-preferences.ts`, `firestore.rules`
 
 Implementation tasks:
 
-- [ ] Define `ListingUserState`: `interested | notInterested | favorite | hidden`, with timestamps.
-- [ ] Repository CRUD scoped to `request.auth.uid`, stored under `users/{uid}/listingPreferences/{listingId}`.
-- [ ] Compare set: `users/{uid}/compareQueue` with a max of N listings (e.g. 4).
-- [ ] Rules: a user can read/write only their own preference docs (hardened fully in WS16).
+- [x] Define `ListingUserState`: `interested | notInterested | favorite | hidden`, with `updatedAt`/`createdAt` timestamps and an optional `note` (`types/listings.ts`; handwritten validator in `lib/schemas/listing-preferences.ts`, uniform with the other schemas).
+- [x] Repository CRUD scoped to the owner uid, stored under `users/{uid}/listingPreferences/{listingId}` — `get`/`list`/`upsert` (set/clear via state)/`delete`, validating before every write and carrying timestamps (`lib/repositories/listing-preferences.ts`).
+- [x] Compare set under `users/{uid}/compareQueue/{COMPARE_QUEUE_DOC_ID}` (canonical doc id `main`, exported from `types/listings.ts`), capped at `MAX_COMPARE_LISTINGS = 4` with explicit errors when exceeded; repo `add`/`remove`/`set`/`get` helpers.
+- [x] Rules: an owner can read/write ONLY their own `listingPreferences` and `compareQueue` docs (non-owners denied); deny-by-default preserved. `compareQueue` modeled as a `{queueId}` subcollection doc so the path is uniform with `listingPreferences`. Full cross-collection hardening still lands in WS16.
 
 Exit criteria:
 
-- [ ] Rules unit/emulator tests pass for own-only access.
+- [x] Rules unit/emulator tests pass for own-only access — `npm run test:rules` is GREEN (6 emulator cases: owner read/write, cross-user deny on prefs + queue, optional note, userId-spoof deny, compareQueue cap-of-4 deny). Schema/repo covered by `tests/listing-preferences.test.ts`; rules shape asserted by `tests/firestore-rules-structure.test.ts`.
 
 Suggested verification:
 
-- `npm run test`; Firebase rules validator.
+- `npm run test:rules` (Firestore emulator + Java); `npm run verify` for the standard gate.
 
 ## Workstream 5: RealtyAPI And Search Provider Adapters
 
@@ -1338,17 +1338,17 @@ Required before marking this plan complete:
 
 Directive: re-run the "completed" workstreams (WS1, WS2, WS3, WS6, WS10/WS11 baselines) to production shape; ≥2 fresh-context AUDIT/EXECUTE passes each, serialized on shared surfaces.
 
-| Stream | Pass          | Commit                | Result                                                                                                                                                                                     | Status                                                         |
-| ------ | ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| WS4    | 1 (pre-pivot) | `10b541e6`            | listing-prefs scaffold                                                                                                                                                                     | superseded by re-run                                           |
-| WS3    | 1+2 (re-run)  | `12b64b3c`,`323b3703` | enrichment/history/run-type contracts; provider_quota rules deny; +tests/doc                                                                                                               | **CLOSED** (verify green, 34 tests)                            |
-| WS1    | 1+2 (re-run)  | `c4978d0e`,`6298b1d7` | fixed RED gate (react-is@19, rules-unit-testing@5, emulator test relocated); dev-workflow doc; lockfile sync                                                                               | **CLOSED** (verify GREEN)                                      |
-| WS2    | 1+2 (re-run)  | `098209fc`,`b31ac438` | constant-time token compare, no key-leak admin init, env-and-deploy doc, auth-domain reconcile                                                                                             | **CLOSED** (37 tests); 3 operator-pending `[!]`                |
-| WS6    | 1+2 (re-run)  | `59a15a8a`,`e426739a` | fixed orphaned-run + dry-run-burns-quota bugs; DI seam + idempotency/lifecycle tests; provider-ingestion doc                                                                               | **CLOSED** (49 tests); live re-backfill operator-pending `[!]` |
-| WS11   | 1+2 (re-run)  | `da44fca1`,`072b172e` | brand→Abode Alerts (Calendar copy, Austin sample title, `aistudio-build` User-Agent); confirmed no-fake-data/no-stock-media; Stow/44224 defaults; signed-out smoke | **CLOSED** (verify GREEN, 49 tests)                            |
-| WS10   | 1+2 (re-run)  | `d3a7a40d`,`e877b514` | compact auth chrome: "Sign in" label only, mutually-exclusive sign-in/avatar, `ProfileMenu` (name+Sign out, a11y), removed Connect/logout buttons, icon-only accent picker (no swatch) | **CLOSED** (verify GREEN, 49 tests); signed-out smoke OK       |
+| Stream | Pass         | Commit                 | Result                                                                                                                                                                                                                 | Status                                                         |
+| ------ | ------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| WS4    | 1+2 (re-run) | `10b541e6`,`<pending>` | fixed `compareQueue` PERMISSION_DENIED (modeled as `{queueId}` subcollection doc, canonical id `main`); added optional `note` (type/schema/rules); +emulator coverage (cap-of-4, userId-spoof, note, cross-user queue) | **CLOSED** (`test:rules` GREEN 6 cases; verify GREEN)          |
+| WS3    | 1+2 (re-run) | `12b64b3c`,`323b3703`  | enrichment/history/run-type contracts; provider_quota rules deny; +tests/doc                                                                                                                                           | **CLOSED** (verify green, 34 tests)                            |
+| WS1    | 1+2 (re-run) | `c4978d0e`,`6298b1d7`  | fixed RED gate (react-is@19, rules-unit-testing@5, emulator test relocated); dev-workflow doc; lockfile sync                                                                                                           | **CLOSED** (verify GREEN)                                      |
+| WS2    | 1+2 (re-run) | `098209fc`,`b31ac438`  | constant-time token compare, no key-leak admin init, env-and-deploy doc, auth-domain reconcile                                                                                                                         | **CLOSED** (37 tests); 3 operator-pending `[!]`                |
+| WS6    | 1+2 (re-run) | `59a15a8a`,`e426739a`  | fixed orphaned-run + dry-run-burns-quota bugs; DI seam + idempotency/lifecycle tests; provider-ingestion doc                                                                                                           | **CLOSED** (49 tests); live re-backfill operator-pending `[!]` |
+| WS11   | 1+2 (re-run) | `da44fca1`,`072b172e`  | brand→Abode Alerts (Calendar copy, Austin sample title, `aistudio-build` User-Agent); confirmed no-fake-data/no-stock-media; Stow/44224 defaults; signed-out smoke                                                     | **CLOSED** (verify GREEN, 49 tests)                            |
+| WS10   | 1+2 (re-run) | `d3a7a40d`,`e877b514`  | compact auth chrome: "Sign in" label only, mutually-exclusive sign-in/avatar, `ProfileMenu` (name+Sign out, a11y), removed Connect/logout buttons, icon-only accent picker (no swatch)                                 | **CLOSED** (verify GREEN, 49 tests); signed-out smoke OK       |
 
-Carried forward (NOT in completed-re-run scope; logged for their streams): **WS5** -- `lib/providers/quota.ts` in-memory and mislabeled "daily" (real ~250/MONTH per key); dedupe is provider-id-only, not the composite the roadmap claims. **WS4** -- `compareQueue` write PERMISSION_DENIED in `test:rules` (rules gap). **Operator-pending** -- run `add-auth-domains.ts` + `vercel-listings-check.ts` against prod; GCP budget alert; live 44224 re-backfill + Firestore readback.
+Carried forward (NOT in completed-re-run scope; logged for their streams): **WS5** -- `lib/providers/quota.ts` in-memory and mislabeled "daily" (real ~250/MONTH per key); dedupe is provider-id-only, not the composite the roadmap claims. **Operator-pending** -- run `add-auth-domains.ts` + `vercel-listings-check.ts` against prod; GCP budget alert; live 44224 re-backfill + Firestore readback.
 
 ## Expansion Track
 

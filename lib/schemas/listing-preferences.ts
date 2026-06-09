@@ -4,10 +4,13 @@ import {
   fail,
   isNonEmptyString,
   isObject,
+  isOptionalString,
   isStringArray,
   ok,
   type ValidationResult,
 } from "./common";
+
+const MAX_NOTE_LENGTH = 2000;
 
 const VALID_STATES: ListingUserState[] = ["interested", "notInterested", "favorite", "hidden"];
 
@@ -26,6 +29,8 @@ export function validateListingUserPreference(
   if (!isNonEmptyString(value.listingId, 128)) errors.push("listingId must be a non-empty string");
   if (!isNonEmptyString(value.userId, 128)) errors.push("userId must be a non-empty string");
   if (!isListingUserState(value.state)) errors.push("state must be a valid ListingUserState");
+  if (!isOptionalString(value.note, MAX_NOTE_LENGTH))
+    errors.push(`note must be a string of at most ${MAX_NOTE_LENGTH} characters`);
   if (!isNonEmptyString(value.updatedAt, 64)) errors.push("updatedAt must be a non-empty string");
   if (!isNonEmptyString(value.createdAt, 64)) errors.push("createdAt must be a non-empty string");
 
@@ -33,13 +38,18 @@ export function validateListingUserPreference(
     return fail(errors);
   }
 
-  return ok({
+  const preference: ListingUserPreference = {
     listingId: value.listingId as string,
     userId: value.userId as string,
     state: value.state as ListingUserState,
     updatedAt: value.updatedAt as string,
     createdAt: value.createdAt as string,
-  });
+  };
+  if (typeof value.note === "string") {
+    preference.note = value.note;
+  }
+
+  return ok(preference);
 }
 
 export function validateCompareQueue(value: unknown): ValidationResult<CompareQueue> {

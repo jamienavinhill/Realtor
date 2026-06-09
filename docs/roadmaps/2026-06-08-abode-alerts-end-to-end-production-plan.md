@@ -914,7 +914,7 @@ Implementation tasks:
 
 - [x] Protected routes require `INGEST_JOB_TOKEN` (token in GitHub Actions secret, server-side only). Both `app/api/ingest/daily/route.ts` and `app/api/gmail/watch/route.ts` gate on `INGEST_JOB_TOKEN` via the shared constant-time `validateIngestToken` (`lib/ingest/auth.ts`): 503 when the token is not configured, 401 on missing/wrong token (Bearer or `x-ingest-token`).
 - [x] **Weekly Gmail `watch` re-registration** Action (`.github/workflows/gmail-rewatch.yml`): `schedule: "17 6 * * 1"` (Mondays, well inside Gmail's ~7-day watch expiry) + `workflow_dispatch`. Calls `POST /api/gmail/watch` with `Authorization: Bearer ${{ secrets.INGEST_JOB_TOKEN }}` against `${{ vars.INGEST_BASE_URL }}`. No secrets inline; not a deploy trigger.
-- [x] **Business-hours safety-net poll** Action (`.github/workflows/ingest-poll.yml`): `schedule: "*/15 10-23 * * *"` (UTC; the widest window spanning ET business hours across DST) with a runtime `America/New_York` hour guard that runs only 06:00–19:59 ET and skips the quiet window. Calls `POST /api/ingest/daily?type=poll`; `concurrency` prevents overlapping polls; idempotent against the email pipeline (matches keyed by `alertId_listingId`).
+- [x] **Business-hours safety-net poll** Action (`.github/workflows/ingest-poll.yml`): `schedule: "*/15 0,10-23 * * *"` (UTC; covers ET business hours across DST — hours 10–23 UTC span EDT, and the extra hour 0 UTC catches the final EST evening hour where 19:xx ET = 00:xx UTC) with a runtime `America/New_York` hour guard that runs only 06:00–19:59 ET and skips both the quiet window and the out-of-hours UTC-0 ticks. Calls `POST /api/ingest/daily?type=poll`; `concurrency` prevents overlapping polls; idempotent against the email pipeline (matches keyed by `alertId_listingId`).
 - [x] Periodic zone refresh: `runDailyRefresh` fetches via the WS5 `RealtyApiClient` (which reserves against the durable monthly quota store before each live call), upserts, marks unseen RealtyAPI listings `Off Market`, and **appends a dated price/observation snapshot to each listing's `history[]`** (idempotent within a day — unchanged price/status is a no-op). Injectable deps; `dryRun` performs zero writes.
 - [x] Persist alert-match records (`upsertAlertMatch`, `lib/repositories/matches.ts`) with listing id, alert id, match reason, `firstSeenAt`/`lastSeenAt`, user id; idempotent via the `alertId_listingId` doc id so retries update `lastSeenAt` rather than duplicate.
 - [x] Surface matches via the toast system (WS9 — `success` toast with "Inspect lead") + a UI read path for persisted matches: `components/dashboard.tsx` subscribes to `alert_matches` (owner-scoped `onSnapshot`) and renders them with match reason, so matches are visible after sign-in, not only in-session.
@@ -932,9 +932,11 @@ Operator-pending `[!]` (record, do not fake):
 - [!] Confirm the repo is **public** so the scheduled Actions run on free unlimited minutes.
 - [!] First live re-watch + poll run (and Action-log confirmation of successful `watch` renewal + poll).
 
+Pass-2 audit (WS8 re-run, 2026-06-09, fresh context) — independent re-verification against the live codebase. Confirmed already at spec: token-gated routes (503 unconfigured / 401 missing-or-wrong, constant-time `validateIngestToken`); both Actions use only `secrets.INGEST_JOB_TOKEN` + `vars.INGEST_BASE_URL`, fail visibly on non-2xx, `concurrency` overlap-safe, neither is a deploy trigger; `runDailyRefresh` reserves durable monthly quota per live call, appends same-day-idempotent `history[]`, marks unseen RealtyAPI listings `Off Market`, records `daily`/`poll` `IngestRun` counts/errors and the durable `monthlyRealtyApiCalls`, closes the run `failed` (never left `running`) on a thrown fetch, and dry-run writes nothing; alert matches keyed `alertId_listingId` with `firstSeenAt` preserved on retry; dashboard reads owner-scoped `alert_matches` via `onSnapshot`. One stale doc fact corrected: the poll cron is `*/15 0,10-23 * * *` (not `*/15 10-23 * * *`); the roadmap text above was reconciled to match the shipped workflow (the extra UTC hour 0 covers the EST evening hour). No code changes were required. `npm run verify` green (lint, typecheck, format:check, 116 tests, build); `npm run test:rules` run separately (Firestore emulator).
+
 Suggested verification:
 
-- Protected-route unauthorized request returns 401 (503 when token unconfigured); dry-run produces no writes; idempotent match (no dup on retry); monthly-budget stop closes the run PARTIAL/`failed` and records the monthly total; history append (and same-day idempotence). Covered by `tests/daily-refresh.test.ts` (injected fakes, no live calls). Action YAML validated (schedule expressions, secrets-only token, no inline secrets). `npm run verify` green (lint, typecheck, format:check, 114 tests, build).
+- Protected-route unauthorized request returns 401 (503 when token unconfigured); dry-run produces no writes; idempotent match (no dup on retry); monthly-budget stop closes the run PARTIAL/`failed` and records the monthly total; history append (and same-day idempotence). Covered by `tests/daily-refresh.test.ts` (injected fakes, no live calls). Action YAML validated (schedule expressions, secrets-only token, no inline secrets). `npm run verify` green (lint, typecheck, format:check, 116 tests, build).
 
 ## Workstream 9: Toast Notification System
 
@@ -1433,20 +1435,20 @@ Directive: drive the ENTIRE roadmap to completion -- exhausted, verified, polish
 
 ### Forward streams (in progress / pending)
 
-| Stream                                                            | Status                                                                                                       |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| WS5 RealtyAPI + search adapters                                   | CLOSED `2529a462`,`58c1b4ee` (persisted monthly quota; google-search adapter; composite dedupe; 74 tests)    |
-| WS9 toast system                                                  | CLOSED `55731441`,`e9699ec3` (portal toast host; banner removed; no-shift smoke 5/5)                         |
-| WS7 email-triggered ingestion + multiselect                       | CLOSED `6836b75f`,`c5fe5647` (connect/watch/push/scan routes; OIDC+AES-GCM; multiselect; 105 tests, rules 8) |
-| WS8 refresh/alert eval + re-watch/poll + monthly quota accounting | pass 1 landed `f58fd7b7`; pass 2 next |
-| WS12 compact listing dialog + actions                             | pending (needs WS4, WS9)                                                                                     |
-| WS13 CMA analytics rebuild                                        | pending (needs WS6, WS12)                                                                                    |
-| WS14 docs layout + content                                        | pending                                                                                                      |
-| WS15 product flows / metadata / page wiring                       | pending (needs WS8/WS12/WS13)                                                                                |
-| WS18 account sharing                                              | pending (needs WS16 rules)                                                                                   |
-| WS16 auth/rules/secret hardening                                  | pending (needs WS18)                                                                                         |
-| WS19 repository structure & root hygiene (relocate Firebase/config files) | pending (after WS16/WS18 rules settle) |
-| WS17 tests/CI/release gate + production smoke                     | pending (last)                                                                                               |
+| Stream                                                                    | Status                                                                                                              |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| WS5 RealtyAPI + search adapters                                           | CLOSED `2529a462`,`58c1b4ee` (persisted monthly quota; google-search adapter; composite dedupe; 74 tests)           |
+| WS9 toast system                                                          | CLOSED `55731441`,`e9699ec3` (portal toast host; banner removed; no-shift smoke 5/5)                                |
+| WS7 email-triggered ingestion + multiselect                               | CLOSED `6836b75f`,`c5fe5647` (connect/watch/push/scan routes; OIDC+AES-GCM; multiselect; 105 tests, rules 8)        |
+| WS8 refresh/alert eval + re-watch/poll + monthly quota accounting         | pass 1 `f58fd7b7`; pass-2 audit 2026-06-09 (code at spec; stale poll-cron doc fact reconciled); operator `[!]` only |
+| WS12 compact listing dialog + actions                                     | pending (needs WS4, WS9)                                                                                            |
+| WS13 CMA analytics rebuild                                                | pending (needs WS6, WS12)                                                                                           |
+| WS14 docs layout + content                                                | pending                                                                                                             |
+| WS15 product flows / metadata / page wiring                               | pending (needs WS8/WS12/WS13)                                                                                       |
+| WS18 account sharing                                                      | pending (needs WS16 rules)                                                                                          |
+| WS16 auth/rules/secret hardening                                          | pending (needs WS18)                                                                                                |
+| WS19 repository structure & root hygiene (relocate Firebase/config files) | pending (after WS16/WS18 rules settle)                                                                              |
+| WS17 tests/CI/release gate + production smoke                             | pending (last)                                                                                                      |
 
 Operator-pending (account/dashboard, cannot be done in code): run `add-auth-domains.ts` + `vercel-listings-check.ts` against prod; GCP budget alert; live 44224 re-backfill + Firestore readback; Gmail `watch`/Pub/Sub registration; OAuth consent-screen scopes/verification.
 

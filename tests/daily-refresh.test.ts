@@ -291,6 +291,37 @@ test("monthly-budget stop: an exhausted-key partial fetch closes the run as part
   assert.equal(result.monthlyRealtyApiCalls, 250);
 });
 
+test("a thrown fetch closes the run as failed (never left running) and does not reject", async () => {
+  const { deps, rec } = makeDeps({
+    fetch: async () => {
+      throw new Error("RealtyAPI 500");
+    },
+  });
+
+  const result = await runDailyRefresh({ deps });
+
+  assert.equal(result.status, "failed");
+  assert.ok(result.errors.some((e) => e.includes("RealtyAPI 500")));
+  // The run must be opened (running) then closed (failed) — never stuck running.
+  assert.equal(rec.createIngestRun[0].status, "running");
+  assert.equal(rec.updateIngestRun.length, 1, "the run must be closed out");
+  assert.equal(rec.updateIngestRun[0].status, "failed");
+});
+
+test("a thrown error during a dry-run writes no run record", async () => {
+  const { deps, rec } = makeDeps({
+    fetch: async () => {
+      throw new Error("RealtyAPI 500");
+    },
+  });
+
+  const result = await runDailyRefresh({ dryRun: true, deps });
+
+  assert.equal(result.status, "failed");
+  assert.equal(rec.createIngestRun.length, 0, "dry-run must not open a run record");
+  assert.equal(rec.updateIngestRun.length, 0, "dry-run must not write a run record");
+});
+
 test("a clean refresh closes the run as completed and surfaces per-run + monthly quota", async () => {
   const { deps, rec } = makeDeps({
     fetch: async () => fetchResult([listing()]),

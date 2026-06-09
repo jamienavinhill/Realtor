@@ -11,6 +11,13 @@ name: Ingest safety-net poll
 # ET business hours across DST, and a runtime America/New_York hour guard enforces the
 # exact 6am-8pm window (and skips overnight) regardless of EST/EDT.
 #
+# DST coverage: the active ET window is 06:00-19:59 (guard hours 6-19 inclusive).
+#   - EDT (UTC-4): 06:00 ET = 10:00 UTC ... 19:59 ET = 23:59 UTC.
+#   - EST (UTC-5): 06:00 ET = 11:00 UTC ... 19:59 ET = 00:59 UTC (next day).
+# The union is UTC hours 10-23 PLUS hour 0, so the EST evening hour (19:xx ET = 00:xx
+# UTC) is not missed. The runtime guard trims the UTC-0 ticks that fall outside ET
+# business hours (e.g. they are quiet-window in EDT), so no out-of-hours poll fires.
+#
 # This is NOT a deploy trigger.
 #
 # Required repository configuration (never inline secrets):
@@ -19,9 +26,11 @@ name: Ingest safety-net poll
 
 on:
   schedule:
-    # Every 15 minutes during UTC 10:00-23:59. This spans 6am-8pm EDT (UTC-4) and
-    # 5am-7pm EST (UTC-5); the runtime guard below trims it to exactly 6am-8pm ET.
-    - cron: "*/15 10-23 * * *"
+    # Every 15 minutes during UTC hours 0 and 10-23. Covers 6am-8pm ET across DST:
+    # 10-23 UTC spans EDT business hours; the extra hour 0 UTC covers the final EST
+    # evening hour (19:xx ET = 00:xx UTC). The runtime guard below trims it to exactly
+    # 6am-8pm ET regardless of EST/EDT.
+    - cron: "*/15 0,10-23 * * *"
   workflow_dispatch: {}
 
 permissions:

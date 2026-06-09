@@ -184,142 +184,176 @@ export async function runDailyRefresh(
     await deps.createIngestRun(initialRun);
   }
 
-  const client = deps.createClient(env.realtyApiKeys);
-  const fetchResult: ProviderFetchResult = await client.fetchAllActiveListings(
-    {
-      location: BASELINE_ZIP,
-      radiusMiles: BASELINE_RADIUS_MILES,
-      centerLat: BASELINE_CENTER.lat,
-      centerLng: BASELINE_CENTER.lng,
-      zipCode: BASELINE_ZIP,
-    },
-    { providerRunId: runId },
-  );
-
-  // Append a dated price/observation snapshot to each fetched listing before upsert so
-  // the durable record accrues a time-series on every refresh (WS3 history contract).
-  let existingById = new Map<string, ListingProperty>();
   try {
-    const active = await deps.listActiveListings();
-    existingById = new Map(active.map((listing) => [listing.id, listing]));
-  } catch (error) {
-    fetchResult.stats.errors.push(
-      error instanceof Error
-        ? `History snapshot read skipped: ${error.message}`
-        : "History snapshot read skipped: unknown error",
+    const client = deps.createClient(env.realtyApiKeys);
+    const fetchResult: ProviderFetchResult = await client.fetchAllActiveListings(
+      {
+        location: BASELINE_ZIP,
+        radiusMiles: BASELINE_RADIUS_MILES,
+        centerLat: BASELINE_CENTER.lat,
+        centerLng: BASELINE_CENTER.lng,
+        zipCode: BASELINE_ZIP,
+      },
+      { providerRunId: runId },
     );
-  }
 
-  const listingsWithHistory: ListingProperty[] = fetchResult.listings.map((listing) => ({
-    ...listing,
-    history: appendHistorySnapshot(existingById.get(listing.id), listing, startedAt),
-  }));
-
-  const upsertResult = await deps.upsertListings(listingsWithHistory, {
-    dryRun: options.dryRun,
-    skipDedupeLookup: true,
-  });
-
-  const refreshedIds = new Set(fetchResult.listings.map((listing) => listing.id));
-  let staleMarked = 0;
-  try {
-    staleMarked = await markStaleListings(deps, refreshedIds, startedAt, options);
-  } catch (error) {
-    fetchResult.stats.errors.push(
-      error instanceof Error
-        ? `Stale listing scan skipped: ${error.message}`
-        : "Stale listing scan skipped: unknown error",
-    );
-  }
-
-  let alerts: PropertyAlert[] = [];
-  try {
-    alerts = await deps.listActiveAlerts();
-  } catch (error) {
-    fetchResult.stats.errors.push(
-      error instanceof Error
-        ? `Alert evaluation skipped: ${error.message}`
-        : "Alert evaluation skipped: unknown error",
-    );
-  }
-
-  const evaluation = evaluateAlertsForListings(alerts, fetchResult.listings, startedAt);
-
-  let alertMatchesCreated = 0;
-  let alertMatchesUpdated = 0;
-
-  for (const match of evaluation.matches as AlertMatch[]) {
+    // Append a dated price/observation snapshot to each fetched listing before upsert so
+    // the durable record accrues a time-series on every refresh (WS3 history contract).
+    let existingById = new Map<string, ListingProperty>();
     try {
-      const result = await deps.upsertAlertMatch(match, { dryRun: options.dryRun });
-      if (result.created) {
-        alertMatchesCreated += 1;
-      } else {
-        alertMatchesUpdated += 1;
-      }
+      const active = await deps.listActiveListings();
+      existingById = new Map(active.map((listing) => [listing.id, listing]));
     } catch (error) {
       fetchResult.stats.errors.push(
         error instanceof Error
-          ? `Alert match ${match.id}: ${error.message}`
-          : `Alert match ${match.id}: unknown error`,
+          ? `History snapshot read skipped: ${error.message}`
+          : "History snapshot read skipped: unknown error",
       );
     }
-  }
 
-  const errors = [...fetchResult.stats.errors, ...upsertResult.errors];
-  if (staleMarked > 0) {
-    errors.push(`Marked ${staleMarked} stale RealtyAPI listings as Off Market.`);
-  }
+    const listingsWithHistory: ListingProperty[] = fetchResult.listings.map((listing) => ({
+      ...listing,
+      history: appendHistorySnapshot(existingById.get(listing.id), listing, startedAt),
+    }));
 
-  // Running monthly RealtyAPI total across all keys (durable budget). Read-only; a
-  // failure here must not fail the refresh, so it degrades to undefined.
-  let monthlyRealtyApiCalls: number | undefined;
-  try {
-    const quotaMonth = await deps.quotaStore.read();
-    monthlyRealtyApiCalls = quotaMonth?.totalSpent;
+    const upsertResult = await deps.upsertListings(listingsWithHistory, {
+      dryRun: options.dryRun,
+      skipDedupeLookup: true,
+    });
+
+    const refreshedIds = new Set(fetchResult.listings.map((listing) => listing.id));
+    let staleMarked = 0;
+    try {
+      staleMarked = await markStaleListings(deps, refreshedIds, startedAt, options);
+    } catch (error) {
+      fetchResult.stats.errors.push(
+        error instanceof Error
+          ? `Stale listing scan skipped: ${error.message}`
+          : "Stale listing scan skipped: unknown error",
+      );
+    }
+
+    let alerts: PropertyAlert[] = [];
+    try {
+      alerts = await deps.listActiveAlerts();
+    } catch (error) {
+      fetchResult.stats.errors.push(
+        error instanceof Error
+          ? `Alert evaluation skipped: ${error.message}`
+          : "Alert evaluation skipped: unknown error",
+      );
+    }
+
+    const evaluation = evaluateAlertsForListings(alerts, fetchResult.listings, startedAt);
+
+    let alertMatchesCreated = 0;
+    let alertMatchesUpdated = 0;
+
+    for (const match of evaluation.matches as AlertMatch[]) {
+      try {
+        const result = await deps.upsertAlertMatch(match, { dryRun: options.dryRun });
+        if (result.created) {
+          alertMatchesCreated += 1;
+        } else {
+          alertMatchesUpdated += 1;
+        }
+      } catch (error) {
+        fetchResult.stats.errors.push(
+          error instanceof Error
+            ? `Alert match ${match.id}: ${error.message}`
+            : `Alert match ${match.id}: unknown error`,
+        );
+      }
+    }
+
+    const errors = [...fetchResult.stats.errors, ...upsertResult.errors];
+    if (staleMarked > 0) {
+      errors.push(`Marked ${staleMarked} stale RealtyAPI listings as Off Market.`);
+    }
+
+    // Running monthly RealtyAPI total across all keys (durable budget). Read-only; a
+    // failure here must not fail the refresh, so it degrades to undefined.
+    let monthlyRealtyApiCalls: number | undefined;
+    try {
+      const quotaMonth = await deps.quotaStore.read();
+      monthlyRealtyApiCalls = quotaMonth?.totalSpent;
+    } catch (error) {
+      errors.push(
+        error instanceof Error
+          ? `Monthly quota readback skipped: ${error.message}`
+          : "Monthly quota readback skipped: unknown error",
+      );
+    }
+
+    const finishedAt = new Date().toISOString();
+    const status: IngestRun["status"] =
+      errors.length > 0 && upsertResult.upserted === 0
+        ? "failed"
+        : errors.length > 0
+          ? "partial"
+          : "completed";
+
+    const finalRun: Partial<IngestRun> = {
+      status,
+      finishedAt,
+      keyAliasesUsed: fetchResult.stats.keyAliasesUsed,
+      quotaUsed: fetchResult.stats.quotaUsed,
+      listingsFetched: fetchResult.stats.listingsFetched,
+      listingsUpserted: upsertResult.upserted,
+      listingsSkipped: upsertResult.skipped,
+      alertMatchesCreated,
+      alertMatchesUpdated,
+      errors,
+    };
+
+    if (!options.dryRun) {
+      await deps.updateIngestRun(runId, finalRun, { ...initialRun, ...finalRun, id: runId });
+    }
+
+    return {
+      runId,
+      type: runType,
+      status,
+      listingsFetched: fetchResult.stats.listingsFetched,
+      listingsUpserted: upsertResult.upserted,
+      alertMatchesCreated,
+      alertMatchesUpdated,
+      quotaUsed: fetchResult.stats.quotaUsed,
+      monthlyRealtyApiCalls,
+      errors,
+      dryRun: Boolean(options.dryRun),
+    };
   } catch (error) {
-    errors.push(
-      error instanceof Error
-        ? `Monthly quota readback skipped: ${error.message}`
-        : "Monthly quota readback skipped: unknown error",
-    );
+    // A thrown fetch/upsert error must not leave the run stuck in "running" forever
+    // (mirror the WS6 backfill fix). Close the run as failed best-effort and surface
+    // the original error to the caller.
+    const message = error instanceof Error ? error.message : String(error);
+    const finishedAt = new Date().toISOString();
+    const finalRun: Partial<IngestRun> = {
+      status: "failed",
+      finishedAt,
+      errors: [message],
+    };
+
+    if (!options.dryRun) {
+      try {
+        await deps.updateIngestRun(runId, finalRun, { ...initialRun, ...finalRun, id: runId });
+      } catch {
+        // Best-effort run-status update; surface the original failure regardless.
+      }
+    }
+
+    return {
+      runId,
+      type: runType,
+      status: "failed",
+      listingsFetched: 0,
+      listingsUpserted: 0,
+      alertMatchesCreated: 0,
+      alertMatchesUpdated: 0,
+      quotaUsed: {},
+      errors: [message],
+      dryRun: Boolean(options.dryRun),
+    };
   }
-
-  const finishedAt = new Date().toISOString();
-  const status: IngestRun["status"] =
-    errors.length > 0 && upsertResult.upserted === 0
-      ? "failed"
-      : errors.length > 0
-        ? "partial"
-        : "completed";
-
-  const finalRun: Partial<IngestRun> = {
-    status,
-    finishedAt,
-    keyAliasesUsed: fetchResult.stats.keyAliasesUsed,
-    quotaUsed: fetchResult.stats.quotaUsed,
-    listingsFetched: fetchResult.stats.listingsFetched,
-    listingsUpserted: upsertResult.upserted,
-    listingsSkipped: upsertResult.skipped,
-    alertMatchesCreated,
-    alertMatchesUpdated,
-    errors,
-  };
-
-  if (!options.dryRun) {
-    await deps.updateIngestRun(runId, finalRun, { ...initialRun, ...finalRun, id: runId });
-  }
-
-  return {
-    runId,
-    type: runType,
-    status,
-    listingsFetched: fetchResult.stats.listingsFetched,
-    listingsUpserted: upsertResult.upserted,
-    alertMatchesCreated,
-    alertMatchesUpdated,
-    quotaUsed: fetchResult.stats.quotaUsed,
-    monthlyRealtyApiCalls,
-    errors,
-    dryRun: Boolean(options.dryRun),
-  };
 }

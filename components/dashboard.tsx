@@ -1000,7 +1000,9 @@ export default function Dashboard() {
         )}
 
         {activeTab === "docs" && <DocsView />}
-        {activeTab === "cma" && <CMAView properties={properties} />}
+        {activeTab === "cma" && (
+          <CMAView properties={properties} prefs={gridPrefs} isSignedIn={Boolean(user)} />
+        )}
         {activeTab === "wizard" && <AlertsWizardView />}
 
         {activeTab === "harvester" && (

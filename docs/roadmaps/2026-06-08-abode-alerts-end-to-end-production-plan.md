@@ -1101,7 +1101,7 @@ Goal: Balanced analytics layout with paginated/sorted tables and additional char
 
 Depends on:
 
-- [ ] WS6 baseline data; WS4 (optional row actions); WS12 dialog reuse.
+- [x] WS6 baseline data; WS4 (optional row actions); WS12 dialog reuse.
 
 Enables:
 
@@ -1109,24 +1109,30 @@ Enables:
 
 Primary areas:
 
-- `components/views/CMAView.tsx`, `components/ui/data-table.tsx` (new reusable paginated table)
+- `components/views/CMAView.tsx`, `components/ui/data-table.tsx` (reusable paginated table), `lib/cma/analytics.ts` (pure sort/pagination/derived-metric helpers)
 
 Implementation tasks:
 
-- [ ] Extract a reusable `DataTable` with column sort and page size default **10**, options **20 / 30 / 100**; apply to all CMA tables.
-- [ ] Reflow layout: charts row on top, table full width below (or tabbed Charts | Data); fix the awkward side-by-side chart/table.
-- [ ] Add charts: price distribution histogram, $/sqft by type, listings by city (top N), property-type mix, status breakdown — Firestore inventory only.
-- [ ] Replace the three oversized metric cards with compact metric chips.
-- [ ] Row click opens the listing dialog; add a compare checkbox column and drill-down/filter affordances.
+- [x] Extract a reusable `DataTable` with column sort and page size default **10**, options **20 / 30 / 100**; apply to all CMA tables. (`components/ui/data-table.tsx`; sort/pagination logic in `lib/cma/analytics.ts`.)
+- [x] Reflow layout: charts row on top, table full width below (or tabbed Charts | Data); fix the awkward side-by-side chart/table. (Tabbed Charts | Data; full-width table.)
+- [x] Add charts: price distribution histogram, $/sqft by type, listings by city (top N), property-type mix, status breakdown — Firestore inventory only. (All five render; honest "Not enough data" empty states; status breakdown spans full inventory.)
+- [x] Replace the three oversized metric cards with compact metric chips. (Six compact chips: Active, Avg price, Median, Avg $/sqft, Low, High.)
+- [x] Row click opens the listing dialog; add a compare checkbox column and drill-down/filter affordances. (Row click opens a compact drill-down reusing the shared WS12 `Dialog`; compare checkbox column wired to the WS4 compare queue, cap enforced by `useListingPreferences`.)
 
 Exit criteria:
 
-- [ ] The ~88-listing table paginates at 10 rows default and sorts by price.
-- [ ] Layout is balanced with multiple charts; no oversized metric strips.
+- [x] The ~88-listing table paginates at 10 rows default and sorts by price. (Browser smoke: default page size 10, "Page 1 of 9" across 88 listings, price column sorts.)
+- [x] Layout is balanced with multiple charts; no oversized metric strips. (Charts | Data tabs; compact metric chips replace the three large cards.)
 
 Suggested verification:
 
 - Browser CMA smoke; unit test for sort/pagination helpers.
+
+Verification (2026-06-09, pass 1):
+
+- `tests/cma-analytics.test.ts` — 29 unit tests for sort (stable, asc/desc, locale-numeric), pagination (clamp/empty/short last page/large sizes), and derived metrics/chart builders (median, $/sqft honest nulls, histogram spread guard, top-N city grouping). All pass.
+- `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm run build`, and full `npm run test` (152 tests) green.
+- Playwright CMA smoke against real Firestore inventory (88 active listings): heading + compact chips render, 11 recharts surfaces draw, Data tab defaults to 10 rows ("1–10 of 88", "Page 1 of 9"), price column sortable and reorders, no console errors. Compare column appears only when signed in (per-user WS4 queue).
 
 ## Workstream 14: Docs Layout And Content Expansion
 

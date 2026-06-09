@@ -14,7 +14,14 @@ async function main() {
 
   const dryRun = process.argv.includes("--dry-run");
 
-  console.log(`Starting 44224 backfill${dryRun ? " (dry run)" : ""}...`);
+  if (dryRun) {
+    console.log(
+      "Starting 44224 backfill (dry run): env validated, no Firestore writes and no live " +
+        "RealtyAPI calls (preserves the scarce monthly provider budget).",
+    );
+  } else {
+    console.log("Starting 44224 backfill...");
+  }
 
   const result = await runBackfill44224({ dryRun });
 
@@ -22,6 +29,7 @@ async function main() {
     JSON.stringify(
       {
         runId: result.runId,
+        status: result.status,
         dryRun: result.dryRun,
         listingsFetched: result.listingsFetched,
         listingsUpserted: result.listingsUpserted,
@@ -34,7 +42,7 @@ async function main() {
     ),
   );
 
-  if (result.errors.length > 0 && result.listingsUpserted === 0) {
+  if (result.status === "failed") {
     process.exitCode = 1;
   }
 }

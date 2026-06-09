@@ -13,6 +13,7 @@ export interface BackfillOptions {
 
 export interface BackfillResult {
   runId: string;
+  status: IngestRun["status"];
   listingsFetched: number;
   listingsUpserted: number;
   listingsSkipped: number;
@@ -46,56 +47,93 @@ export async function runBackfill44224(options: BackfillOptions = {}): Promise<B
     errors: [],
   };
 
-  if (!options.dryRun) {
-    await createIngestRun(initialRun);
+  // Dry run is a side-effect-free preview: it must neither write to Firestore nor
+  // spend the scarce RealtyAPI monthly budget (~250 req/MONTH per key). It validates
+  // env + run wiring and reports that no live fetch or write was performed.
+  if (options.dryRun) {
+    return {
+      runId,
+      status: "completed",
+      listingsFetched: 0,
+      listingsUpserted: 0,
+      listingsSkipped: 0,
+      errors: [],
+      dryRun: true,
+    };
   }
 
-  const client = new RealtyApiClient(env.realtyApiKeys);
-  const fetchResult = await client.fetchAllActiveListings(
-    {
-      location: BASELINE_ZIP,
-      radiusMiles: BASELINE_RADIUS_MILES,
-      centerLat: BASELINE_CENTER.lat,
-      centerLng: BASELINE_CENTER.lng,
-      zipCode: BASELINE_ZIP,
-    },
-    { providerRunId: runId },
-  );
+  await createIngestRun(initialRun);
 
-  const upsertResult = await upsertListings(fetchResult.listings, {
-    dryRun: options.dryRun,
-  });
+  try {
+    const client = new RealtyApiClient(env.realtyApiKeys);
+    const fetchResult = await client.fetchAllActiveListings(
+      {
+        location: BASELINE_ZIP,
+        radiusMiles: BASELINE_RADIUS_MILES,
+        centerLat: BASELINE_CENTER.lat,
+        centerLng: BASELINE_CENTER.lng,
+        zipCode: BASELINE_ZIP,
+      },
+      { providerRunId: runId },
+    );
 
-  const errors = [...fetchResult.stats.errors, ...upsertResult.errors];
-  const finishedAt = new Date().toISOString();
-  const status: IngestRun["status"] =
-    errors.length > 0 && upsertResult.upserted === 0
-      ? "failed"
-      : errors.length > 0
-        ? "partial"
-        : "completed";
+    const upsertResult = await upsertListings(fetchResult.listings);
 
-  const finalRun: Partial<IngestRun> = {
-    status,
-    finishedAt,
-    keyAliasesUsed: fetchResult.stats.keyAliasesUsed,
-    quotaUsed: fetchResult.stats.quotaUsed,
-    listingsFetched: fetchResult.stats.listingsFetched,
-    listingsUpserted: upsertResult.upserted,
-    listingsSkipped: upsertResult.skipped,
-    errors,
-  };
+    const errors = [...fetchResult.stats.errors, ...upsertResult.errors];
+    const finishedAt = new Date().toISOString();
+    const status: IngestRun["status"] =
+      errors.length > 0 && upsertResult.upserted === 0
+        ? "failed"
+        : errors.length > 0
+          ? "partial"
+          : "completed";
 
-  if (!options.dryRun) {
+    const finalRun: Partial<IngestRun> = {
+      status,
+      finishedAt,
+      keyAliasesUsed: fetchResult.stats.keyAliasesUsed,
+      quotaUsed: fetchResult.stats.quotaUsed,
+      listingsFetched: fetchResult.stats.listingsFetched,
+      listingsUpserted: upsertResult.upserted,
+      listingsSkipped: upsertResult.skipped,
+      errors,
+    };
+
     await updateIngestRun(runId, finalRun, { ...initialRun, ...finalRun, id: runId });
-  }
 
-  return {
-    runId,
-    listingsFetched: fetchResult.stats.listingsFetched,
-    listingsUpserted: upsertResult.upserted,
-    listingsSkipped: upsertResult.skipped,
-    errors,
-    dryRun: Boolean(options.dryRun),
-  };
+    return {
+      runId,
+      status,
+      listingsFetched: fetchResult.stats.listingsFetched,
+      listingsUpserted: upsertResult.upserted,
+      listingsSkipped: upsertResult.skipped,
+      errors,
+      dryRun: false,
+    };
+  } catch (error) {
+    // A thrown fetch/upsert error must not leave the run stuck in "running" forever.
+    const message = error instanceof Error ? error.message : String(error);
+    const finishedAt = new Date().toISOString();
+    const finalRun: Partial<IngestRun> = {
+      status: "failed",
+      finishedAt,
+      errors: [message],
+    };
+
+    try {
+      await updateIngestRun(runId, finalRun, { ...initialRun, ...finalRun, id: runId });
+    } catch {
+      // Best-effort run-status update; surface the original failure regardless.
+    }
+
+    return {
+      runId,
+      status: "failed",
+      listingsFetched: 0,
+      listingsUpserted: 0,
+      listingsSkipped: 0,
+      errors: [message],
+      dryRun: false,
+    };
+  }
 }

@@ -656,7 +656,8 @@ Implementation tasks:
 
 - [x] Add a runtime schema library or handwritten validators for listing, media, alert, and ingest-run payloads.
 - [x] Expand listing contract with `sourceProvider`, `sourceUrl`, `sourceListingId`, `sourceUpdatedAt`, `ingestedAt`, `provenance`, `media[]`, `rawHash`, `dedupeKey`, `radiusCenter`, and `distanceMiles`.
-- [x] Define provider run records with status, started/finished timestamps, key alias, quota used, result counts, error counts, and idempotency key.
+- [x] Add backward-compatible additive extensions: `enrichment` (cited `sources[]`, schools, neighborhood, walkability, `realtyApiDetailFetchedAt`) and `history[]` (dated price/status trail), with handwritten validators that reject malformed citations.
+- [x] Define provider run records with status, started/finished timestamps, key alias, quota used, result counts, error counts, and idempotency key; extend `IngestRun.type` to `backfill | daily | email | poll` for the email/poll pipelines.
 - [x] Add env validation for `GEMINI_API_KEY`, `REALTY_API_KEYS`, `INGEST_JOB_TOKEN`, `FIREBASE_SERVICE_ACCOUNT_JSON`, optional `GOOGLE_SEARCH_API_KEY` / `GOOGLE_SEARCH_ENGINE_ID`, and optional Firebase env promotion values.
 - [x] Write repository functions for listings, alerts, and ingest runs.
 - [x] Document schema ownership and migrations in `docs/architecture/data-model.md`.
@@ -1270,6 +1271,12 @@ Required before marking this plan complete:
 21. [ ] **WS16** — Harden auth/security rules, OAuth token persistence, sharing rules, and production envs.
 22. [ ] **WS17** — Tests/CI/release gate and complete production smoke.
 23. [ ] Promote lasting rules to durable docs and retire the two superseded roadmaps.
+
+## Orchestrator Checkpoints
+
+| Agent / pass | Workstream | Ownership                                                                                        | Dispatched | Status            | Next action         |
+| ------------ | ---------- | ------------------------------------------------------------------------------------------------ | ---------- | ----------------- | ------------------- |
+| orchestrator | WS4 pass 1 | `types/`, `lib/schemas/`, `lib/repositories/listing-preferences.ts`, `firestore.rules`, `tests/` | 2026-06-09 | landed `10b541e6` | Dispatch WS4 pass 2 |
 
 ## Expansion Track
 

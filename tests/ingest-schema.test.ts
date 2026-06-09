@@ -34,3 +34,12 @@ test("validateIngestRun rejects invalid status and quotaUsed", () => {
   const badQuota = validateIngestRun({ ...validRun, quotaUsed: { bad_key: -1 } });
   assert.equal(badQuota.success, false);
 });
+
+test("validateIngestRun accepts email and poll run types", () => {
+  assert.equal(validateIngestRun({ ...validRun, type: "email" }).success, true);
+  assert.equal(validateIngestRun({ ...validRun, type: "poll" }).success, true);
+});
+
+test("validateIngestRun rejects an unknown run type", () => {
+  assert.equal(validateIngestRun({ ...validRun, type: "sweep" }).success, false);
+});

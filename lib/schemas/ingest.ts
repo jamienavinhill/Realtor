@@ -1,4 +1,4 @@
-import type { IngestRun, RadiusCenter } from "@/types/listings";
+import type { IngestRun, IngestRunType, RadiusCenter } from "@/types/listings";
 import {
   fail,
   isNonEmptyString,
@@ -59,9 +59,11 @@ export function validateIngestRun(value: unknown): ValidationResult<IngestRun> {
 
   const errors: string[] = [];
 
+  const validRunTypes: IngestRunType[] = ["backfill", "daily", "email", "poll"];
+
   if (!isNonEmptyString(value.id, 128)) errors.push("id must be a non-empty string");
-  if (value.type !== "backfill" && value.type !== "daily") {
-    errors.push("type must be backfill or daily");
+  if (typeof value.type !== "string" || !validRunTypes.includes(value.type as IngestRunType)) {
+    errors.push("type must be backfill, daily, email, or poll");
   }
   if (
     value.status !== "running" &&

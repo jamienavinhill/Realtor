@@ -1,4 +1,8 @@
 import type {
+  ListingEnrichment,
+  ListingEnrichmentSchool,
+  ListingEnrichmentSource,
+  ListingHistoryEntry,
   ListingMedia,
   ListingProperty,
   ListingProvenance,
@@ -15,6 +19,8 @@ import {
   ok,
   type ValidationResult,
 } from "./common";
+
+const ENRICHMENT_PROVIDERS = ["gemini", "google-search", "web"] as const;
 
 function validateMediaItem(value: unknown): ValidationResult<ListingMedia> {
   if (!isObject(value)) {
@@ -97,6 +103,162 @@ function validateRadiusCenter(value: unknown): ValidationResult<RadiusCenter> {
   });
 }
 
+function validateEnrichmentSource(value: unknown): ValidationResult<ListingEnrichmentSource> {
+  if (!isObject(value)) {
+    return fail(["enrichment source must be an object"]);
+  }
+
+  const errors: string[] = [];
+  if (!isNonEmptyString(value.field, 100)) {
+    errors.push("enrichment source.field must be a non-empty string");
+  }
+  if (!isNonEmptyString(value.url, 2000)) {
+    errors.push("enrichment source.url must be a non-empty string");
+  }
+  if (
+    typeof value.provider !== "string" ||
+    !ENRICHMENT_PROVIDERS.includes(value.provider as ListingEnrichmentSource["provider"])
+  ) {
+    errors.push("enrichment source.provider must be gemini, google-search, or web");
+  }
+  if (!isNonEmptyString(value.fetchedAt, 64)) {
+    errors.push("enrichment source.fetchedAt must be a non-empty string");
+  }
+
+  if (errors.length > 0) {
+    return fail(errors);
+  }
+
+  return ok({
+    field: value.field as string,
+    url: value.url as string,
+    provider: value.provider as ListingEnrichmentSource["provider"],
+    fetchedAt: value.fetchedAt as string,
+  });
+}
+
+function validateEnrichmentSchool(value: unknown): ValidationResult<ListingEnrichmentSchool> {
+  if (!isObject(value)) {
+    return fail(["enrichment school must be an object"]);
+  }
+
+  const errors: string[] = [];
+  if (!isNonEmptyString(value.name, 200)) {
+    errors.push("enrichment school.name must be a non-empty string");
+  }
+  if (value.rating !== undefined && !isOptionalNumber(value.rating)) {
+    errors.push("enrichment school.rating must be a number >= 0 when provided");
+  }
+  if (!isNonEmptyString(value.sourceUrl, 2000)) {
+    errors.push("enrichment school.sourceUrl must be a non-empty string");
+  }
+
+  if (errors.length > 0) {
+    return fail(errors);
+  }
+
+  return ok({
+    name: value.name as string,
+    rating: value.rating as number | undefined,
+    sourceUrl: value.sourceUrl as string,
+  });
+}
+
+function validateEnrichment(value: unknown): ValidationResult<ListingEnrichment> {
+  if (!isObject(value)) {
+    return fail(["enrichment must be an object"]);
+  }
+
+  const errors: string[] = [];
+
+  if (value.neighborhood !== undefined && !isOptionalString(value.neighborhood, 5000)) {
+    errors.push("enrichment.neighborhood must be a string when provided");
+  }
+  if (value.walkability !== undefined && !isOptionalNumber(value.walkability)) {
+    errors.push("enrichment.walkability must be a number >= 0 when provided");
+  }
+  if (value.commuteNotes !== undefined && !isOptionalString(value.commuteNotes, 2000)) {
+    errors.push("enrichment.commuteNotes must be a string when provided");
+  }
+  if (
+    value.realtyApiDetailFetchedAt !== undefined &&
+    !isOptionalString(value.realtyApiDetailFetchedAt, 64)
+  ) {
+    errors.push("enrichment.realtyApiDetailFetchedAt must be a string when provided");
+  }
+  if (value.schools !== undefined && !Array.isArray(value.schools)) {
+    errors.push("enrichment.schools must be an array when provided");
+  }
+  if (!Array.isArray(value.sources)) {
+    errors.push("enrichment.sources must be an array");
+  }
+
+  if (errors.length > 0) {
+    return fail(errors);
+  }
+
+  let schools: ListingEnrichmentSchool[] | undefined;
+  if (value.schools !== undefined) {
+    schools = [];
+    for (const item of value.schools as unknown[]) {
+      const schoolResult = validateEnrichmentSchool(item);
+      if (!schoolResult.success) {
+        return fail(schoolResult.errors.map((error) => `enrichment.schools: ${error}`));
+      }
+      schools.push(schoolResult.data);
+    }
+  }
+
+  const sources: ListingEnrichmentSource[] = [];
+  for (const item of value.sources as unknown[]) {
+    const sourceResult = validateEnrichmentSource(item);
+    if (!sourceResult.success) {
+      return fail(sourceResult.errors.map((error) => `enrichment.sources: ${error}`));
+    }
+    sources.push(sourceResult.data);
+  }
+
+  return ok({
+    schools,
+    neighborhood: value.neighborhood as string | undefined,
+    walkability: value.walkability as number | undefined,
+    commuteNotes: value.commuteNotes as string | undefined,
+    sources,
+    realtyApiDetailFetchedAt: value.realtyApiDetailFetchedAt as string | undefined,
+  });
+}
+
+function validateHistoryEntry(value: unknown): ValidationResult<ListingHistoryEntry> {
+  if (!isObject(value)) {
+    return fail(["history entry must be an object"]);
+  }
+
+  const errors: string[] = [];
+  if (!isNonEmptyString(value.observedAt, 64)) {
+    errors.push("history.observedAt must be a non-empty string");
+  }
+  if (!isNumber(value.price)) {
+    errors.push("history.price must be a number >= 0");
+  }
+  if (!isNonEmptyString(value.status, 50)) {
+    errors.push("history.status must be a non-empty string");
+  }
+  if (!isNonEmptyString(value.source, 50)) {
+    errors.push("history.source must be a non-empty string");
+  }
+
+  if (errors.length > 0) {
+    return fail(errors);
+  }
+
+  return ok({
+    observedAt: value.observedAt as string,
+    price: value.price as number,
+    status: value.status as string,
+    source: value.source as string,
+  });
+}
+
 export function validateListingProperty(value: unknown): ValidationResult<ListingProperty> {
   if (!isObject(value)) {
     return fail(["listing must be an object"]);
@@ -175,6 +337,12 @@ export function validateListingProperty(value: unknown): ValidationResult<Listin
     errors.push("description must be a string when provided");
   }
 
+  if (value.history !== undefined && !Array.isArray(value.history)) {
+    errors.push("history must be an array when provided");
+  } else if (Array.isArray(value.history) && value.history.length > 500) {
+    errors.push("history must contain at most 500 entries");
+  }
+
   if (errors.length > 0) {
     return fail(errors);
   }
@@ -204,6 +372,27 @@ export function validateListingProperty(value: unknown): ValidationResult<Listin
       return fail(provenanceResult.errors.map((error) => `provenance: ${error}`));
     }
     provenance = provenanceResult.data;
+  }
+
+  let enrichment: ListingEnrichment | undefined;
+  if (value.enrichment !== undefined) {
+    const enrichmentResult = validateEnrichment(value.enrichment);
+    if (!enrichmentResult.success) {
+      return fail(enrichmentResult.errors);
+    }
+    enrichment = enrichmentResult.data;
+  }
+
+  let history: ListingHistoryEntry[] | undefined;
+  if (value.history !== undefined) {
+    history = [];
+    for (const item of value.history as unknown[]) {
+      const historyResult = validateHistoryEntry(item);
+      if (!historyResult.success) {
+        return fail(historyResult.errors.map((error) => `history: ${error}`));
+      }
+      history.push(historyResult.data);
+    }
   }
 
   return ok({
@@ -241,5 +430,7 @@ export function validateListingProperty(value: unknown): ValidationResult<Listin
     dedupeKey: value.dedupeKey as string,
     distanceMiles: value.distanceMiles as number | undefined,
     radiusCenter,
+    enrichment,
+    history,
   });
 }

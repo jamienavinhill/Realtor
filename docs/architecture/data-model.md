@@ -37,11 +37,20 @@ Server ingestion (RealtyAPI backfill/daily refresh) requires these provenance an
 
 Client Gmail/manual extraction paths may write leaner documents today; WS16 will route those through server validation or tighten rules.
 
+### Free-lane enrichment and history (additive, optional)
+
+Two optional fields extend `ListingProperty` without breaking existing documents:
+
+- `enrichment` — Gemini/web-search supplements, **always cited** and never presented as provider-verified. Carries `schools[]`, `neighborhood`, `walkability`, `commuteNotes`, a required `sources[]` array (`{ field, url, provider: "gemini" | "google-search" | "web", fetchedAt }`), and `realtyApiDetailFetchedAt` which gates against re-spending a RealtyAPI property-detail call on the same listing.
+- `history[]` — a dated price/status trail (`{ observedAt, price, status, source }`) appended on each refresh so analysis tools accrue real time-series. Validators accept up to 500 entries.
+
+`validateListingProperty` validates both when present and rejects malformed enrichment sources (bad provider, missing citation URL) — keeping the contract backward-compatible with the 88 live listings that carry neither field yet.
+
 ### Ingest run records
 
 `IngestRun` documents audit every backfill and daily refresh:
 
-- `type`: `backfill` | `daily` (future: `email`, `poll`)
+- `type` (`IngestRunType`): `backfill` | `daily` | `email` | `poll` (the email pipeline and safety-net poll write `email`/`poll`)
 - `status`: `running` | `completed` | `failed` | `partial`
 - `idempotencyKey`, `startedAt`, `finishedAt`
 - `keyAliasesUsed`, `quotaUsed`, result counts, `errors[]`

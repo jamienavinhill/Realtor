@@ -16,6 +16,42 @@ export interface ListingProvenance {
   fetchPage?: number;
 }
 
+/** Provider/source attribution for a single free-lane enriched field. */
+export interface ListingEnrichmentSource {
+  field: string;
+  url: string;
+  provider: "gemini" | "google-search" | "web";
+  fetchedAt: string;
+}
+
+export interface ListingEnrichmentSchool {
+  name: string;
+  rating?: number;
+  sourceUrl: string;
+}
+
+/**
+ * Free-lane enrichment (Gemini / web search), always carrying citations.
+ * Never presented as provider-verified fact.
+ */
+export interface ListingEnrichment {
+  schools?: ListingEnrichmentSchool[];
+  neighborhood?: string;
+  walkability?: number;
+  commuteNotes?: string;
+  sources: ListingEnrichmentSource[];
+  /** Set when a RealtyAPI property-detail call was spent here (guards against re-spend). */
+  realtyApiDetailFetchedAt?: string;
+}
+
+/** One dated observation appended to a listing's price/status trail on each refresh. */
+export interface ListingHistoryEntry {
+  observedAt: string;
+  price: number;
+  status: string;
+  source: string;
+}
+
 export interface ListingProperty {
   id: string;
   title: string;
@@ -51,6 +87,8 @@ export interface ListingProperty {
   dedupeKey?: string;
   distanceMiles?: number;
   radiusCenter?: RadiusCenter;
+  enrichment?: ListingEnrichment;
+  history?: ListingHistoryEntry[];
 }
 
 export interface ProviderListingProperty extends ListingProperty {
@@ -107,9 +145,11 @@ export interface CompareQueue {
 
 export const MAX_COMPARE_LISTINGS = 4;
 
+export type IngestRunType = "backfill" | "daily" | "email" | "poll";
+
 export interface IngestRun {
   id: string;
-  type: "backfill" | "daily";
+  type: IngestRunType;
   status: "running" | "completed" | "failed" | "partial";
   startedAt: string;
   finishedAt?: string;

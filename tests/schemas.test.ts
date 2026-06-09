@@ -47,3 +47,68 @@ test("validateListingProperty rejects malformed listing", () => {
   const result = validateListingProperty({ id: "bad" });
   assert.equal(result.success, false);
 });
+
+test("validateListingProperty accepts enrichment and history additions", () => {
+  const listing = normalizeRealtyApiListing(fixture, {
+    radiusCenter: { lat: 41.1595, lng: -81.4404, zipCode: "44224" },
+    ingestedAt: "2026-06-08T12:00:00.000Z",
+    keyAlias: "test_key",
+  });
+
+  const result = validateListingProperty({
+    ...listing,
+    enrichment: {
+      schools: [{ name: "Stow-Munroe Falls HS", rating: 8, sourceUrl: "https://example.com/s" }],
+      neighborhood: "Quiet residential pocket near the river.",
+      walkability: 42,
+      commuteNotes: "20 min to downtown Akron.",
+      sources: [
+        {
+          field: "neighborhood",
+          url: "https://example.com/n",
+          provider: "google-search",
+          fetchedAt: "2026-06-09T00:00:00.000Z",
+        },
+      ],
+      realtyApiDetailFetchedAt: "2026-06-09T00:00:00.000Z",
+    },
+    history: [
+      {
+        observedAt: "2026-06-08T12:00:00.000Z",
+        price: 250000,
+        status: "Active",
+        source: "realtyapi",
+      },
+    ],
+  });
+
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.enrichment?.sources.length, 1);
+    assert.equal(result.data.enrichment?.sources[0]?.provider, "google-search");
+    assert.equal(result.data.history?.length, 1);
+  }
+});
+
+test("validateListingProperty rejects enrichment source with bad provider", () => {
+  const listing = normalizeRealtyApiListing(fixture, {
+    radiusCenter: { lat: 41.1595, lng: -81.4404, zipCode: "44224" },
+    ingestedAt: "2026-06-08T12:00:00.000Z",
+    keyAlias: "test_key",
+  });
+
+  const result = validateListingProperty({
+    ...listing,
+    enrichment: {
+      sources: [
+        {
+          field: "x",
+          url: "https://example.com",
+          provider: "made-up",
+          fetchedAt: "2026-06-09T00:00:00.000Z",
+        },
+      ],
+    },
+  });
+  assert.equal(result.success, false);
+});

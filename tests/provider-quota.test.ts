@@ -60,6 +60,55 @@ test("validateProviderQuotaMonth rejects bad month, negative counts, and bad lim
   );
 });
 
+test("validateProviderQuotaMonth rejects non-integer counts and over-ceiling per-key spend", () => {
+  // Fractional per-key count is corrupt accounting.
+  assert.equal(
+    validateProviderQuotaMonth({
+      month: "2026-06",
+      perKey: { realty_key_1: 12.5 },
+      monthlyLimitPerKey: 250,
+      totalSpent: 12.5,
+      updatedAt: "2026-06-09T00:00:00.000Z",
+    }).success,
+    false,
+  );
+  // A per-key count above the monthly ceiling means the reserve gate was bypassed.
+  assert.equal(
+    validateProviderQuotaMonth({
+      month: "2026-06",
+      perKey: { realty_key_1: 251 },
+      monthlyLimitPerKey: 250,
+      totalSpent: 251,
+      updatedAt: "2026-06-09T00:00:00.000Z",
+    }).success,
+    false,
+  );
+});
+
+test("validateProviderQuotaMonth rejects a totalSpent that disagrees with perKey sum", () => {
+  assert.equal(
+    validateProviderQuotaMonth({
+      month: "2026-06",
+      perKey: { realty_key_1: 10, realty_key_2: 5 },
+      monthlyLimitPerKey: 250,
+      totalSpent: 99, // should be 15
+      updatedAt: "2026-06-09T00:00:00.000Z",
+    }).success,
+    false,
+  );
+  // The consistent counterpart still passes.
+  assert.equal(
+    validateProviderQuotaMonth({
+      month: "2026-06",
+      perKey: { realty_key_1: 10, realty_key_2: 5 },
+      monthlyLimitPerKey: 250,
+      totalSpent: 15,
+      updatedAt: "2026-06-09T00:00:00.000Z",
+    }).success,
+    true,
+  );
+});
+
 test("in-memory store grants up to the per-key ceiling then refuses (stop before ceiling)", async () => {
   const store: MonthlyQuotaStore = createInMemoryMonthlyQuotaStore();
   const month = "2026-06";

@@ -3,7 +3,15 @@ import { fail, isNonEmptyString, isNumber, isObject, ok, type ValidationResult }
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-function validatePerKey(value: unknown): ValidationResult<Record<string, number>> {
+/** Call counts are non-negative integers (a fractional or NaN count is corrupt accounting). */
+function isCount(value: unknown): value is number {
+  return isNumber(value) && Number.isInteger(value);
+}
+
+function validatePerKey(
+  value: unknown,
+  monthlyLimitPerKey: number,
+): ValidationResult<Record<string, number>> {
   if (!isObject(value)) {
     return fail(["perKey must be an object"]);
   }
@@ -12,8 +20,15 @@ function validatePerKey(value: unknown): ValidationResult<Record<string, number>
     if (!isNonEmptyString(alias, 64)) {
       return fail([`perKey key ${alias} is invalid`]);
     }
-    if (!isNumber(count)) {
-      return fail([`perKey.${alias} must be a number >= 0`]);
+    if (!isCount(count)) {
+      return fail([`perKey.${alias} must be a non-negative integer`]);
+    }
+    // The per-key count must never exceed the monthly ceiling — a doc that records
+    // more than the budget allows means the reserve gate was bypassed/corrupted.
+    if (count > monthlyLimitPerKey) {
+      return fail([
+        `perKey.${alias} (${count}) exceeds monthlyLimitPerKey (${monthlyLimitPerKey})`,
+      ]);
     }
   }
 
@@ -30,11 +45,11 @@ export function validateProviderQuotaMonth(value: unknown): ValidationResult<Pro
   if (typeof value.month !== "string" || !MONTH_PATTERN.test(value.month)) {
     errors.push('month must be a "YYYY-MM" string');
   }
-  if (!isNumber(value.monthlyLimitPerKey) || value.monthlyLimitPerKey <= 0) {
-    errors.push("monthlyLimitPerKey must be a number > 0");
+  if (!isCount(value.monthlyLimitPerKey) || (value.monthlyLimitPerKey as number) <= 0) {
+    errors.push("monthlyLimitPerKey must be a positive integer");
   }
-  if (!isNumber(value.totalSpent)) {
-    errors.push("totalSpent must be a number >= 0");
+  if (!isCount(value.totalSpent)) {
+    errors.push("totalSpent must be a non-negative integer");
   }
   if (!isNonEmptyString(value.updatedAt, 64)) {
     errors.push("updatedAt must be a non-empty string");
@@ -44,15 +59,25 @@ export function validateProviderQuotaMonth(value: unknown): ValidationResult<Pro
     return fail(errors);
   }
 
-  const perKeyResult = validatePerKey(value.perKey);
+  const monthlyLimitPerKey = value.monthlyLimitPerKey as number;
+  const perKeyResult = validatePerKey(value.perKey, monthlyLimitPerKey);
   if (!perKeyResult.success) {
     return fail(perKeyResult.errors);
+  }
+
+  // totalSpent is a derived field; it must equal the sum of per-key spend or the
+  // document is internally inconsistent and cannot be trusted as the budget authority.
+  const computedTotal = Object.values(perKeyResult.data).reduce((sum, count) => sum + count, 0);
+  if ((value.totalSpent as number) !== computedTotal) {
+    return fail([
+      `totalSpent (${value.totalSpent}) must equal the sum of perKey (${computedTotal})`,
+    ]);
   }
 
   return ok({
     month: value.month as string,
     perKey: perKeyResult.data,
-    monthlyLimitPerKey: value.monthlyLimitPerKey as number,
+    monthlyLimitPerKey,
     totalSpent: value.totalSpent as number,
     updatedAt: value.updatedAt as string,
   });

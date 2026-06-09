@@ -842,7 +842,7 @@ Goal: A new realtor-alert email in `jamienavinhill@gmail.com` triggers the full 
 
 Depends on:
 
-- [ ] WS2 server envs, WS3 contracts, WS9 toasts, WS5 provider adapters; OAuth scopes already in `dashboard.tsx`.
+- [x] WS2 server envs, WS3 contracts, WS9 toasts, WS5 provider adapters; OAuth scopes already in `dashboard.tsx`.
 
 Enables:
 
@@ -850,32 +850,41 @@ Enables:
 
 Primary areas:
 
-- `app/api/gmail/push/route.ts` (Pub/Sub push handler), `app/api/gmail/watch/route.ts` (register/renew `watch`)
-- `lib/gmail/` (message fetch, `historyId` watermark, query builder)
-- `lib/ingest/pipeline.ts` (extract → enrich → validate → upsert → evaluate → notify)
-- `lib/enrich/` (Gemini/Vertex extractor, free web-search enrichment, RealtyAPI property-detail gate)
-- Firestore: `users/{uid}/gmailSync` (historyId, watch expiry), encrypted refresh token
-- `components/dashboard.tsx` ingest tab; `components/views/AlertsWizardView`
+- `app/api/gmail/push/route.ts` (Pub/Sub push handler), `app/api/gmail/watch/route.ts` (register/renew `watch`), `app/api/gmail/connect/route.ts` (encrypted refresh-token persist), `app/api/gmail/scan/route.ts` (manual scan on the same pipeline)
+- `lib/gmail/` (`client.ts` message fetch + OAuth access-token mint, `platforms.ts` query builder, `pubsub-push.ts` OIDC verifier)
+- `lib/ingest/pipeline.ts` + `email-pipeline-runner.ts` + `email-normalize.ts` (extract → enrich → gate → validate → upsert → evaluate → notify)
+- `lib/enrich/` (Gemini extractor, free web-search enrichment, RealtyAPI property-detail gate), `lib/crypto/token-cipher.ts` (AES-256-GCM)
+- Firestore: `users/{uid}/gmailSync` (historyId, watch expiry, emailAddress→uid map), encrypted refresh token; server-only rules deny
+- `components/dashboard.tsx` ingest tab; `components/views/IngestPlatformSelector.tsx`; `components/views/AlertsWizardView`
 
 Implementation tasks:
 
-- [ ] Persist the Google refresh token securely after sign-in (server route, encrypted, user-scoped in Firestore) so the pipeline runs without a browser session.
-- [ ] **Gmail `watch` registration** → Cloud Pub/Sub topic; store `historyId` + watch expiry. Push notifications hit `app/api/gmail/push/route.ts` (verify Pub/Sub JWT / shared secret).
-- [ ] On push: fetch new messages since `historyId`, filter to the platform set; for each, run the pipeline.
-- [ ] **Pipeline (`lib/ingest/pipeline.ts`)**: Gemini/Vertex structured extract from the email → enrich generously (free web search + Gemini grounding; RealtyAPI `property-detail` ONLY when an authoritative field/photo/history is otherwise missing and monthly budget allows) → validate → upsert listing (provenance + dedupe, persist enrichment so it never re-spends) → evaluate alerts → toast + optional Gmail email notify.
-- [ ] Query composer from selected platforms + optional custom string (`subject:"Redfin" OR subject:"Zillow"...`), with live preview; multiselect with the five baseline platforms + extensions; persist selection (Firestore user prefs).
-- [ ] Keep manual "Scan Gmail" as a secondary, collapsed "Advanced" action (same pipeline).
-- [ ] Update `AlertsWizardView` platform list to the five baseline platforms.
+- [x] Persist the Google refresh token securely after sign-in (server route `app/api/gmail/connect/route.ts`, AES-256-GCM via `lib/crypto/token-cipher.ts` with `TOKEN_ENCRYPTION_KEY`, user-scoped in `users/{uid}/gmailSync.refreshTokenEnc`) so the pipeline runs without a browser session. The Firebase ID token authenticates the caller; the server exchanges the one-time GIS `serverAuthCode` for the refresh token (never trusts a client uid; never returns the token).
+- [x] **Gmail `watch` registration** → Cloud Pub/Sub topic; store `historyId` + watch expiry (`app/api/gmail/watch/route.ts`, `INGEST_JOB_TOKEN`-gated, single-uid or all connected mailboxes). Push notifications hit `app/api/gmail/push/route.ts`, which verifies the Pub/Sub **OIDC JWT** (issuer `accounts.google.com`, service-account `email`/`email_verified`, signature via google-auth-library) plus a defense-in-depth shared `?token=` secret. Verified against official Pub/Sub + Gmail-push docs (2026-06-09).
+- [x] On push: decode `{ emailAddress, historyId }`, map `emailAddress → uid`, fetch new messages since the stored `historyId` (filtered to the platform query); for each, run the pipeline. Idempotent: ACKs (2xx) even on "no mailbox"/processing error so Pub/Sub stops hot-redelivery; the historyId watermark only advances on success.
+- [x] **Pipeline (`lib/ingest/pipeline.ts`)**: Gemini structured extract from the email → normalize (provenance + dedupe + dated history entry) → free-lane enrich (Google-search port, cited) → RealtyAPI `property-detail` GATE (only on an authoritative gap, within monthly budget, persisting `realtyApiDetailFetchedAt` so it never re-spends; derives `imageUrl` from provider media) → validate (WS3 schema) → upsert (dedupe-aware) → evaluate saved alerts → persist matches → notifier hook. `IngestRun.type = "email"`. Note: a `RealtyDetailPort` is wired only once an authoritative property-detail endpoint exists (WS8 owns RealtyAPI spend); free-lane enrichment always runs.
+- [x] Query composer from selected platforms + optional custom string, with live preview (`components/views/IngestPlatformSelector.tsx`); multiselect with the five baseline platforms + extensions; selection persisted to `users/{uid}/gmailSync` via `/api/gmail/connect`.
+- [x] Keep manual "Scan Gmail" as a secondary, collapsed "Advanced" action — runs the SAME pipeline server-side via `/api/gmail/scan` (query-scan mode).
+- [x] Update `AlertsWizardView` platform list to the five baseline platforms.
 
 Exit criteria:
 
-- [ ] A real/seeded alert email triggers ingestion via Pub/Sub push with no button click; listing appears within minutes.
-- [ ] Each listing is enriched from free lanes first; RealtyAPI is touched only when justified and within monthly budget; enrichment persisted.
-- [ ] Provenance + dedupe preserved; selecting Redfin + Zillow generates the correct composed query.
+- [!] A real/seeded alert email triggers ingestion via Pub/Sub push with no button click; listing appears within minutes. (Code complete + unit-verified; awaits the operator dependencies below — Pub/Sub topic, OAuth consent scopes, Vercel envs — before a live push smoke.)
+- [x] Each listing is enriched from free lanes first; RealtyAPI is touched only when justified, within monthly budget, and never re-spent (persisted `realtyApiDetailFetchedAt` guard). Unit-verified by `tests/realty-detail-gate.test.ts` + `tests/email-pipeline.test.ts` (idempotent re-run does not re-spend).
+- [x] Provenance + dedupe preserved (`tests/email-pipeline.test.ts`); selecting Redfin + Zillow generates the correct composed query (`tests/gmail-query-builder.test.ts`).
+
+WS7 verification (2026-06-09): `npm run verify` green — lint, typecheck, format:check, **105 tests**, build. New WS7 tests: `tests/gmail-query-builder.test.ts`, `tests/token-cipher.test.ts` (AES-GCM round-trip + tamper/wrong-key rejection), `tests/realty-detail-gate.test.ts`, `tests/gmail-push-auth.test.ts` (forged/absent/wrong-issuer/wrong-SA token rejection, shared-secret pre-filter), `tests/email-pipeline.test.ts` (happy path + no-listing + idempotent no-re-spend). No live Gmail/Pub/Sub/RealtyAPI/Gemini calls — all ports injected with fakes.
+
+Operator dependencies (`[!]` — real external setup, NOT faked):
+
+- [!] Create the Cloud Pub/Sub topic and grant `gmail-api-push@system.gserviceaccount.com` the Pub/Sub Publisher role on it; create the push subscription pointed at `https://<app>/api/gmail/push?token=<PUBSUB_PUSH_TOKEN>` with the OIDC service account.
+- [!] Set Vercel envs: `TOKEN_ENCRYPTION_KEY` (base64 32-byte), `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET`, `GMAIL_PUBSUB_TOPIC`, `PUBSUB_PUSH_TOKEN`, `PUBSUB_SERVICE_ACCOUNT_EMAIL` (names added to `.env.example`).
+- [!] OAuth consent-screen scopes `gmail.readonly` + `gmail.send` and app verification; client must request offline access (`access_type=offline`, `prompt=consent`) to yield a refresh token at `/api/gmail/connect`.
+- [!] Live Gmail-push smoke against the operator account once the above are in place (WS8 owns the weekly re-watch + business-hours poll Actions that call `/api/gmail/watch`).
 
 Suggested verification:
 
-- Live Gmail push smoke with the operator account; Firestore readback of the new enriched listing; unit test for the query builder + the RealtyAPI enrichment gate; browser selection smoke.
+- Live Gmail push smoke with the operator account; Firestore readback of the new enriched listing; unit tests for the query builder + RealtyAPI enrichment gate + token cipher + push auth + pipeline happy-path (all green); browser selection smoke.
 
 ## Workstream 8: Watch Renewal, Safety-Net Poll, And Alert Data Flow
 

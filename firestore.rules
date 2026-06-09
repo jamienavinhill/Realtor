@@ -177,5 +177,12 @@ service cloud.firestore {
       allow create, update: if isOwner(userId) && isValidId(queueId) && isValidCompareQueue(incoming());
       allow delete: if isOwner(userId) && isValidId(queueId);
     }
+
+    match /users/{userId}/gmailSync/{docId} {
+      // Server-only (WS7): holds the encrypted Google refresh token + Gmail watch cursor.
+      // The pipeline reads/writes via the Admin SDK (which bypasses rules); the client
+      // must never read or write it, so the refresh token is never exposed to the browser.
+      allow read, write: if false;
+    }
   }
 }

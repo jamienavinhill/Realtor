@@ -16,6 +16,18 @@ export interface ServerEnv {
   firebaseServiceAccountJson?: string;
   googleSearchApiKey?: string;
   googleSearchEngineId?: string;
+  /** Base64-encoded 32-byte key for at-rest token encryption (WS7). */
+  tokenEncryptionKey?: string;
+  /** Google OAuth client id used to mint Gmail access tokens from the stored refresh token. */
+  googleOAuthClientId?: string;
+  /** Google OAuth client secret (paired with the client id). Server-only. */
+  googleOAuthClientSecret?: string;
+  /** Cloud Pub/Sub topic that Gmail `watch` publishes to (projects/<p>/topics/<t>). */
+  gmailPubsubTopic?: string;
+  /** Shared secret appended to the Pub/Sub push subscription URL as `?token=`. */
+  pubsubPushToken?: string;
+  /** Expected service-account email in the Pub/Sub OIDC token (audience/subject check). */
+  pubsubServiceAccountEmail?: string;
 }
 
 const RT_KEY_PATTERN = /^rt_[A-Za-z0-9]+$/;
@@ -210,6 +222,12 @@ export function getServerEnv(options?: { envFilePath?: string }): ServerEnv {
     firebaseServiceAccountJson,
     googleSearchApiKey: process.env.GOOGLE_SEARCH_API_KEY?.trim() || undefined,
     googleSearchEngineId: process.env.GOOGLE_SEARCH_ENGINE_ID?.trim() || undefined,
+    tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY?.trim() || undefined,
+    googleOAuthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID?.trim() || undefined,
+    googleOAuthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim() || undefined,
+    gmailPubsubTopic: process.env.GMAIL_PUBSUB_TOPIC?.trim() || undefined,
+    pubsubPushToken: process.env.PUBSUB_PUSH_TOKEN?.trim() || undefined,
+    pubsubServiceAccountEmail: process.env.PUBSUB_SERVICE_ACCOUNT_EMAIL?.trim() || undefined,
   };
 }
 

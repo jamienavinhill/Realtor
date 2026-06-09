@@ -33,8 +33,10 @@ import { getErrorMessage } from "../lib/errors";
 import { DASHBOARD_TABS, type DashboardTab } from "../types/dashboard";
 import { AlertMatch, ListingProperty, PropertyAlert } from "../types/listings";
 import { BASELINE_ZIP, DEFAULT_ALERT_CITY } from "@/lib/ingest/constants";
+import { composeGmailQuery, DEFAULT_PLATFORM_SELECTION } from "@/lib/gmail/platforms";
 import { DocsView } from "./views/DocsView";
 import { AlertsWizardView } from "./views/AlertsWizardView";
+import { IngestPlatformSelector } from "./views/IngestPlatformSelector";
 import { ListingsGrid } from "./views/ListingsGrid";
 import { CMAView } from "./views/CMAView";
 import { ThemeControls } from "./theme-controls";
@@ -193,13 +195,16 @@ export default function Dashboard() {
   const [newAlertMaxPrice, setNewAlertMaxPrice] = useState("");
   const [newAlertMinBeds, setNewAlertMinBeds] = useState("2");
 
-  // Gmail Harvester controls
-  const [gmailQuery, setGmailQuery] = useState(
-    'subject:"Redfin" OR subject:"Zillow" OR "new listing"',
-  );
+  // Gmail Harvester controls — platform multiselect (WS7) replaces the raw query field.
+  const [platformSelection, setPlatformSelection] = useState<string[]>(DEFAULT_PLATFORM_SELECTION);
+  const [customQuery, setCustomQuery] = useState("");
   const [gmailMaxResults, setGmailMaxResults] = useState(5);
   const [isScanningGmail, setIsScanningGmail] = useState(false);
+  const [isSavingFilter, setIsSavingFilter] = useState(false);
+  const [showAdvancedScan, setShowAdvancedScan] = useState(false);
   const [harvestedPreviews, setHarvestedPreviews] = useState<ListingProperty[]>([]);
+
+  const composedGmailQuery = composeGmailQuery({ platformIds: platformSelection, customQuery });
 
   // Direct Text Parser controls
   const [directPastedText, setDirectPastedText] = useState("");
@@ -365,7 +370,7 @@ export default function Dashboard() {
         },
         body: JSON.stringify({
           action: "parse_gmail",
-          query: gmailQuery,
+          query: composedGmailQuery,
           maxResults: gmailMaxResults,
         }),
       });
@@ -385,6 +390,41 @@ export default function Dashboard() {
       toast({ variant: "error", description: `Gmail harvester error: ${getErrorMessage(error)}` });
     } finally {
       setIsScanningGmail(false);
+    }
+  };
+
+  // Persist the platform multiselect + custom query server-side (users/{uid}/gmailSync).
+  // Uses the Firebase ID token; the server derives the uid and never trusts a client uid.
+  const persistPlatformSelection = async () => {
+    if (!user) {
+      toast({ variant: "error", description: "Sign in to save your platform filter." });
+      return;
+    }
+    setIsSavingFilter(true);
+    try {
+      const idToken = await user.getIdToken();
+      const response = await fetch("/api/gmail/connect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          emailAddress: user.email ?? undefined,
+          platformSelection,
+          customQuery,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to save platform filter.");
+      }
+      toast({ variant: "success", description: "Saved your listing-platform filter." });
+    } catch (error: unknown) {
+      console.error(error);
+      toast({ variant: "error", description: `Could not save filter: ${getErrorMessage(error)}` });
+    } finally {
+      setIsSavingFilter(false);
     }
   };
 
@@ -815,53 +855,87 @@ export default function Dashboard() {
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
-                        Gmail Query Filter
-                      </label>
-                      <input
-                        type="text"
-                        value={gmailQuery}
-                        onChange={(e) => setGmailQuery(e.target.value)}
-                        placeholder="e.g. subject:Redfin, subject:Zillow"
-                        className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-mono text-xs text-stone-900 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
-                      />
-                    </div>
+                  <div className="space-y-5">
+                    <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-[11px] leading-relaxed text-emerald-300">
+                      Ingestion runs <span className="font-bold">automatically</span> — a new
+                      listing-alert email triggers the pipeline and lands the listing here within
+                      minutes. Choose which platforms to watch below; the manual scan is an optional
+                      fallback.
+                    </p>
 
-                    <div>
-                      <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
-                        Search Limit (Emails count)
-                      </label>
-                      <select
-                        value={gmailMaxResults}
-                        onChange={(e) => setGmailMaxResults(parseInt(e.target.value))}
-                        title="Search limit"
-                        className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-mono text-xs text-stone-900 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
-                      >
-                        <option value={3}>Latest 3 Matching Emails</option>
-                        <option value={5}>Latest 5 Matching Emails</option>
-                        <option value={10}>Latest 10 Matching Emails</option>
-                      </select>
-                    </div>
+                    <IngestPlatformSelector
+                      selected={platformSelection}
+                      customQuery={customQuery}
+                      onChange={({ selected, customQuery: nextCustom }) => {
+                        setPlatformSelection(selected);
+                        setCustomQuery(nextCustom);
+                      }}
+                    />
 
                     <button
-                      onClick={triggerGmailHarvest}
-                      disabled={isScanningGmail}
-                      className="bg-primary-600 hover:bg-primary-500 border-primary-500 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded border p-3 font-mono text-xs font-bold text-stone-950 shadow-md transition disabled:opacity-40"
+                      onClick={persistPlatformSelection}
+                      disabled={isSavingFilter}
+                      className="bg-primary-600 hover:bg-primary-500 border-primary-500 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded border p-2.5 font-mono text-xs font-bold text-white shadow transition disabled:opacity-40"
                     >
-                      {isScanningGmail ? (
+                      {isSavingFilter ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin text-stone-950" />
-                          <span>Harvesting Real Alerts...</span>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Saving filter...</span>
                         </>
                       ) : (
-                        <>
-                          <Mail className="h-4 w-4 text-stone-950" />
-                          <span>Scan &amp; Harvest Gmail Inbox</span>
-                        </>
+                        <span>Save Platform Filter</span>
                       )}
                     </button>
+
+                    <div className="border-t border-stone-200 pt-4 dark:border-stone-800">
+                      <button
+                        type="button"
+                        onClick={() => setShowAdvancedScan((v) => !v)}
+                        aria-expanded={showAdvancedScan}
+                        className="flex w-full items-center justify-between font-mono text-[11px] tracking-wider text-stone-400 uppercase hover:text-stone-200"
+                      >
+                        <span>Advanced — Manual Scan</span>
+                        <span>{showAdvancedScan ? "−" : "+"}</span>
+                      </button>
+
+                      {showAdvancedScan && (
+                        <div className="mt-4 space-y-4">
+                          <div>
+                            <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
+                              Search Limit (Emails count)
+                            </label>
+                            <select
+                              value={gmailMaxResults}
+                              onChange={(e) => setGmailMaxResults(parseInt(e.target.value))}
+                              title="Search limit"
+                              className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-mono text-xs text-stone-900 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
+                            >
+                              <option value={3}>Latest 3 Matching Emails</option>
+                              <option value={5}>Latest 5 Matching Emails</option>
+                              <option value={10}>Latest 10 Matching Emails</option>
+                            </select>
+                          </div>
+
+                          <button
+                            onClick={triggerGmailHarvest}
+                            disabled={isScanningGmail}
+                            className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded border border-stone-700 bg-stone-100 p-3 font-mono text-xs font-bold text-stone-900 shadow-md transition disabled:opacity-40 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
+                          >
+                            {isScanningGmail ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Harvesting Real Alerts...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Mail className="h-4 w-4" />
+                                <span>Scan Gmail Inbox Now</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getAuth, type Auth } from "firebase-admin/auth";
 import firebaseConfig from "@/firebase-applet-config.json";
 
 let adminApp: App | undefined;
@@ -84,4 +85,9 @@ export function getAdminFirestore(): Firestore {
     adminDbSettingsApplied = true;
   }
   return adminDb;
+}
+
+/** Admin Auth, used to verify Firebase ID tokens on server routes (e.g. token connect). */
+export function getAdminAuth(): Auth {
+  return getAuth(getFirebaseAdminApp());
 }

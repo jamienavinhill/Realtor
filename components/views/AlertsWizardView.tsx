@@ -1,6 +1,15 @@
 import React, { useState } from "react";
-import { Mail, ArrowRight, BellRing, Sparkles, Building2, Home } from "lucide-react";
+import { Mail, ArrowRight, BellRing, Sparkles, Building2 } from "lucide-react";
 import { BASELINE_ZIP, DEFAULT_ALERT_CITY, DEFAULT_ALERT_STATE } from "@/lib/ingest/constants";
+
+/** The five baseline listing-email platforms (WS7, User Requirements B.3). */
+const BASELINE_PLATFORM_LINKS: { label: string; href: string }[] = [
+  { label: "Zillow", href: "https://www.zillow.com" },
+  { label: "Trulia", href: "https://www.trulia.com" },
+  { label: "Homes.com", href: "https://www.homes.com" },
+  { label: "Redfin", href: "https://www.redfin.com" },
+  { label: "realtor.com", href: "https://www.realtor.com" },
+];
 
 export function AlertsWizardView() {
   const [criteria, setCriteria] = useState({
@@ -21,7 +30,7 @@ export function AlertsWizardView() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: `Generate a short step-by-step text guide for the user to sign up for email alerts on Zillow and Redfin using these specific criteria: City: ${criteria.city}, Max Price: ${criteria.maxPrice}, Beds: ${criteria.beds}. Keep it extremely concise and actionable.`,
+          prompt: `Generate a short step-by-step text guide for the user to sign up for email alerts on Zillow, Trulia, Homes.com, Redfin, and realtor.com using these specific criteria: City: ${criteria.city}, Max Price: ${criteria.maxPrice}, Beds: ${criteria.beds}. Keep it extremely concise and actionable.`,
         }),
       });
       const data = await response.json();
@@ -44,8 +53,8 @@ export function AlertsWizardView() {
         </h1>
         <p className="mx-auto max-w-xl text-stone-500">
           Set your preferred criteria for the {BASELINE_ZIP} Stow/Akron area. We&apos;ll generate a
-          cheat sheet to help you subscribe to Zillow, Redfin, and other listing alerts for
-          ingestion.
+          cheat sheet to help you subscribe to Zillow, Trulia, Homes.com, Redfin, and realtor.com
+          listing alerts for ingestion.
         </p>
       </div>
 
@@ -129,25 +138,19 @@ export function AlertsWizardView() {
             )}
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <a
-              href="https://www.zillow.com"
-              target="_blank"
-              rel="noreferrer noopener"
-              className="hover:border-primary-500 group block rounded-lg border border-stone-200 bg-white p-3 text-center transition dark:border-stone-800 dark:bg-stone-950"
-            >
-              <Building2 className="text-primary-500 mx-auto mb-2 h-5 w-5 transition group-hover:scale-110" />
-              <span className="text-xs font-semibold">Zillow</span>
-            </a>
-            <a
-              href="https://www.redfin.com"
-              target="_blank"
-              rel="noreferrer noopener"
-              className="hover:border-primary-500 group block rounded-lg border border-stone-200 bg-white p-3 text-center transition dark:border-stone-800 dark:bg-stone-950"
-            >
-              <Home className="text-primary-500 mx-auto mb-2 h-5 w-5 transition group-hover:scale-110" />
-              <span className="text-xs font-semibold">Redfin</span>
-            </a>
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {BASELINE_PLATFORM_LINKS.map((platform) => (
+              <a
+                key={platform.label}
+                href={platform.href}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="hover:border-primary-500 group block rounded-lg border border-stone-200 bg-white p-3 text-center transition dark:border-stone-800 dark:bg-stone-950"
+              >
+                <Building2 className="text-primary-500 mx-auto mb-2 h-5 w-5 transition group-hover:scale-110" />
+                <span className="text-xs font-semibold">{platform.label}</span>
+              </a>
+            ))}
           </div>
         </div>
       </div>

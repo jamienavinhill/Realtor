@@ -1388,19 +1388,19 @@ Directive: drive the ENTIRE roadmap to completion -- exhausted, verified, polish
 
 ### Forward streams (in progress / pending)
 
-| Stream                                                            | Status                                                                                                    |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| WS5 RealtyAPI + search adapters                                   | CLOSED `2529a462`,`58c1b4ee` (persisted monthly quota; google-search adapter; composite dedupe; 74 tests) |
-| WS9 toast system                                                  | CLOSED `55731441`,`e9699ec3` (portal toast host; banner removed; no-shift smoke 5/5)                      |
-| WS7 email-triggered ingestion + multiselect                       | dispatching pass 1                                                                                        |
-| WS8 refresh/alert eval + re-watch/poll + monthly quota accounting | pending (needs WS5, WS9)                                                                                  |
-| WS12 compact listing dialog + actions                             | pending (needs WS4, WS9)                                                                                  |
-| WS13 CMA analytics rebuild                                        | pending (needs WS6, WS12)                                                                                 |
-| WS14 docs layout + content                                        | pending                                                                                                   |
-| WS15 product flows / metadata / page wiring                       | pending (needs WS8/WS12/WS13)                                                                             |
-| WS18 account sharing                                              | pending (needs WS16 rules)                                                                                |
-| WS16 auth/rules/secret hardening                                  | pending (needs WS18)                                                                                      |
-| WS17 tests/CI/release gate + production smoke                     | pending (last)                                                                                            |
+| Stream                                                            | Status                                                                                                       |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| WS5 RealtyAPI + search adapters                                   | CLOSED `2529a462`,`58c1b4ee` (persisted monthly quota; google-search adapter; composite dedupe; 74 tests)    |
+| WS9 toast system                                                  | CLOSED `55731441`,`e9699ec3` (portal toast host; banner removed; no-shift smoke 5/5)                         |
+| WS7 email-triggered ingestion + multiselect                       | CLOSED `6836b75f`,`c5fe5647` (connect/watch/push/scan routes; OIDC+AES-GCM; multiselect; 105 tests, rules 8) |
+| WS8 refresh/alert eval + re-watch/poll + monthly quota accounting | dispatching pass 1                                                                                           |
+| WS12 compact listing dialog + actions                             | pending (needs WS4, WS9)                                                                                     |
+| WS13 CMA analytics rebuild                                        | pending (needs WS6, WS12)                                                                                    |
+| WS14 docs layout + content                                        | pending                                                                                                      |
+| WS15 product flows / metadata / page wiring                       | pending (needs WS8/WS12/WS13)                                                                                |
+| WS18 account sharing                                              | pending (needs WS16 rules)                                                                                   |
+| WS16 auth/rules/secret hardening                                  | pending (needs WS18)                                                                                         |
+| WS17 tests/CI/release gate + production smoke                     | pending (last)                                                                                               |
 
 Operator-pending (account/dashboard, cannot be done in code): run `add-auth-domains.ts` + `vercel-listings-check.ts` against prod; GCP budget alert; live 44224 re-backfill + Firestore readback; Gmail `watch`/Pub/Sub registration; OAuth consent-screen scopes/verification.
 

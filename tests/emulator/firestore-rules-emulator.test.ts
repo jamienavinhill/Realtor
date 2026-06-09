@@ -174,4 +174,27 @@ describe("firestore rules emulator — listing preferences own-only", () => {
       }),
     );
   });
+
+  it("denies ALL client access to gmailSync — even the owner (server-only; protects the encrypted refresh token)", async () => {
+    // WS7 invariant: `users/{uid}/gmailSync/main` holds the AES-GCM-encrypted Google
+    // refresh token + watch cursor. The pipeline reads/writes it ONLY via the Admin SDK
+    // (which bypasses rules). The owner's own authenticated client must be denied read
+    // AND write, so the refresh token can never reach the browser.
+    const owner = testEnv.authenticatedContext("owner-uid");
+    const ref = owner
+      .firestore()
+      .collection("users")
+      .doc("owner-uid")
+      .collection("gmailSync")
+      .doc("main");
+
+    await assertFails(ref.get());
+    await assertFails(
+      ref.set({
+        uid: "owner-uid",
+        platformSelection: ["zillow"],
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+  });
 });

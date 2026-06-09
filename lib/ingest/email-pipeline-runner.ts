@@ -167,6 +167,12 @@ export async function runEmailPipelineForUser(options: EmailRunOptions): Promise
   // Dedupe message ids (history can repeat across records).
   const uniqueIds = Array.from(new Set(messageIds));
   const perMessage: ProcessMessageResult[] = [];
+  // A message is "lost" only when fetching/processing it threw (transient: API error,
+  // network, upsert failure) — i.e. it was NOT fully handled and a re-fetch could recover
+  // it. Validation skips (`listingsSkipped`) and best-effort enrichment errors are
+  // deterministic/non-blocking and must NOT hold the watermark, or the same push would
+  // redeliver forever. We hold the historyId watermark when any message was lost.
+  let messagesLost = 0;
 
   for (const id of uniqueIds) {
     try {
@@ -175,6 +181,7 @@ export async function runEmailPipelineForUser(options: EmailRunOptions): Promise
       const result = await processGmailMessage(parsed, deps);
       perMessage.push(result);
     } catch (error) {
+      messagesLost += 1;
       perMessage.push({
         listingsUpserted: 0,
         listingsCreated: 0,
@@ -211,8 +218,12 @@ export async function runEmailPipelineForUser(options: EmailRunOptions): Promise
     baseRun,
   );
 
-  // Advance the watermark so the next push only sees newer mail.
-  if (newHistoryId) {
+  // Advance the historyId watermark ONLY when no message was lost — otherwise the next
+  // push must re-cover the missed mail (no message loss). When a message was lost we still
+  // record `lastProcessedAt` (heartbeat) but deliberately leave `historyId` unchanged so
+  // the next listHistory replays from the same point.
+  const advanceWatermark = messagesLost === 0 && Boolean(newHistoryId);
+  if (advanceWatermark) {
     await upsertGmailSync(options.uid, {
       historyId: newHistoryId,
       lastProcessedAt: finishedAt,
@@ -225,6 +236,7 @@ export async function runEmailPipelineForUser(options: EmailRunOptions): Promise
     ...aggregate,
     runId,
     messagesProcessed: uniqueIds.length,
-    newHistoryId,
+    // Only report the advanced watermark to callers when we actually committed it.
+    newHistoryId: advanceWatermark ? newHistoryId : undefined,
   };
 }

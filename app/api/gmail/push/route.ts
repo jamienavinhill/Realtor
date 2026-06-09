@@ -30,9 +30,23 @@ export async function POST(req: NextRequest) {
   try {
     const env = getServerEnv();
 
+    // Fail closed: the OIDC service-account check is the PRIMARY cryptographic gate. If
+    // `PUBSUB_SERVICE_ACCOUNT_EMAIL` is unset the verifier would accept ANY Google-signed
+    // OIDC token (issuer-only), leaving the shared `?token=` secret as the sole gate — the
+    // roadmap forbids the shared secret being the sole gate. Refuse to run until the
+    // operator wires the service-account env, rather than silently weakening auth.
+    if (!env.pubsubServiceAccountEmail) {
+      console.error("Gmail push handler misconfigured: PUBSUB_SERVICE_ACCOUNT_EMAIL is not set.");
+      return NextResponse.json(
+        { error: "Push handler not configured (missing service-account verification env)." },
+        { status: 503 },
+      );
+    }
+
     // Audience is left unverified here (Pub/Sub defaults `aud` to the push endpoint URL,
     // which we do not reliably know server-side behind Vercel proxies); authenticity rests
-    // on the signed OIDC JWT (issuer + service-account email) plus the shared secret.
+    // on the signed OIDC JWT (issuer + service-account email + verified email) plus the
+    // defense-in-depth shared secret.
     const verifyPush = createPushVerifier({
       expectedServiceAccountEmail: env.pubsubServiceAccountEmail,
       expectedSharedSecret: env.pubsubPushToken,

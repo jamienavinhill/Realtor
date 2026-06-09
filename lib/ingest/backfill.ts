@@ -1,14 +1,45 @@
 import { randomUUID } from "node:crypto";
 import { getServerEnv } from "@/lib/env";
+import type { ServerEnv } from "@/lib/env";
 import { RealtyApiClient } from "@/lib/providers/realty-api";
 import { upsertListings } from "@/lib/repositories/listings";
 import { createIngestRun, updateIngestRun } from "@/lib/repositories/runs";
-import type { IngestRun } from "@/types/listings";
+import type { ProviderFetchResult } from "@/lib/providers/types";
+import type { ListingProperty, IngestRun } from "@/types/listings";
 import { BASELINE_CENTER, BASELINE_RADIUS_MILES, BASELINE_ZIP } from "./constants";
+
+/**
+ * Injectable seams for the backfill. Production code uses the real env/provider/
+ * repository implementations (the defaults); tests inject in-memory fakes so the run
+ * lifecycle and the dry-run cost-safety guarantee can be verified with ZERO live
+ * RealtyAPI calls and ZERO Firestore writes.
+ */
+export interface BackfillDeps {
+  getServerEnv: typeof getServerEnv;
+  createClient: (
+    keys: ServerEnv["realtyApiKeys"],
+  ) => Pick<RealtyApiClient, "fetchAllActiveListings">;
+  upsertListings: (listings: ListingProperty[]) => Promise<{
+    upserted: number;
+    skipped: number;
+    errors: string[];
+  }>;
+  createIngestRun: typeof createIngestRun;
+  updateIngestRun: typeof updateIngestRun;
+}
+
+const defaultDeps: BackfillDeps = {
+  getServerEnv,
+  createClient: (keys) => new RealtyApiClient(keys),
+  upsertListings,
+  createIngestRun,
+  updateIngestRun,
+};
 
 export interface BackfillOptions {
   dryRun?: boolean;
   idempotencyKey?: string;
+  deps?: Partial<BackfillDeps>;
 }
 
 export interface BackfillResult {
@@ -22,7 +53,8 @@ export interface BackfillResult {
 }
 
 export async function runBackfill44224(options: BackfillOptions = {}): Promise<BackfillResult> {
-  const env = getServerEnv();
+  const deps: BackfillDeps = { ...defaultDeps, ...options.deps };
+  const env = deps.getServerEnv();
   const runId = randomUUID();
   const startedAt = new Date().toISOString();
   const idempotencyKey =
@@ -62,11 +94,11 @@ export async function runBackfill44224(options: BackfillOptions = {}): Promise<B
     };
   }
 
-  await createIngestRun(initialRun);
+  await deps.createIngestRun(initialRun);
 
   try {
-    const client = new RealtyApiClient(env.realtyApiKeys);
-    const fetchResult = await client.fetchAllActiveListings(
+    const client = deps.createClient(env.realtyApiKeys);
+    const fetchResult: ProviderFetchResult = await client.fetchAllActiveListings(
       {
         location: BASELINE_ZIP,
         radiusMiles: BASELINE_RADIUS_MILES,
@@ -77,7 +109,7 @@ export async function runBackfill44224(options: BackfillOptions = {}): Promise<B
       { providerRunId: runId },
     );
 
-    const upsertResult = await upsertListings(fetchResult.listings);
+    const upsertResult = await deps.upsertListings(fetchResult.listings);
 
     const errors = [...fetchResult.stats.errors, ...upsertResult.errors];
     const finishedAt = new Date().toISOString();
@@ -99,7 +131,7 @@ export async function runBackfill44224(options: BackfillOptions = {}): Promise<B
       errors,
     };
 
-    await updateIngestRun(runId, finalRun, { ...initialRun, ...finalRun, id: runId });
+    await deps.updateIngestRun(runId, finalRun, { ...initialRun, ...finalRun, id: runId });
 
     return {
       runId,
@@ -121,7 +153,7 @@ export async function runBackfill44224(options: BackfillOptions = {}): Promise<B
     };
 
     try {
-      await updateIngestRun(runId, finalRun, { ...initialRun, ...finalRun, id: runId });
+      await deps.updateIngestRun(runId, finalRun, { ...initialRun, ...finalRun, id: runId });
     } catch {
       // Best-effort run-status update; surface the original failure regardless.
     }

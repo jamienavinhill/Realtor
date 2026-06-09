@@ -41,7 +41,11 @@ listing that appears on multiple pages is written once. `rawHash` changes only w
 underlying provider payload changes, giving an audit signal for "what actually moved."
 
 Determinism is covered by `tests/backfill-idempotency.test.ts` (sanitized fixtures, no
-live calls). Normalization shape is covered by `tests/realty-normalize.test.ts`.
+live calls). Normalization shape is covered by `tests/realty-normalize.test.ts`. The run
+lifecycle itself — dry-run cost safety (no client/fetch/upsert/run-record on a dry run)
+and the "never left `running`" guarantee on success/partial/error paths — is covered at
+the function level by `tests/backfill-run.test.ts`, which injects in-memory
+env/provider/repository fakes (zero live calls, zero writes) via `BackfillOptions.deps`.
 
 > Dedupe is keyed on the provider listing/property id today. A composite key that also
 > folds normalized address + coordinates + canonical source URL is a **WS5 adapter**
@@ -87,8 +91,9 @@ monthly and scarce, so:
 
 ## Verification
 
-- `npm run test` — includes `tests/backfill-idempotency.test.ts` and
-  `tests/realty-normalize.test.ts` (no live calls).
+- `npm run test` — includes `tests/backfill-idempotency.test.ts`,
+  `tests/backfill-run.test.ts` (run lifecycle + dry-run cost safety, injected fakes),
+  and `tests/realty-normalize.test.ts` (no live calls).
 - `npm run backfill -- --dry-run` — env + wiring smoke, zero side effects.
 - A real run + Firestore readback (count + sample-record provenance audit) is
   **operator-pending**: it needs live RealtyAPI credentials/quota.

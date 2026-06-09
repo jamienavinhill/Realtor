@@ -31,16 +31,26 @@ import { onAuthStateChanged, User, GoogleAuthProvider } from "firebase/auth";
 
 import { getErrorMessage } from "../lib/errors";
 import { DASHBOARD_TABS, type DashboardTab } from "../types/dashboard";
-import { AlertMatch, ListingProperty, PropertyAlert } from "../types/listings";
+import {
+  AlertMatch,
+  ListingProperty,
+  type ListingUserState,
+  MAX_COMPARE_LISTINGS,
+  PropertyAlert,
+} from "../types/listings";
 import { BASELINE_ZIP, DEFAULT_ALERT_CITY } from "@/lib/ingest/constants";
 import { composeGmailQuery, DEFAULT_PLATFORM_SELECTION } from "@/lib/gmail/platforms";
 import { DocsView } from "./views/DocsView";
 import { AlertsWizardView } from "./views/AlertsWizardView";
 import { IngestPlatformSelector } from "./views/IngestPlatformSelector";
 import { ListingsGrid } from "./views/ListingsGrid";
+import { CompareDialog } from "./views/CompareDialog";
 import { CMAView } from "./views/CMAView";
 import { ThemeControls } from "./theme-controls";
 import { useToast } from "./ui/toast";
+import { useListingPreferences } from "@/lib/hooks/useListingPreferences";
+import { filterListings } from "@/lib/listings/filter";
+import { Eye, EyeOff, GitCompareArrows, Heart } from "lucide-react";
 
 // Request Google Workspace granular scopes
 googleProvider.addScope("https://www.googleapis.com/auth/gmail.readonly");
@@ -102,6 +112,34 @@ function UserAvatar({ user }: { user: User }) {
     <div className="bg-primary-500 flex h-9 w-9 items-center justify-center rounded-full border border-stone-200 text-xs font-bold text-white shadow-sm dark:border-stone-700">
       {label.slice(0, 1).toUpperCase()}
     </div>
+  );
+}
+
+function FilterToggle({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition ${
+        active
+          ? "border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400"
+          : "border-stone-200 bg-stone-50 text-stone-500 hover:text-stone-900 dark:border-stone-800 dark:bg-stone-950 dark:hover:text-stone-200"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
@@ -188,6 +226,11 @@ export default function Dashboard() {
   // Filtering & Search state
   const [searchTerm, setSearchTerm] = useState("");
   const [cityFilter, setCityFilter] = useState("All");
+  // WS12 per-user view toggles: hidden listings are excluded from the default grid
+  // but recoverable via "Show hidden"; "Favorites only" narrows to favorited listings.
+  const [showHidden, setShowHidden] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   // Alert form state
   const [newAlertName, setNewAlertName] = useState("");
@@ -217,6 +260,98 @@ export default function Dashboard() {
   const [calendarEventTime, setCalendarEventTime] = useState<string>("");
 
   const { toast } = useToast();
+
+  // Per-user listing preferences + compare queue (WS4 contract, owner-scoped client SDK).
+  const prefs = useListingPreferences(user);
+
+  // Wrap the prefs API with toast feedback (and the compare-cap toast) for the grid/dialog.
+  // Filtering reads `prefs` directly; only user-initiated writes route through here.
+  const STATE_LABELS: Record<ListingUserState, string> = {
+    interested: "Marked interested",
+    notInterested: "Marked not interested",
+    favorite: "Added to favorites",
+    hidden: "Listing hidden",
+  };
+  const gridPrefs: typeof prefs = {
+    ...prefs,
+    setState: async (listingId, state) => {
+      try {
+        const wasActive = prefs.states[listingId] === state;
+        await prefs.setState(listingId, state);
+        toast({
+          variant: "success",
+          description: wasActive ? "Preference cleared" : STATE_LABELS[state],
+        });
+      } catch (error: unknown) {
+        toast({ variant: "error", description: getErrorMessage(error) });
+        throw error;
+      }
+    },
+    addToCompare: async (listingId) => {
+      try {
+        const added = await prefs.addToCompare(listingId);
+        if (added) {
+          toast({ variant: "success", description: "Added to comparison" });
+        } else {
+          toast({
+            variant: "info",
+            description: `Compare holds at most ${MAX_COMPARE_LISTINGS} listings. Remove one to add another.`,
+          });
+        }
+        return added;
+      } catch (error: unknown) {
+        toast({ variant: "error", description: getErrorMessage(error) });
+        throw error;
+      }
+    },
+  };
+
+  // Run Gemini-backed analysis for a listing via the protected server route.
+  // Returns the analysis text; throws (with a toast) on failure so the dialog can reset.
+  const analyzeListing = async (property: ListingProperty): Promise<string> => {
+    if (!user) {
+      toast({ variant: "error", description: "Sign in to analyze a listing." });
+      throw new Error("not signed in");
+    }
+    try {
+      const idToken = await user.getIdToken();
+      const response = await fetch("/api/listings/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          listing: {
+            id: property.id,
+            title: property.title,
+            address: property.address,
+            city: property.city,
+            state: property.state,
+            zipCode: property.zipCode,
+            price: property.price,
+            beds: property.beds,
+            baths: property.baths,
+            sqft: property.sqft,
+            propertyType: property.propertyType,
+            status: property.status,
+            yearBuilt: property.yearBuilt,
+            description: property.description,
+            distanceMiles: property.distanceMiles,
+            enrichmentNeighborhood: property.enrichment?.neighborhood,
+          },
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Analysis failed.");
+      }
+      return data.analysis as string;
+    } catch (error: unknown) {
+      toast({ variant: "error", description: `Analysis failed: ${getErrorMessage(error)}` });
+      throw error;
+    }
+  };
 
   // Load and listen to Auth state changes
   useEffect(() => {
@@ -699,7 +834,8 @@ export default function Dashboard() {
 
   // Filtering calculations
   const cities = Array.from(new Set(properties.map((p) => p.city)));
-  const hasActiveFilters = searchTerm.trim().length > 0 || cityFilter !== "All";
+  const hasActiveFilters =
+    searchTerm.trim().length > 0 || cityFilter !== "All" || favoritesOnly || showHidden;
 
   const resolvedAlertMatches = alertMatches.map((match) => ({
     match,
@@ -707,16 +843,20 @@ export default function Dashboard() {
     property: properties.find((property) => property.id === match.listingId),
   }));
 
-  const filteredProperties = properties.filter((prop) => {
-    const matchesSearch =
-      prop.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      prop.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      prop.city.toLowerCase().includes(searchTerm.toLowerCase());
+  const hiddenCount = properties.filter((p) => prefs.states[p.id] === "hidden").length;
 
-    const matchesCity = cityFilter === "All" || prop.city === cityFilter;
-
-    return matchesSearch && matchesCity;
+  const filteredProperties = filterListings(properties, {
+    searchTerm,
+    cityFilter,
+    states: prefs.states,
+    showHidden,
+    favoritesOnly,
   });
+
+  // Listings currently queued for comparison, in queue order.
+  const compareListings = prefs.compareIds
+    .map((id) => properties.find((p) => p.id === id))
+    .filter((p): p is ListingProperty => Boolean(p));
 
   return (
     <div className="selection:bg-primary-500 flex min-h-screen flex-col bg-stone-50 font-sans text-stone-900 selection:text-stone-950 dark:bg-stone-950 dark:text-stone-100">
@@ -802,6 +942,41 @@ export default function Dashboard() {
                     </option>
                   ))}
                 </select>
+
+                {user && (
+                  <>
+                    <FilterToggle
+                      active={favoritesOnly}
+                      onClick={() => setFavoritesOnly((v) => !v)}
+                      icon={
+                        <Heart className={`h-3.5 w-3.5 ${favoritesOnly ? "fill-current" : ""}`} />
+                      }
+                      label="Favorites"
+                    />
+                    <FilterToggle
+                      active={showHidden}
+                      onClick={() => setShowHidden((v) => !v)}
+                      icon={
+                        showHidden ? (
+                          <Eye className="h-3.5 w-3.5" />
+                        ) : (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        )
+                      }
+                      label={hiddenCount > 0 ? `Hidden (${hiddenCount})` : "Hidden"}
+                    />
+                    {prefs.compareIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setCompareOpen(true)}
+                        className="border-primary-500 bg-primary-500 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+                      >
+                        <GitCompareArrows className="h-3.5 w-3.5" />
+                        Compare ({prefs.compareIds.length})
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
@@ -817,6 +992,9 @@ export default function Dashboard() {
               calendarEventTime={calendarEventTime}
               onCalendarEventTimeChange={setCalendarEventTime}
               hasWorkspaceAccess={Boolean(user && accessToken)}
+              prefs={gridPrefs}
+              isSignedIn={Boolean(user)}
+              onAnalyze={analyzeListing}
             />
           </div>
         )}
@@ -1308,6 +1486,27 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+
+      <CompareDialog
+        open={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        listings={compareListings}
+        onRemove={(id) =>
+          prefs
+            .removeFromCompare(id)
+            .catch((error: unknown) =>
+              toast({ variant: "error", description: getErrorMessage(error) }),
+            )
+        }
+        onClear={() => {
+          prefs
+            .clearCompare()
+            .catch((error: unknown) =>
+              toast({ variant: "error", description: getErrorMessage(error) }),
+            );
+          setCompareOpen(false);
+        }}
+      />
 
       {/* FOOTER */}
       <footer className="mt-12 border-t border-stone-200 bg-stone-100/40 py-6 text-center dark:border-stone-900 dark:bg-stone-950/40">

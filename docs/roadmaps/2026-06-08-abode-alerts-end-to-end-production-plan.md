@@ -1068,11 +1068,11 @@ Goal: Compact floating listing dialog with actionable controls and professional 
 
 Depends on:
 
-- [ ] WS4 listing preferences contract, WS9 toasts.
+- [x] WS4 listing preferences contract, WS9 toasts.
 
 Enables:
 
-- [ ] WS13 row actions reuse, WS15 page wiring.
+- [ ] WS13 row actions reuse, WS15 page wiring. (WS13 may reuse the shared `components/ui/dialog.tsx` shell shipped here.)
 
 Primary areas:
 
@@ -1080,20 +1080,20 @@ Primary areas:
 
 Implementation tasks:
 
-- [ ] Replace the `max-w-5xl` split modal with a compact centered dialog (`max-w-lg`–`max-w-xl`), scrollable body, not a full-page takeover unless media requires it.
-- [ ] Action bar: Interested, Not interested, Favorite, Hide, Compare, Analyze (Gemini-backed, cited/qualified — no invented facts), plus Export/Schedule fitted into the compact pattern.
-- [ ] Grid cards: smaller type scale, professional dense hierarchy, remove wasteful stat blocks and decorative giant numbers.
-- [ ] Filter toggles: show/hide hidden listings, favorites-only view (hidden excluded from default grid, recoverable).
-- [ ] Compare view route or dialog tab for side-by-side/tabular comparison of 2+ listings.
+- [x] Replace the `max-w-5xl` split modal with a compact centered dialog (`max-w-lg`–`max-w-xl`), scrollable body, not a full-page takeover unless media requires it. (New focus-trapped `components/ui/dialog.tsx`; modal is now `size="lg"` = `max-w-xl`, Escape/click-outside close, aria dialog roles.)
+- [x] Action bar: Interested, Not interested, Favorite, Hide, Compare, Analyze (Gemini-backed, cited/qualified — no invented facts), plus Export/Schedule fitted into the compact pattern. (Analyze calls server route `app/api/listings/analyze/route.ts`; Export/Schedule/Delete folded behind a compact toggle in the dialog footer.)
+- [x] Grid cards: smaller type scale, professional dense hierarchy, remove wasteful stat blocks and decorative giant numbers. (Cards now 4-up at xl, inline bd/ba/sqft row, reuses `NoListingMedia`; per-user favorite/interested/compare badges.)
+- [x] Filter toggles: show/hide hidden listings, favorites-only view (hidden excluded from default grid, recoverable). (Pure helper `lib/listings/filter.ts` + dashboard toggles; covered by `tests/listing-filter.test.ts`.)
+- [x] Compare view route or dialog tab for side-by-side/tabular comparison of 2+ listings. (`components/views/CompareDialog.tsx`, opened from the listings toolbar; compare queue capped at 4 via WS4 contract with a clear toast.)
 
 Exit criteria:
 
-- [ ] A user can favorite and hide a listing; a hidden listing disappears from the default grid and is recoverable.
-- [ ] Detail opens only in the compact floating dialog.
+- [x] A user can favorite and hide a listing; a hidden listing disappears from the default grid and is recoverable. (Persisted to `users/{uid}/listingPreferences/{listingId}` via owner-scoped client SDK; "Show hidden" toggle recovers them. Verified by code review + `tests/listing-filter.test.ts`; live signed-in browser smoke remains operator/CI-pending — see below.)
+- [x] Detail opens only in the compact floating dialog. (Inline breakout removed; detail is dialog-only.)
 
 Suggested verification:
 
-- Browser flow with signed-in user; Firestore preference readback.
+- Browser flow with signed-in user; Firestore preference readback. **Status: operator/CI-pending** — `npm run lint`/`typecheck`/`format:check`/`test` (123 tests) and `npm run build` are GREEN. The favorite→hide→recover and compact-dialog-open behavior is verified by code review and the `filterListings` unit tests; a live signed-in Firestore readback smoke still needs a real Google sign-in session.
 
 ## Workstream 13: CMA Analytics Page
 

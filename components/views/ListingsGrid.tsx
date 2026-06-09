@@ -1,5 +1,7 @@
+"use client";
+
 import React, { useState } from "react";
-import { ListingProperty } from "../../types/listings";
+import { ListingProperty, ListingUserState } from "../../types/listings";
 import {
   MapPin,
   BedDouble,
@@ -7,13 +9,20 @@ import {
   Maximize2,
   ChevronLeft,
   ChevronRight,
-  X,
   Sheet,
   Calendar,
   Trash2,
   Loader2,
+  Heart,
+  ThumbsUp,
+  ThumbsDown,
+  EyeOff,
+  GitCompareArrows,
+  Sparkles,
+  Star,
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { Dialog } from "../ui/dialog";
+import type { ListingPreferencesApi } from "@/lib/hooks/useListingPreferences";
 
 interface ListingsGridProps {
   properties: ListingProperty[];
@@ -27,6 +36,12 @@ interface ListingsGridProps {
   calendarEventTime?: string;
   onCalendarEventTimeChange?: (value: string) => void;
   hasWorkspaceAccess?: boolean;
+  /** Per-user listing preferences API (WS4). Undefined when signed out. */
+  prefs?: ListingPreferencesApi;
+  /** Whether a user is signed in (gates per-user actions). */
+  isSignedIn?: boolean;
+  /** Run Gemini-backed analysis for a listing; returns analysis text or throws. */
+  onAnalyze?: (property: ListingProperty) => Promise<string>;
 }
 
 export function ListingsGrid({
@@ -41,6 +56,9 @@ export function ListingsGrid({
   calendarEventTime = "",
   onCalendarEventTimeChange,
   hasWorkspaceAccess = false,
+  prefs,
+  isSignedIn = false,
+  onAnalyze,
 }: ListingsGridProps) {
   const [selectedProperty, setSelectedProperty] = useState<ListingProperty | null>(null);
 
@@ -49,7 +67,7 @@ export function ListingsGrid({
 
     return (
       <div className="rounded-3xl border border-dashed border-stone-200 bg-stone-50 px-6 py-32 text-center dark:border-stone-800 dark:bg-stone-900/40">
-        <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100">
+        <h3 className="text-base font-semibold text-stone-900 dark:text-stone-100">
           {inventoryEmpty ? "No listings loaded yet" : "No listings match your filters"}
         </h3>
         {inventoryEmpty ? (
@@ -80,33 +98,48 @@ export function ListingsGrid({
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {properties.map((prop) => (
-          <PropertyCard key={prop.id} property={prop} onClick={() => setSelectedProperty(prop)} />
+          <PropertyCard
+            key={prop.id}
+            property={prop}
+            state={prefs?.states[prop.id]}
+            inCompare={prefs?.compareIds.includes(prop.id) ?? false}
+            onClick={() => setSelectedProperty(prop)}
+          />
         ))}
       </div>
 
-      <AnimatePresence>
-        {selectedProperty && (
-          <PropertyProfileModal
-            property={selectedProperty}
-            onClose={() => setSelectedProperty(null)}
-            onExportToSheet={onExportToSheet}
-            onScheduleViewing={onScheduleViewing}
-            onDeleteProperty={onDeleteProperty}
-            sheetsExportingPropId={sheetsExportingPropId}
-            calendarSchedulingPropId={calendarSchedulingPropId}
-            calendarEventTime={calendarEventTime}
-            onCalendarEventTimeChange={onCalendarEventTimeChange}
-            hasWorkspaceAccess={hasWorkspaceAccess}
-          />
-        )}
-      </AnimatePresence>
+      <PropertyProfileModal
+        property={selectedProperty}
+        onClose={() => setSelectedProperty(null)}
+        onExportToSheet={onExportToSheet}
+        onScheduleViewing={onScheduleViewing}
+        onDeleteProperty={onDeleteProperty}
+        sheetsExportingPropId={sheetsExportingPropId}
+        calendarSchedulingPropId={calendarSchedulingPropId}
+        calendarEventTime={calendarEventTime}
+        onCalendarEventTimeChange={onCalendarEventTimeChange}
+        hasWorkspaceAccess={hasWorkspaceAccess}
+        prefs={prefs}
+        isSignedIn={isSignedIn}
+        onAnalyze={onAnalyze}
+      />
     </>
   );
 }
 
-function PropertyCard({ property, onClick }: { property: ListingProperty; onClick: () => void }) {
+function PropertyCard({
+  property,
+  state,
+  inCompare,
+  onClick,
+}: {
+  property: ListingProperty;
+  state?: ListingUserState;
+  inCompare: boolean;
+  onClick: () => void;
+}) {
   const images = (
     property.imageUrls && property.imageUrls.length > 0 ? property.imageUrls : [property.imageUrl]
   ).filter(Boolean);
@@ -130,7 +163,7 @@ function PropertyCard({ property, onClick }: { property: ListingProperty; onClic
   };
 
   return (
-    <article className="group hover:border-primary-400 dark:hover:border-primary-600 w-full overflow-hidden rounded-2xl border border-stone-200 bg-white text-left shadow-sm transition-all hover:shadow-xl dark:border-stone-800 dark:bg-stone-900">
+    <article className="group hover:border-primary-400 dark:hover:border-primary-600 w-full overflow-hidden rounded-xl border border-stone-200 bg-white text-left shadow-sm transition-all hover:shadow-md dark:border-stone-800 dark:bg-stone-900">
       <div tabIndex={0} onClick={onClick} onKeyDown={handleCardKeyDown} className="cursor-pointer">
         <div className="relative aspect-4/3 overflow-hidden bg-stone-100 dark:bg-stone-950">
           {images.length > 0 ? (
@@ -156,7 +189,7 @@ function PropertyCard({ property, onClick }: { property: ListingProperty; onClic
                 className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
                 aria-label="Previous image"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
@@ -164,79 +197,86 @@ function PropertyCard({ property, onClick }: { property: ListingProperty; onClic
                 className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
                 aria-label="Next image"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
 
           {images.length > 1 && (
-            <div className="absolute inset-x-0 bottom-3 flex justify-center gap-1.5">
+            <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1">
               {images.map((_, i) => (
                 <div
                   key={i}
-                  className={`h-1.5 rounded-full transition-all ${i === currentImageIdx ? "w-4 bg-white" : "w-1.5 bg-white/50"}`}
+                  className={`h-1 rounded-full transition-all ${i === currentImageIdx ? "w-3 bg-white" : "w-1 bg-white/50"}`}
                 />
               ))}
             </div>
           )}
 
-          <div className="absolute top-3 left-3 flex gap-2">
-            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-stone-900 shadow-sm backdrop-blur-md dark:bg-stone-900/90 dark:text-white">
+          <div className="absolute top-2 left-2 flex gap-1.5">
+            <span className="rounded-md bg-white/90 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-stone-900 shadow-sm backdrop-blur-md dark:bg-stone-900/90 dark:text-white">
               {property.status}
             </span>
           </div>
+
+          {/* Per-user state badges (favorite / interested) so the grid reflects saved prefs. */}
+          <div className="absolute top-2 right-2 flex gap-1.5">
+            {state === "favorite" && (
+              <span
+                className="rounded-md bg-rose-500/90 p-1 text-white shadow-sm"
+                title="Favorited"
+              >
+                <Heart className="h-3 w-3 fill-current" />
+              </span>
+            )}
+            {state === "interested" && (
+              <span
+                className="rounded-md bg-emerald-500/90 p-1 text-white shadow-sm"
+                title="Interested"
+              >
+                <ThumbsUp className="h-3 w-3" />
+              </span>
+            )}
+            {inCompare && (
+              <span
+                className="rounded-md bg-stone-900/80 p-1 text-white shadow-sm"
+                title="In compare"
+              >
+                <GitCompareArrows className="h-3 w-3" />
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="p-5">
-          <div className="mb-2 flex items-start justify-between">
-            <div>
-              <h3 className="line-clamp-1 text-lg font-bold text-stone-900 dark:text-white">
-                {property.title}
-              </h3>
-              <p className="mt-1 flex items-center text-sm text-stone-500">
-                <MapPin className="mr-1 h-3.5 w-3.5" />
-                {property.address}, {property.city}
-              </p>
-            </div>
-            <span className="text-primary-500 font-mono text-lg font-bold">
+        <div className="p-3.5">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="line-clamp-1 text-sm font-semibold text-stone-900 dark:text-white">
+              {property.title}
+            </h3>
+            <span className="text-primary-600 dark:text-primary-400 shrink-0 font-mono text-sm font-semibold">
               ${property.price.toLocaleString()}
             </span>
           </div>
+          <p className="mt-0.5 flex items-center text-xs text-stone-500">
+            <MapPin className="mr-1 h-3 w-3 shrink-0" />
+            <span className="truncate">
+              {property.address}, {property.city}
+            </span>
+          </p>
 
-          <div className="mt-6 grid grid-cols-3 gap-4 border-t border-stone-100 py-4 dark:border-stone-800">
-            <div className="flex items-center gap-2">
-              <div className="rounded-md bg-stone-50 p-1.5 dark:bg-stone-800">
-                <BedDouble className="h-4 w-4 text-stone-500" />
-              </div>
-              <div>
-                <span className="block text-sm font-semibold">{property.beds}</span>
-                <span className="block text-[10px] tracking-wider text-stone-400 uppercase">
-                  Beds
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="rounded-md bg-stone-50 p-1.5 dark:bg-stone-800">
-                <Bath className="h-4 w-4 text-stone-500" />
-              </div>
-              <div>
-                <span className="block text-sm font-semibold">{property.baths}</span>
-                <span className="block text-[10px] tracking-wider text-stone-400 uppercase">
-                  Baths
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="rounded-md bg-stone-50 p-1.5 dark:bg-stone-800">
-                <Maximize2 className="h-4 w-4 text-stone-500" />
-              </div>
-              <div>
-                <span className="block text-sm font-semibold">{property.sqft}</span>
-                <span className="block text-[10px] tracking-wider text-stone-400 uppercase">
-                  SqFt
-                </span>
-              </div>
-            </div>
+          <div className="mt-2.5 flex items-center gap-3 text-xs text-stone-600 dark:text-stone-400">
+            <span className="flex items-center gap-1">
+              <BedDouble className="h-3.5 w-3.5 text-stone-400" />
+              {property.beds} bd
+            </span>
+            <span className="flex items-center gap-1">
+              <Bath className="h-3.5 w-3.5 text-stone-400" />
+              {property.baths} ba
+            </span>
+            <span className="flex items-center gap-1">
+              <Maximize2 className="h-3.5 w-3.5 text-stone-400" />
+              {property.sqft.toLocaleString()} sqft
+            </span>
           </div>
         </div>
       </div>
@@ -244,12 +284,12 @@ function PropertyCard({ property, onClick }: { property: ListingProperty; onClic
   );
 }
 
-function NoListingMedia() {
+export function NoListingMedia() {
   return (
     <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-stone-100 to-stone-200 p-6 text-center dark:from-stone-900 dark:to-stone-950">
       <div>
-        <MapPin className="mx-auto mb-3 h-8 w-8 text-stone-400" />
-        <p className="text-xs font-semibold tracking-wider text-stone-500 uppercase">
+        <MapPin className="mx-auto mb-2 h-6 w-6 text-stone-400" />
+        <p className="text-[10px] font-semibold tracking-wider text-stone-500 uppercase">
           No listing media
         </p>
       </div>
@@ -258,7 +298,7 @@ function NoListingMedia() {
 }
 
 interface PropertyProfileModalProps {
-  property: ListingProperty;
+  property: ListingProperty | null;
   onClose: () => void;
   onExportToSheet?: (property: ListingProperty) => void;
   onScheduleViewing?: (property: ListingProperty) => void;
@@ -268,6 +308,9 @@ interface PropertyProfileModalProps {
   calendarEventTime?: string;
   onCalendarEventTimeChange?: (value: string) => void;
   hasWorkspaceAccess?: boolean;
+  prefs?: ListingPreferencesApi;
+  isSignedIn?: boolean;
+  onAnalyze?: (property: ListingProperty) => Promise<string>;
 }
 
 function PropertyProfileModal({
@@ -281,189 +324,339 @@ function PropertyProfileModal({
   calendarEventTime = "",
   onCalendarEventTimeChange,
   hasWorkspaceAccess = false,
+  prefs,
+  isSignedIn = false,
+  onAnalyze,
 }: PropertyProfileModalProps) {
+  const [currentImageIdx, setCurrentImageIdx] = useState(0);
+  const [showWorkspace, setShowWorkspace] = useState(false);
+  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  // Reset transient dialog state whenever the selected listing changes.
+  React.useEffect(() => {
+    setCurrentImageIdx(0);
+    setShowWorkspace(false);
+    setAnalysis(null);
+    setAnalyzing(false);
+  }, [property?.id]);
+
+  if (!property) {
+    return null;
+  }
+
   const images = (
     property.imageUrls && property.imageUrls.length > 0 ? property.imageUrls : [property.imageUrl]
   ).filter(Boolean);
-  const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const isExporting = sheetsExportingPropId === property.id;
   const isScheduling = calendarSchedulingPropId === property.id;
+  const state = prefs?.states[property.id];
+  const inCompare = prefs?.compareIds.includes(property.id) ?? false;
+
+  const handleAnalyze = async () => {
+    if (!onAnalyze) return;
+    setAnalyzing(true);
+    setAnalysis(null);
+    try {
+      const text = await onAnalyze(property);
+      setAnalysis(text);
+    } catch {
+      // The dashboard surfaces the error toast; keep the panel clean.
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const pricePerSqft = property.sqft > 0 ? Math.round(property.price / property.sqft) : null;
+
+  const footer = (
+    <div className="space-y-2">
+      {isSignedIn && prefs ? (
+        <div className="flex flex-wrap gap-1.5">
+          <ActionChip
+            active={state === "interested"}
+            label="Interested"
+            icon={<ThumbsUp className="h-3.5 w-3.5" />}
+            onClick={() => prefs.setState(property.id, "interested")}
+          />
+          <ActionChip
+            active={state === "notInterested"}
+            label="Not interested"
+            icon={<ThumbsDown className="h-3.5 w-3.5" />}
+            onClick={() => prefs.setState(property.id, "notInterested")}
+          />
+          <ActionChip
+            active={state === "favorite"}
+            label="Favorite"
+            icon={<Heart className={`h-3.5 w-3.5 ${state === "favorite" ? "fill-current" : ""}`} />}
+            onClick={() => prefs.setState(property.id, "favorite")}
+          />
+          <ActionChip
+            active={state === "hidden"}
+            label="Hide"
+            icon={<EyeOff className="h-3.5 w-3.5" />}
+            onClick={() => {
+              prefs.setState(property.id, "hidden");
+              onClose();
+            }}
+          />
+          <ActionChip
+            active={inCompare}
+            label={inCompare ? "In compare" : "Compare"}
+            icon={<GitCompareArrows className="h-3.5 w-3.5" />}
+            onClick={() => prefs.addToCompare(property.id)}
+          />
+        </div>
+      ) : (
+        <p className="text-xs text-stone-500">Sign in to save preferences, compare, and analyze.</p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        {isSignedIn && onAnalyze && (
+          <button
+            type="button"
+            onClick={handleAnalyze}
+            disabled={analyzing}
+            className="text-primary-700 dark:text-primary-300 border-primary-300 dark:border-primary-700 bg-primary-50 dark:bg-primary-950/40 hover:bg-primary-100 dark:hover:bg-primary-900/40 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition disabled:opacity-50"
+          >
+            {analyzing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            Analyze
+          </button>
+        )}
+        {(hasWorkspaceAccess || onDeleteProperty) && (
+          <button
+            type="button"
+            onClick={() => setShowWorkspace((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-200 dark:hover:bg-stone-900"
+          >
+            <Sheet className="h-3.5 w-3.5" />
+            {showWorkspace ? "Hide workspace" : "Export / Schedule"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-stone-900/80 backdrop-blur-sm"
-      />
-      <motion.div
-        initial={{ opacity: 0, y: 40, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 40, scale: 0.95 }}
-        className="relative z-10 flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl md:flex-row dark:bg-stone-900"
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-4 right-4 z-20 rounded-full bg-black/40 p-2 text-white backdrop-blur-md transition hover:bg-black/60"
-          aria-label="Close property details"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        <div className="relative h-64 w-full bg-stone-950 md:h-auto md:w-3/5">
+    <Dialog
+      open={Boolean(property)}
+      onClose={onClose}
+      size="lg"
+      title={property.title}
+      subtitle={`${property.address}, ${property.city}, ${property.state} ${property.zipCode}`}
+      footer={footer}
+    >
+      <div className="space-y-4">
+        {/* Media */}
+        <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-stone-950">
           {images.length > 0 ? (
             <img
               src={images[currentImageIdx]}
               alt={`${property.title} — photo ${currentImageIdx + 1} of ${images.length}`}
               className="h-full w-full object-cover"
+              referrerPolicy="no-referrer"
             />
           ) : (
             <NoListingMedia />
           )}
           {images.length > 1 && (
-            <div className="absolute inset-y-0 right-0 left-0 flex items-center justify-between px-4">
+            <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-between px-3">
               <button
                 type="button"
                 onClick={() =>
                   setCurrentImageIdx((prev) => (prev - 1 + images.length) % images.length)
                 }
-                className="rounded-full bg-black/40 p-3 text-white backdrop-blur-md transition hover:bg-black/60"
+                className="rounded-full bg-black/40 p-2 text-white backdrop-blur-md transition hover:bg-black/60"
                 aria-label="Previous image"
               >
-                <ChevronLeft className="h-6 w-6" />
+                <ChevronLeft className="h-4 w-4" />
               </button>
               <button
                 type="button"
                 onClick={() => setCurrentImageIdx((prev) => (prev + 1) % images.length)}
-                className="rounded-full bg-black/40 p-3 text-white backdrop-blur-md transition hover:bg-black/60"
+                className="rounded-full bg-black/40 p-2 text-white backdrop-blur-md transition hover:bg-black/60"
                 aria-label="Next image"
               >
-                <ChevronRight className="h-6 w-6" />
+                <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           )}
         </div>
 
-        <div className="w-full overflow-y-auto bg-stone-50 p-8 md:w-2/5 dark:bg-stone-900">
-          <div className="mb-6">
-            <div className="bg-primary-500/10 text-primary-500 mb-4 inline-block rounded-full px-3 py-1 text-xs font-bold tracking-wider uppercase">
-              {property.status} • {property.propertyType}
-            </div>
-            <h2 className="mb-2 text-3xl font-extrabold">{property.title}</h2>
-            <p className="flex items-center gap-2 text-stone-500">
-              <MapPin className="h-4 w-4" />
-              {property.address}, {property.city}, {property.state} {property.zipCode}
-            </p>
-          </div>
-
-          <div className="text-primary-500 mb-8 border-b border-stone-200 pb-8 font-mono text-4xl font-bold dark:border-stone-800">
+        {/* Price + key facts: compact chips, no giant decorative numbers. */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-primary-600 dark:text-primary-400 font-mono text-xl font-semibold">
             ${property.price.toLocaleString()}
-          </div>
+          </span>
+          <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+            {property.status} · {property.propertyType}
+          </span>
+        </div>
 
-          <div className="mb-8 grid grid-cols-2 gap-6">
-            <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm dark:border-stone-800 dark:bg-stone-950">
-              <span className="mb-1 block text-xs tracking-wider text-stone-500 uppercase">
-                Bedrooms
-              </span>
-              <span className="text-2xl font-semibold">{property.beds}</span>
-            </div>
-            <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm dark:border-stone-800 dark:bg-stone-950">
-              <span className="mb-1 block text-xs tracking-wider text-stone-500 uppercase">
-                Bathrooms
-              </span>
-              <span className="text-2xl font-semibold">{property.baths}</span>
-            </div>
-            <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm dark:border-stone-800 dark:bg-stone-950">
-              <span className="mb-1 block text-xs tracking-wider text-stone-500 uppercase">
-                Square Feet
-              </span>
-              <span className="text-2xl font-semibold">{property.sqft}</span>
-            </div>
-            <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm dark:border-stone-800 dark:bg-stone-950">
-              <span className="mb-1 block text-xs tracking-wider text-stone-500 uppercase">
-                Year Built
-              </span>
-              <span className="text-2xl font-semibold">{property.yearBuilt || "N/A"}</span>
-            </div>
-          </div>
-
-          <div className="mb-8">
-            <h3 className="mb-3 text-lg font-bold">Property Output Details</h3>
-            <p className="text-sm leading-relaxed text-stone-600 dark:text-stone-400">
-              {property.description || "No full description provided. Harvested via email agent."}
-            </p>
-          </div>
-
-          {(onExportToSheet || onScheduleViewing || onDeleteProperty) && (
-            <div className="space-y-4 border-t border-stone-200 pt-6 dark:border-stone-800">
-              <h3 className="text-sm font-bold tracking-wider text-stone-500 uppercase">
-                Workspace Actions
-              </h3>
-
-              {hasWorkspaceAccess && onExportToSheet && (
-                <button
-                  type="button"
-                  onClick={() => onExportToSheet(property)}
-                  disabled={isExporting}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
-                >
-                  {isExporting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sheet className="h-4 w-4" />
-                  )}
-                  Export to Google Sheets
-                </button>
-              )}
-
-              {hasWorkspaceAccess && onScheduleViewing && onCalendarEventTimeChange && (
-                <div className="space-y-2">
-                  <label
-                    htmlFor={`viewing-time-${property.id}`}
-                    className="block text-xs font-semibold tracking-wider text-stone-500 uppercase"
-                  >
-                    Viewing Date &amp; Time
-                  </label>
-                  <input
-                    id={`viewing-time-${property.id}`}
-                    type="datetime-local"
-                    value={calendarEventTime}
-                    onChange={(e) => onCalendarEventTimeChange(e.target.value)}
-                    className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onScheduleViewing(property)}
-                    disabled={isScheduling || !calendarEventTime}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
-                  >
-                    {isScheduling ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Calendar className="h-4 w-4" />
-                    )}
-                    Schedule Calendar Viewing
-                  </button>
-                </div>
-              )}
-
-              {onDeleteProperty && (
-                <button
-                  type="button"
-                  onClick={() => onDeleteProperty(property.id)}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete Listing
-                </button>
-              )}
-            </div>
+        <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+          <Fact label="Beds" value={property.beds} />
+          <Fact label="Baths" value={property.baths} />
+          <Fact label="Sq ft" value={property.sqft.toLocaleString()} />
+          <Fact label="Year" value={property.yearBuilt ?? "—"} />
+          {pricePerSqft !== null && <Fact label="$/sqft" value={`$${pricePerSqft}`} />}
+          {typeof property.distanceMiles === "number" && (
+            <Fact label="Distance" value={`${property.distanceMiles.toFixed(1)} mi`} />
           )}
         </div>
-      </motion.div>
+
+        {property.description ? (
+          <div>
+            <h3 className="mb-1 text-xs font-semibold tracking-wider text-stone-500 uppercase">
+              Details
+            </h3>
+            <p className="text-sm leading-relaxed text-stone-600 dark:text-stone-400">
+              {property.description}
+            </p>
+          </div>
+        ) : null}
+
+        {property.sourceUrl ? (
+          <a
+            href={property.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-600 dark:text-primary-400 inline-block text-xs font-medium hover:underline"
+          >
+            View source listing ↗
+          </a>
+        ) : null}
+
+        {/* Analysis output (Gemini-backed, cited/qualified, honest no-data). */}
+        {(analyzing || analysis) && (
+          <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-950/40">
+            <h3 className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wider text-stone-500 uppercase">
+              <Star className="h-3.5 w-3.5" /> AI analysis
+            </h3>
+            {analyzing ? (
+              <p className="flex items-center gap-2 text-sm text-stone-500">
+                <Loader2 className="h-4 w-4 animate-spin" /> Analyzing listing data…
+              </p>
+            ) : (
+              <p className="text-sm leading-relaxed whitespace-pre-line text-stone-700 dark:text-stone-300">
+                {analysis}
+              </p>
+            )}
+            <p className="mt-2 text-[10px] text-stone-400">
+              AI-generated from listing fields only. Verify independently; not provider-verified
+              fact or investment advice.
+            </p>
+          </div>
+        )}
+
+        {/* Workspace actions (Sheets / Calendar / delete) folded into the compact pattern. */}
+        {showWorkspace && (
+          <div className="space-y-3 rounded-xl border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-950/40">
+            {hasWorkspaceAccess && onExportToSheet && (
+              <button
+                type="button"
+                onClick={() => onExportToSheet(property)}
+                disabled={isExporting}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
+              >
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sheet className="h-4 w-4" />
+                )}
+                Export to Google Sheets
+              </button>
+            )}
+
+            {hasWorkspaceAccess && onScheduleViewing && onCalendarEventTimeChange && (
+              <div className="space-y-2">
+                <label
+                  htmlFor={`viewing-time-${property.id}`}
+                  className="block text-xs font-semibold tracking-wider text-stone-500 uppercase"
+                >
+                  Viewing date &amp; time
+                </label>
+                <input
+                  id={`viewing-time-${property.id}`}
+                  type="datetime-local"
+                  value={calendarEventTime}
+                  onChange={(e) => onCalendarEventTimeChange(e.target.value)}
+                  className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => onScheduleViewing(property)}
+                  disabled={isScheduling || !calendarEventTime}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
+                >
+                  {isScheduling ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Calendar className="h-4 w-4" />
+                  )}
+                  Schedule calendar viewing
+                </button>
+              </div>
+            )}
+
+            {onDeleteProperty && (
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteProperty(property.id);
+                  onClose();
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete listing
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 dark:border-stone-800 dark:bg-stone-950">
+      <span className="block text-[10px] tracking-wider text-stone-400 uppercase">{label}</span>
+      <span className="block text-sm font-semibold text-stone-900 dark:text-stone-100">
+        {value}
+      </span>
     </div>
+  );
+}
+
+function ActionChip({
+  active,
+  label,
+  icon,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+        active
+          ? "border-primary-500 bg-primary-500 text-white"
+          : "border-stone-200 bg-white text-stone-700 hover:bg-stone-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-200 dark:hover:bg-stone-900"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

@@ -345,7 +345,7 @@ export default function Dashboard() {
   const triggerGmailHarvest = async () => {
     if (!user || !accessToken) {
       setLogMessage(
-        "Active Google Workspace token required. Click 'Connect Google Services' top right.",
+        "Active Google Workspace token required. Use 'Authorize Google Services' on the Ingest tab.",
       );
       return;
     }

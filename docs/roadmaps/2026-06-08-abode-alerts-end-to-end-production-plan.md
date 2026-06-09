@@ -964,6 +964,8 @@ Re-run findings (WS10 re-run, 2026-06-09) — baseline was marked `[x]` but did 
 - [x] `components/theme-controls.tsx`: collapsed to an icon-only accent control — palette icon tinted with the live accent, hidden native color input triggered by the icon click, duplicate swatch removed. Persistence preserved.
 - [x] `scripts/browser-google-oauth-check.ts`: updated assertions to the new chrome (sign-in matched as `/^sign in$/i`, fallback-avatar selector no longer requires `[aria-label]`) and redirected the hardcoded prior-session temp dir to an OS temp path (`os.tmpdir()`), keeping ephemeral artifacts off the repo/parent paths.
 
+Pass-2 audit (WS10 re-run, 2026-06-09, fresh context) — independent re-verification against Exit criteria + Requirements §I. Header chrome and theme controls confirmed already at spec (mutually-exclusive `GoogleSignInButton`/`ProfileMenu`, glyph + "Sign in" label, no avatar when signed out, no header sign-out, accent-tinted palette icon with hidden color input, no swatch). One residual rough edge fixed: the Gmail-harvest "token required" log message in `components/dashboard.tsx` still told users to click the removed `Connect Google Services` header button; updated to point at the in-tab `Authorize Google Services` control on the Ingest tab. No other WS10 gaps found. `npm run verify` green (lint, typecheck, format:check, 49 tests, build).
+
 Exit criteria:
 
 - [x] Signed-out shows no avatar; signed-in shows no sign-in/sign-out in the header bar. (Browser smoke on a clean signed-out load: exactly 1 "Sign in" button, 0 "Sign in with Google", 0 avatars, no console errors.)

@@ -104,6 +104,18 @@ describe("firestore rules emulator — listing preferences own-only", () => {
     await assertFails(ref.set(preferenceDoc("listing-spoof", "someone-else")));
   });
 
+  it("denies a listing preference whose body listingId does not match the doc id", async () => {
+    const owner = testEnv.authenticatedContext("owner-uid");
+    const ref = owner
+      .firestore()
+      .collection("users")
+      .doc("owner-uid")
+      .collection("listingPreferences")
+      .doc("listing-path");
+
+    await assertFails(ref.set(preferenceDoc("listing-different", "owner-uid")));
+  });
+
   it("allows owner compareQueue and denies cross-user access", async () => {
     const owner = testEnv.authenticatedContext("owner-uid");
     const other = testEnv.authenticatedContext("other-uid");

@@ -726,11 +726,11 @@ Implementation tasks:
 - [x] Define `ListingUserState`: `interested | notInterested | favorite | hidden`, with `updatedAt`/`createdAt` timestamps and an optional `note` (`types/listings.ts`; handwritten validator in `lib/schemas/listing-preferences.ts`, uniform with the other schemas).
 - [x] Repository CRUD scoped to the owner uid, stored under `users/{uid}/listingPreferences/{listingId}` — `get`/`list`/`upsert` (set/clear via state)/`delete`, validating before every write and carrying timestamps (`lib/repositories/listing-preferences.ts`).
 - [x] Compare set under `users/{uid}/compareQueue/{COMPARE_QUEUE_DOC_ID}` (canonical doc id `main`, exported from `types/listings.ts`), capped at `MAX_COMPARE_LISTINGS = 4` with explicit errors when exceeded; repo `add`/`remove`/`set`/`get` helpers.
-- [x] Rules: an owner can read/write ONLY their own `listingPreferences` and `compareQueue` docs (non-owners denied); deny-by-default preserved. `compareQueue` modeled as a `{queueId}` subcollection doc so the path is uniform with `listingPreferences`. Full cross-collection hardening still lands in WS16.
+- [x] Rules: an owner can read/write ONLY their own `listingPreferences` and `compareQueue` docs (non-owners denied); deny-by-default preserved. `compareQueue` modeled as a `{queueId}` subcollection doc so the path is uniform with `listingPreferences`. Both `create` and `update` on a preference enforce `incoming().listingId == listingId` (body id must equal the doc/path id), so the stored `listingId` can never diverge from the path. Full cross-collection hardening still lands in WS16.
 
 Exit criteria:
 
-- [x] Rules unit/emulator tests pass for own-only access — `npm run test:rules` is GREEN (6 emulator cases: owner read/write, cross-user deny on prefs + queue, optional note, userId-spoof deny, compareQueue cap-of-4 deny). Schema/repo covered by `tests/listing-preferences.test.ts`; rules shape asserted by `tests/firestore-rules-structure.test.ts`.
+- [x] Rules unit/emulator tests pass for own-only access — `npm run test:rules` is GREEN (7 emulator cases: owner read/write, cross-user deny on prefs + queue, optional note, userId-spoof deny, listingId/path-mismatch deny, compareQueue cap-of-4 deny). Schema/repo covered by `tests/listing-preferences.test.ts`; rules shape asserted by `tests/firestore-rules-structure.test.ts`.
 
 Suggested verification:
 

@@ -165,7 +165,8 @@ service cloud.firestore {
 
     match /users/{userId}/listingPreferences/{listingId} {
       allow list, get: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidId(listingId) && isValidListingPreference(incoming());
+      allow create: if isOwner(userId) && isValidId(listingId) && isValidListingPreference(incoming())
+        && incoming().listingId == listingId;
       allow update: if isOwner(userId) && isValidId(listingId) && isValidListingPreference(incoming())
         && incoming().listingId == listingId;
       allow delete: if isOwner(userId) && isValidId(listingId);

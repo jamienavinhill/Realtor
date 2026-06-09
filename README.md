@@ -1,8 +1,17 @@
 # Abode Alerts
 
-Abode Alerts is a Next.js property-monitoring workspace for real listing ingestion, Google sign-in, Firestore-backed saved listings and alerts, and Google Workspace export flows.
+Abode Alerts is a Next.js property-monitoring workspace for the 10-mile radius around ZIP 44224 (Stow, Ohio). It ingests real listings with source provenance, signs users in with Google, stores listings and alerts in Firestore, and exports to Google Workspace. It never invents listings, media, or market facts, and it makes no MLS-completeness or guaranteed-real-time claims.
 
 Production domain: `https://abode-alerts.vercel.app`
+
+## What It Does
+
+- **Automatic email ingestion (primary flow).** A new listing-alert email is the trigger: Gmail `watch` → Cloud Pub/Sub push → server pipeline → Gemini extraction (server-side) → validation, provenance, dedupe → Firestore upsert → alert evaluation → toast. A manual "Scan Gmail" and a paste-and-parse path remain as fallbacks.
+- **Real baseline inventory.** An auditable, idempotent backfill populates active listings within 10 miles of 44224 with real media and full provenance.
+- **Alerts.** Saved, owner-scoped search criteria evaluated server-side during ingestion and the daily refresh; matches are persisted and surfaced as non-shifting toasts.
+- **Listing workspace.** A compact listing dialog with per-user actions (interested / not interested / favorite / hide / compare up to four) and a Gemini-backed analysis that reasons only from stored fields.
+- **CMA.** Comparative Market Analysis charts and a sortable, paginated table derived entirely from the real Firestore inventory.
+- **In-app docs.** The Docs tab documents the live flows; the durable operations/architecture docs live under `docs/`.
 
 ## Stack
 

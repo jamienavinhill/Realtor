@@ -1,6 +1,6 @@
 {
   "name": "Abode Alerts",
-  "description": "Property monitoring, listing ingestion, and alert matching for the 44224 area",
+  "description": "Property monitoring for the 44224 Stow/Akron area with real listing ingestion, automatic email alerts, and Google Workspace tools.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -43,7 +43,7 @@ import { composeGmailQuery, DEFAULT_PLATFORM_SELECTION } from "@/lib/gmail/platf
 import { DocsView } from "./views/DocsView";
 import { AlertsWizardView } from "./views/AlertsWizardView";
 import { IngestPlatformSelector } from "./views/IngestPlatformSelector";
-import { ListingsGrid } from "./views/ListingsGrid";
+import { ListingsGrid, NoListingMedia } from "./views/ListingsGrid";
 import { CompareDialog } from "./views/CompareDialog";
 import { CMAView } from "./views/CMAView";
 import { ThemeControls } from "./theme-controls";
@@ -1012,13 +1012,15 @@ export default function Dashboard() {
               {/* OPTIONS BOX 1: GMAIL SCANNER */}
               <div className="space-y-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
                 <div className="flex items-center space-x-2 border-b border-stone-200 pb-4 dark:border-stone-800">
-                  <Mail className="text-primary-400 h-5 w-5" />
-                  <h2 className="text-sm font-bold text-white">Gmail Alert Harvester</h2>
+                  <Mail className="text-primary-500 h-5 w-5" />
+                  <h2 className="text-sm font-bold text-stone-900 dark:text-white">
+                    Gmail Alert Harvester
+                  </h2>
                 </div>
 
                 {!user || !accessToken ? (
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-center text-amber-300">
-                    <AlertTriangle className="mx-auto mb-2 h-8 w-8 animate-bounce text-amber-400" />
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-center text-amber-700 dark:text-amber-300">
+                    <AlertTriangle className="mx-auto mb-2 h-8 w-8 text-amber-500" />
                     <span className="mb-1 block text-xs font-bold">
                       Google Workspace Auth Required
                     </span>
@@ -1123,14 +1125,16 @@ export default function Dashboard() {
               {/* OPTIONS BOX 2: DIRECT COPY-PASTER */}
               <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
                 <div className="flex items-center space-x-2 border-b border-stone-200 pb-3 dark:border-stone-800">
-                  <FileText className="h-5 w-5 text-blue-400" />
-                  <h2 className="text-sm font-bold text-white">Direct Raw Alert Parser</h2>
+                  <FileText className="h-5 w-5 text-blue-500" />
+                  <h2 className="text-sm font-bold text-stone-900 dark:text-white">
+                    Direct Raw Alert Parser
+                  </h2>
                 </div>
 
-                <p className="text-[11px] leading-relaxed text-stone-400">
-                  Pasted the contents of any real-estate alert email, copied webpage listing
-                  snippet, or MLS descriptions. Gemini will structure it beautifully with 0%
-                  hallucinatory metrics!
+                <p className="text-[11px] leading-relaxed text-stone-500 dark:text-stone-400">
+                  Paste the body of a real-estate alert email or a copied listing snippet. Gemini
+                  extracts the structured listing from the text only — prices, photos, and details
+                  are never invented. Review the result below before committing it.
                 </p>
 
                 <div className="space-y-3">
@@ -1168,18 +1172,21 @@ export default function Dashboard() {
               <div>
                 <div className="mb-4 flex items-center justify-between border-b border-stone-200 pb-4 dark:border-stone-800">
                   <div className="flex items-center space-x-2">
-                    <Sparkles className="text-primary-400 h-5 w-5" />
-                    <h2 className="font-sans text-sm font-bold text-white">
-                      Sourced Listings Inbox Buffer
+                    <Sparkles className="text-primary-500 h-5 w-5" />
+                    <h2 className="font-sans text-sm font-bold text-stone-900 dark:text-white">
+                      Review &amp; Commit
                     </h2>
                   </div>
                   {harvestedPreviews.length > 0 && user && (
                     <button
                       onClick={commitListingsToFirestore}
-                      className="bg-primary-600 hover:bg-primary-500 border-primary-500 flex cursor-pointer items-center space-x-1 rounded border px-3 py-1.5 text-xs font-bold text-stone-950 shadow transition"
+                      className="bg-primary-600 hover:bg-primary-500 border-primary-500 flex cursor-pointer items-center space-x-1 rounded border px-3 py-1.5 text-xs font-bold text-white shadow transition"
                     >
-                      <PlusCircle className="h-3.5 w-3.5 text-stone-950" />
-                      <span>Commit {harvestedPreviews.length} Sourced row to database</span>
+                      <PlusCircle className="h-3.5 w-3.5" />
+                      <span>
+                        Save {harvestedPreviews.length}{" "}
+                        {harvestedPreviews.length === 1 ? "listing" : "listings"} to database
+                      </span>
                     </button>
                   )}
                 </div>
@@ -1211,17 +1218,22 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center space-x-3.5">
                           <div className="h-14 w-14 shrink-0 overflow-hidden rounded border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
-                            <img
-                              src={item.imageUrl}
-                              alt={item.title}
-                              className="h-full w-full object-cover"
-                            />
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.title}
+                                referrerPolicy="no-referrer"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <NoListingMedia />
+                            )}
                           </div>
                           <div>
-                            <h4 className="text-xs leading-tight font-bold text-white">
+                            <h4 className="text-xs leading-tight font-bold text-stone-900 dark:text-white">
                               {item.title}
                             </h4>
-                            <span className="mt-0.5 block font-mono text-[11px] text-stone-400">
+                            <span className="mt-0.5 block font-mono text-[11px] text-stone-500 dark:text-stone-400">
                               {item.address}, {item.city}
                             </span>
                             <span className="mt-1 block font-mono text-[10px] text-stone-500">
@@ -1231,7 +1243,7 @@ export default function Dashboard() {
                         </div>
 
                         <div className="flex w-full shrink-0 items-center justify-between border-t border-stone-200 pt-2 text-right sm:w-auto sm:flex-col sm:items-end sm:border-t-0 sm:pt-0 dark:border-stone-800">
-                          <span className="text-primary-400 block font-mono text-sm font-bold">
+                          <span className="text-primary-600 dark:text-primary-400 block font-mono text-sm font-bold">
                             ${item.price.toLocaleString()}
                           </span>
                           <span className="mt-0.5 block rounded border border-stone-200 bg-white px-2 py-0.5 font-mono text-[9px] tracking-wide text-stone-500 uppercase dark:border-stone-800 dark:bg-stone-900">
@@ -1253,7 +1265,9 @@ export default function Dashboard() {
             <div className="h-fit space-y-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-lg lg:col-span-4 dark:border-stone-800 dark:bg-stone-900">
               <div className="flex items-center space-x-2 border-b border-stone-200 pb-4 dark:border-stone-800">
                 <Bell className="text-primary-400 h-5 w-5" />
-                <h2 className="text-sm font-bold text-white">Create Lead Monitor</h2>
+                <h2 className="text-sm font-bold text-stone-900 dark:text-white">
+                  Create Lead Monitor
+                </h2>
               </div>
 
               {!user ? (
@@ -1343,7 +1357,7 @@ export default function Dashboard() {
               {/* LIVE ACTIVE ALERTS ROW MATCH LISTING */}
               <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
                 <div className="mb-4 flex items-center justify-between border-b border-stone-200 pb-4 dark:border-stone-800">
-                  <span className="font-sans text-sm font-bold text-white">
+                  <span className="font-sans text-sm font-bold text-stone-900 dark:text-white">
                     Active Monitoring Queries
                   </span>
                   <span className="font-mono text-[10px] text-stone-500 uppercase">
@@ -1372,7 +1386,7 @@ export default function Dashboard() {
                       >
                         <div>
                           <div className="mb-2 flex items-center justify-between">
-                            <h4 className="font-mono text-xs font-bold tracking-wider text-white uppercase">
+                            <h4 className="font-mono text-xs font-bold tracking-wider text-stone-900 uppercase dark:text-white">
                               {a.name}
                             </h4>
                             <span className="bg-primary-400 h-2 w-2 animate-pulse rounded-full" />
@@ -1419,7 +1433,7 @@ export default function Dashboard() {
               {/* PERSISTED ALERT MATCHES */}
               <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
                 <div className="mb-4 flex items-center justify-between border-b border-stone-200 pb-4 dark:border-stone-800">
-                  <span className="font-sans text-sm font-bold text-white">
+                  <span className="font-sans text-sm font-bold text-stone-900 dark:text-white">
                     Persisted Alert Matches
                   </span>
                   <span className="font-mono text-[10px] text-stone-500 uppercase">

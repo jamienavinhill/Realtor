@@ -1182,11 +1182,11 @@ Goal: Wire every visible page/view to real data and final Abode Alerts copy: lis
 
 Depends on:
 
-- [ ] WS11 UI cleanup, WS6 baseline data, WS8 alert matches, WS12 listing dialog, WS13 CMA.
+- [x] WS11 UI cleanup, WS6 baseline data, WS8 alert matches, WS12 listing dialog, WS13 CMA. (All closed and consumed via their components/exports.)
 
 Enables:
 
-- [ ] Polished production experience.
+- [x] Polished production experience.
 
 Primary areas:
 
@@ -1194,18 +1194,18 @@ Primary areas:
 
 Implementation tasks:
 
-- [ ] Update app metadata, title, descriptions, social metadata, and icons for Abode Alerts and the deployed domain.
-- [ ] Ensure the setup/wizard explains the one-email sign-up flow for the baseline platforms and others without embedding account credentials.
-- [ ] Wire CMA to real baseline and comparable records; hide or replace any synthetic chart values.
-- [ ] Wire the Docs view to current docs or remove in-app docs if stale.
-- [ ] Ensure Google Workspace flows show precise permissions and failure states.
-- [ ] Add loading, empty, partial-data, and provider-error states across views.
+- [x] Update app metadata, title, descriptions, social metadata, and icons for Abode Alerts and the deployed domain. Done via the Next 15 App Router `metadata` export in `app/layout.tsx` (`metadataBase` = `https://abode-alerts.vercel.app`, title template, applicationName, OpenGraph, Twitter, robots), a file-based `app/icon.svg`, and a generated `app/opengraph-image.tsx` (1200×630). `metadata.json` content reconciled (name/description) without relocating the file (WS19 owns the move). Verified via served HTML head + 200s on `/icon.svg` and `/opengraph-image`.
+- [x] Ensure the setup/wizard explains the one-email sign-up flow for the baseline platforms and others without embedding account credentials. `AlertsWizardView` and the in-app Docs/Quickstart describe subscribing to Zillow/Trulia/Homes.com/Redfin/realtor.com email alerts; no account credentials are collected or stored.
+- [x] Wire CMA to real baseline and comparable records; hide or replace any synthetic chart values. (WS13 `CMAView` derives every figure from the Firestore inventory passed in; consumed unchanged.)
+- [x] Wire the Docs view to current docs or remove in-app docs if stale. (WS14 `DocsView` reflects the live flows; consumed unchanged.)
+- [x] Ensure Google Workspace flows show precise permissions and failure states. Harvester auth-required state names the OAuth requirement; ingest/scan/export/schedule all return surfaced toasts on failure; wizard now renders an honest provider-error state instead of an undefined response.
+- [x] Add loading, empty, partial-data, and provider-error states across views. Listings (empty inventory vs filtered-empty), harvester (auth-required, loading, empty buffer, no-media preview), wizard (loading / provider-error / empty / result), alerts (signed-out, no-alerts, no-matches, listing-pending), CMA + Docs (closed streams) all carry honest states.
 
 Exit criteria:
 
-- [ ] No page depends on fake data or obsolete AI Studio copy.
-- [ ] Metadata and user-facing copy match Abode Alerts and the deployed domain.
-- [ ] Every visible action has an end-to-end data path or is removed until it does.
+- [x] No page depends on fake data or obsolete AI Studio copy. Removed "0% hallucinatory metrics" / "Sourced Listings Inbox Buffer" copy and the `// Simulate generation` path; fixed `text-white`-on-white headings that were illegible in light mode and the residual `animate-bounce` alert icon.
+- [x] Metadata and user-facing copy match Abode Alerts and the deployed domain.
+- [x] Every visible action has an end-to-end data path or is removed until it does. Scan Gmail (`parse_gmail`), direct parse (`parse_raw_text`), commit (`setDoc` properties), export (`export_sheets`), schedule (`create_calendar_event`), analyze (`/api/listings/analyze`), and the wizard guide (`/api/gemini`) are all wired to real routes.
 
 Suggested verification:
 

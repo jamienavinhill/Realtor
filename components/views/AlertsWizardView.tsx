@@ -1,5 +1,13 @@
 import React, { useState } from "react";
-import { Mail, ArrowRight, BellRing, Sparkles, Building2 } from "lucide-react";
+import {
+  Mail,
+  ArrowRight,
+  BellRing,
+  Sparkles,
+  Building2,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
 import { BASELINE_ZIP, DEFAULT_ALERT_CITY, DEFAULT_ALERT_STATE } from "@/lib/ingest/constants";
 
 /** The five baseline listing-email platforms (WS7, User Requirements B.3). */
@@ -22,9 +30,14 @@ export function AlertsWizardView() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [guideText, setGuideText] = useState("");
 
+  const [genError, setGenError] = useState<string | null>(null);
+
+  // Generate the platform subscription cheat sheet via the server-side Gemini route.
+  // Surfaces honest provider-error state (502/missing-key/network) instead of
+  // silently rendering an undefined response.
   const handleGenerate = async () => {
     setIsGenerating(true);
-    // Simulate generation or actual call
+    setGenError(null);
     try {
       const response = await fetch("/api/gemini", {
         method: "POST",
@@ -34,9 +47,17 @@ export function AlertsWizardView() {
         }),
       });
       const data = await response.json();
+      if (!response.ok || typeof data.text !== "string" || data.text.trim().length === 0) {
+        throw new Error(data.error || "The setup-guide service returned no content.");
+      }
       setGuideText(data.text);
-    } catch {
-      setGuideText("Failed to generate instructions. Please check network.");
+    } catch (error) {
+      setGuideText("");
+      setGenError(
+        error instanceof Error
+          ? error.message
+          : "Could not reach the setup-guide service. Check your connection and try again.",
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -48,7 +69,7 @@ export function AlertsWizardView() {
         <div className="bg-primary-500/10 text-primary-500 mb-6 inline-flex items-center justify-center rounded-full p-4">
           <BellRing className="h-8 w-8" />
         </div>
-        <h1 className="mb-4 text-3xl font-extrabold tracking-tight text-stone-900 dark:text-white">
+        <h1 className="mb-4 text-2xl font-semibold tracking-tight text-stone-900 dark:text-white">
           Email Alerts Setup Wizard
         </h1>
         <p className="mx-auto max-w-xl text-stone-500">
@@ -123,7 +144,17 @@ export function AlertsWizardView() {
           <h2 className="mb-6 text-lg font-semibold">Setup Cheat Sheet</h2>
 
           <div className="flex-1 overflow-y-auto rounded-xl border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-950">
-            {guideText ? (
+            {isGenerating ? (
+              <div className="flex h-full flex-col items-center justify-center space-y-3 text-center text-stone-400">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <p className="text-sm">Generating your setup guide…</p>
+              </div>
+            ) : genError ? (
+              <div className="flex h-full flex-col items-center justify-center space-y-3 text-center text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-8 w-8" />
+                <p className="text-sm">{genError}</p>
+              </div>
+            ) : guideText ? (
               <div className="prose prose-sm dark:prose-invert prose-stone">
                 <div dangerouslySetInnerHTML={{ __html: guideText.replace(/\n/g, "<br/>") }} />
               </div>
@@ -131,8 +162,8 @@ export function AlertsWizardView() {
               <div className="flex h-full flex-col items-center justify-center space-y-3 text-center text-stone-400">
                 <Mail className="h-8 w-8 opacity-50" />
                 <p className="text-sm">
-                  Click generate to build your step-by-step setup guide for external property
-                  platforms.
+                  Click generate to build your step-by-step setup guide for subscribing to Zillow,
+                  Trulia, Homes.com, Redfin, and realtor.com email alerts.
                 </p>
               </div>
             )}

@@ -43,6 +43,13 @@ Abode Alerts is a **production-shaped property monitoring workspace**: a Next.js
 ## Local Workflow
 
 - The development host is Windows. Use the available shell against this checkout; do not pivot to WSL for installs, builds, tests, or dev servers.
+
+### Shell And Working Directory
+
+- **Workspace root is the repo checkout** (`Realtor/`), not the parent `projects/` folder. Every shell command, script output, screenshot, log, and temp artifact belongs inside this repo or in OS temp — never in `C:\Users\james\projects\` parent paths.
+- When running commands, pass `working_directory` / `cd` to the repo root explicitly if the shell cwd is uncertain.
+- **Ephemeral agent outputs** go to OS temp (e.g. `%TEMP%\grok-goal-*`) or gitignored paths already listed in `.gitignore` (`terminals/`, `agent-tools/`, `.playwright-cli/`). Do not create new top-level folders in the repo for harness files.
+- User shell profiles may land in `~/projects` for manual work; agents must not rely on that behavior and must stay scoped to the active workspace.
 - Before editing, identify the owning files, contracts, tests, and docs.
 - After editing, run the narrowest meaningful verification first, then broader gates required by the change.
 - If a required gate does not exist yet, say so clearly and name the missing tool or command instead of inventing a substitute.

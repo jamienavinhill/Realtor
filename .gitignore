@@ -29,3 +29,10 @@ pnpm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+.vercel
+
+# agent / automation artifacts (never commit)
+terminals/
+agent-tools/
+.playwright-cli/
+tsconfig.tsbuildinfo

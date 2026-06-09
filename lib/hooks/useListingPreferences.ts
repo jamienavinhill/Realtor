@@ -116,15 +116,19 @@ export function useListingPreferences(user: User | null): ListingPreferencesApi 
         return;
       }
       const now = new Date().toISOString();
-      const existingCreatedAt = states[listingId] ? undefined : now;
+      // On an existing doc we merge and omit `createdAt` so the original creation
+      // time is preserved (Firestore merge keeps untouched fields; the rules see
+      // the merged resource, which still carries the original `createdAt`). Only a
+      // brand-new doc sets `createdAt`.
+      const isNew = !states[listingId];
       await setDoc(
         prefDocPath(user.uid, listingId),
         {
           listingId,
           userId: user.uid,
           state,
-          createdAt: existingCreatedAt ?? now,
           updatedAt: now,
+          ...(isNew ? { createdAt: now } : {}),
         },
         { merge: true },
       );

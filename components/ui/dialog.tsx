@@ -55,6 +55,15 @@ export function Dialog({
   const previouslyFocused = React.useRef<HTMLElement | null>(null);
   const titleId = React.useId();
 
+  // Keep the latest onClose in a ref so the open-lifecycle effect depends only on
+  // `open`. Callers pass inline arrow functions (unstable identity) for onClose;
+  // depending on it directly would tear down and re-run the trap/scroll-lock on
+  // every unrelated parent re-render, stealing focus back into the panel mid-edit.
+  const onCloseRef = React.useRef(onClose);
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   React.useEffect(() => {
     setMounted(true);
   }, []);
@@ -74,7 +83,7 @@ export function Dialog({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -101,12 +110,27 @@ export function Dialog({
     };
 
     document.addEventListener("keydown", onKeyDown, true);
+
+    // Lock body scroll while open so the page behind the modal does not scroll,
+    // and compensate for the removed scrollbar so the layout does not shift.
+    const body = document.body;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    const previousOverflow = body.style.overflow;
+    const previousPaddingRight = body.style.paddingRight;
+    body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      const currentPaddingRight = parseFloat(window.getComputedStyle(body).paddingRight) || 0;
+      body.style.paddingRight = `${currentPaddingRight + scrollbarWidth}px`;
+    }
+
     return () => {
       window.clearTimeout(focusTimer);
       document.removeEventListener("keydown", onKeyDown, true);
+      body.style.overflow = previousOverflow;
+      body.style.paddingRight = previousPaddingRight;
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!mounted || !open) return null;
 

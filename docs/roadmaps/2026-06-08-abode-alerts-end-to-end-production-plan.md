@@ -1080,7 +1080,7 @@ Primary areas:
 
 Implementation tasks:
 
-- [x] Replace the `max-w-5xl` split modal with a compact centered dialog (`max-w-lg`–`max-w-xl`), scrollable body, not a full-page takeover unless media requires it. (New focus-trapped `components/ui/dialog.tsx`; modal is now `size="lg"` = `max-w-xl`, Escape/click-outside close, aria dialog roles.)
+- [x] Replace the `max-w-5xl` split modal with a compact centered dialog (`max-w-lg`–`max-w-xl`), scrollable body, not a full-page takeover unless media requires it. (New focus-trapped `components/ui/dialog.tsx`; modal is now `size="lg"` = `max-w-xl`, Escape/click-outside close, aria dialog roles. Pass-2 hardening: added body scroll-lock with scrollbar-width compensation — no layout shift — and routed `onClose` through a ref so unstable inline `onClose` props no longer tear down the focus trap / steal focus on unrelated parent re-renders.)
 - [x] Action bar: Interested, Not interested, Favorite, Hide, Compare, Analyze (Gemini-backed, cited/qualified — no invented facts), plus Export/Schedule fitted into the compact pattern. (Analyze calls server route `app/api/listings/analyze/route.ts`; Export/Schedule/Delete folded behind a compact toggle in the dialog footer.)
 - [x] Grid cards: smaller type scale, professional dense hierarchy, remove wasteful stat blocks and decorative giant numbers. (Cards now 4-up at xl, inline bd/ba/sqft row, reuses `NoListingMedia`; per-user favorite/interested/compare badges.)
 - [x] Filter toggles: show/hide hidden listings, favorites-only view (hidden excluded from default grid, recoverable). (Pure helper `lib/listings/filter.ts` + dashboard toggles; covered by `tests/listing-filter.test.ts`.)
@@ -1088,7 +1088,7 @@ Implementation tasks:
 
 Exit criteria:
 
-- [x] A user can favorite and hide a listing; a hidden listing disappears from the default grid and is recoverable. (Persisted to `users/{uid}/listingPreferences/{listingId}` via owner-scoped client SDK; "Show hidden" toggle recovers them. Verified by code review + `tests/listing-filter.test.ts`; live signed-in browser smoke remains operator/CI-pending — see below.)
+- [x] A user can favorite and hide a listing; a hidden listing disappears from the default grid and is recoverable. (Persisted to `users/{uid}/listingPreferences/{listingId}` via owner-scoped client SDK; "Show hidden" toggle recovers them. Verified by code review + `tests/listing-filter.test.ts`; live signed-in browser smoke remains operator/CI-pending — see below. Pass-2 hardening: `setState` now omits `createdAt` on merge-updates so the original creation time is preserved instead of being overwritten on every state toggle; still rules-valid because the merged resource carries the prior `createdAt`.)
 - [x] Detail opens only in the compact floating dialog. (Inline breakout removed; detail is dialog-only.)
 
 Suggested verification:

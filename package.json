@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --import tsx --test tests/**/*.test.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:rules": "firebase emulators:exec --only firestore \"node --import tsx --test tests/emulator/*.test.ts\"",
     "backfill": "node --env-file=.env --import tsx scripts/backfill-44224.ts",
     "daily:refresh": "node --env-file=.env --import tsx scripts/daily-refresh.ts",
     "verify": "npm run lint && npm run typecheck && npm run format:check && npm run test && npm run build"
@@ -27,14 +28,17 @@
     "next-themes": "^0.4.6",
     "react": "19.0.0",
     "react-dom": "19.0.0",
+    "react-is": "^19.0.0",
     "recharts": "^3.8.1"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^4.0.1",
+    "@eslint/eslintrc": "^3.3.5",
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^20.12.7",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/react-is": "^19.0.0",
     "eslint": "^9.39.4",
     "eslint-config-next": "^15.1.11",
     "firebase-tools": "^14.4.0",

@@ -581,14 +581,25 @@ Implementation tasks:
 - [x] Create `AGENTS.md` from the provided structure, refreshed for this Next/Firebase app.
 - [x] Point the repo's agent entry doc (`AGENTS.md`) at the active roadmap directory and this repo's verification commands.
 - [x] Add `docs/README.md` index.
-- [ ] Add `docs/operations/development-workflow.md` after the first full green verification pass.
-- [ ] Add `docs/architecture/auth-and-secrets.md` after auth/token persistence is finalized.
+- [x] Add `docs/operations/development-workflow.md` after the first full green verification pass. (Created 2026-06-09 once `npm run verify` was green.)
+- [ ] Add `docs/architecture/auth-and-secrets.md` after auth/token persistence is finalized. (Deferred — depends on WS16 auth/token work; out of WS1 lane.)
+
+Re-run findings (WS1 re-run, 2026-06-09) — gate was RED, now green:
+
+- [x] Fixed `npm run build`: added `react-is@^19` (+ `@types/react-is@^19`) as a direct dependency so `recharts@3` resolves its runtime `react-is` import (verified against the npm registry — recharts@3 peer-depends on `react-is` for React 16–19; React 19 here → `react-is@19`). No shim, no alias.
+- [x] Fixed `npm install` peer conflict: bumped `@firebase/rules-unit-testing` `^4.0.1 → ^5.0.1` (v5 peer-depends on `firebase@^12`, verified on npm). Firebase stays `^12`; no `--force`, no `--legacy-peer-deps`, no `overrides`.
+- [x] Fixed `npm run test`/`verify`: the WS4 Firestore-rules emulator test required the emulator on `:8080` but was matched by the default `test` glob. Moved it to `tests/emulator/`, scoped `test` to `tests/*.test.ts`, and pointed `test:rules` at `tests/emulator/*.test.ts`. The emulator suite now runs only under `test:rules`, outside the standard gate.
+- [x] Added `@eslint/eslintrc` as a direct devDependency (imported directly by `eslint.config.mjs`).
+- [x] Untracked `tsconfig.tsbuildinfo` (build artifact; already in `.gitignore`).
+- [x] Ignored ephemeral `docs/engineering/agents/orchestrator-logs/` in `.prettierignore` so run logs do not fail the format gate.
+- [x] Corrected the `REALTY_API_KEYS` comment in `.env.example` from "~250 req/key/day" to "~250 req/MONTH per key" to match verified RealtyAPI free-tier facts.
 
 Exit criteria:
 
-- [ ] `npm run lint`, `npm run typecheck`, `npm run format:check`, and `npm run build` are real commands.
-- [ ] New agents can start from `AGENTS.md` and this roadmap without stale Studio/Jami references.
-- [ ] No tracked file contains secret values.
+- [x] `npm run lint`, `npm run typecheck`, `npm run format:check`, and `npm run build` are real commands.
+- [x] New agents can start from `AGENTS.md` and this roadmap without stale Studio/Jami references.
+- [x] No tracked file contains secret values.
+- [x] `npm run verify` is green end-to-end with no force flags or shims (lint, typecheck, format:check, 30 tests, build — 2026-06-09).
 
 Suggested verification:
 
@@ -1274,9 +1285,11 @@ Required before marking this plan complete:
 
 ## Orchestrator Checkpoints
 
-| Agent / pass | Workstream | Ownership                                                                                        | Dispatched | Status            | Next action         |
-| ------------ | ---------- | ------------------------------------------------------------------------------------------------ | ---------- | ----------------- | ------------------- |
-| orchestrator | WS4 pass 1 | `types/`, `lib/schemas/`, `lib/repositories/listing-preferences.ts`, `firestore.rules`, `tests/` | 2026-06-09 | landed `10b541e6` | Dispatch WS4 pass 2 |
+| Agent / pass  | Workstream          | Ownership                                                                                                                                      | Dispatched | Status                                                                                                     | Next action                                  |
+| ------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| orchestrator  | WS4 pass 1          | `types/`, `lib/schemas/`, `lib/repositories/listing-preferences.ts`, `firestore.rules`, `tests/`                                               | 2026-06-09 | landed `10b541e6`                                                                                          | superseded by re-run sequence                |
+| ac5ddae3      | WS3 pass 1 (re-run) | `types/`, `lib/schemas/`, `lib/repositories/`, `firestore.rules`, `docs/architecture/data-model.md`                                            | 2026-06-09 | landed `12b64b3c` (12 files/448 LOC → needs pass 2); flagged RED build (react-is + firebase peer conflict) | Re-run WS1 to fix toolchain, then WS3 pass 2 |
+| (dispatching) | WS1 pass 1 (re-run) | `package.json` deps/scripts, lint/format/ts config, `.env.example`, `.gitignore`, `README.md`, `docs/` index; fix RED `npm run build`/`verify` | 2026-06-09 | dispatching                                                                                                | Gate on commit; then WS3 pass 2              |
 
 ## Expansion Track
 

@@ -41,11 +41,18 @@ Firebase web config lives in `firebase-applet-config.json` because Firebase clie
 npm run lint
 npm run typecheck
 npm run format:check
+npm run test
 npm run build
 npm run verify
 ```
 
-Use the narrowest meaningful gate while iterating, then run `npm run verify` before production changes land.
+`npm run verify` runs lint, typecheck, format:check, test, and build in sequence. Use the narrowest meaningful gate while iterating, then run `npm run verify` before production changes land.
+
+Firestore security rules have a dedicated emulator suite that is not part of `verify` (it needs the Firestore emulator and Java):
+
+```bash
+npm run test:rules
+```
 
 ## Active Execution Plan
 

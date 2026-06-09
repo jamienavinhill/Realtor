@@ -6,4 +6,5 @@ Durable docs point to directories, not transient dated files — open the direct
 - `docs/engineering/standards/` — durable engineering standards (planning style, report style, docs standards).
 - `docs/engineering/agents/` — agent operating docs and run logs.
 - `docs/research/` — research notes (e.g. Gmail/listing parsing in `INBOX_PARSING.md`).
-- `docs/architecture/`, `docs/operations/`, `docs/decisions/` — durable architecture, operations, and decision records, added as the roadmap executes.
+- `docs/operations/` — durable operations docs. `development-workflow.md` covers local setup, the quality gates, and the verify release gate.
+- `docs/architecture/`, `docs/decisions/` — durable architecture and decision records, added as the roadmap executes.

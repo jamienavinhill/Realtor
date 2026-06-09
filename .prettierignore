@@ -11,3 +11,6 @@ mcps
 .playwright-cli
 agent-tools
 terminals
+
+# Ephemeral agent run logs — not durable docs, exempt from formatting gate
+docs/engineering/agents/orchestrator-logs

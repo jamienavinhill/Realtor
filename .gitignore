@@ -15,6 +15,13 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Firebase emulator artifacts
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+database-debug.log*
+pubsub-debug.log*
+
 # local env and secrets
 .env
 .env*.local

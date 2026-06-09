@@ -1308,6 +1308,44 @@ Suggested verification:
 
 - Firebase rules tests for owner/editor/viewer/non-member; two-account browser flow (invite → accept → edit/view); revoke removes access.
 
+## Workstream 19: Repository Structure & Root Hygiene
+
+Goal: keep only tooling-required files at the repository root; give the growing set of Firebase config and other stray root files a proper home in a subdirectory; update every reference so `npm run verify`, `npm run test:rules`, `npm run build`, and the Firebase CLI all stay green. Operator preference: "only the required root files; everything else gets a proper home."
+
+Depends on:
+
+- [ ] WS16 final Firestore rules location/content and WS18 sharing rules (so the rules file is relocated once, after its content churn settles).
+
+Enables:
+
+- [ ] A clean, uniform repo root for WS17 release-gate and future contributors.
+
+Primary areas:
+
+- Repo root, a new `firebase/` (or similarly named) config subdirectory, `firebase.json`, `lib/firebase.ts`, `lib/env.ts`, `tests/`, `scripts/`, `package.json` script paths, `docs/README.md` + relevant architecture/operations docs.
+
+Constraints (verify against official tooling docs before moving anything):
+
+- **MUST stay at root** (tool discovery is path-fixed): `package.json`, `package-lock.json`, `tsconfig.json`, `next.config.ts`, `next-env.d.ts`, `eslint.config.mjs`, `postcss.config.mjs`, `.prettierrc.mjs`, `.prettierignore`, `.gitignore`, `.env.example`, `README.md`, `AGENTS.md`, and `firebase.json` (the Firebase CLI resolves it from the working directory).
+- **Relocatable with reference updates**: `firestore.rules` (re-point `firebase.json` `firestore.rules`, the emulator/structure tests, and any script that reads it), `firebase-applet-config.json` (update the `lib/firebase.ts` import + any `lib/env.ts` reference), `firebase-blueprint.json` and `metadata.json` (audit who reads them first; move to the config dir or delete if unused/AI-Studio leftovers), and the root `mcps/` directory (audit; relocate or gitignore as appropriate). `firestore.indexes.json` if present.
+- No file moves that break a tool default, no broad path shims, no behavior change — only relocation plus exact reference updates. Each moved file's new home must be referenced from the canonical config, not duplicated.
+
+Implementation tasks:
+
+- [ ] Inventory every root file; classify must-stay vs relocatable; confirm each relocatable file's readers via `rg`.
+- [ ] Create the config subdirectory and move the relocatable Firebase/config files into it.
+- [ ] Update `firebase.json` rules path, `lib/firebase.ts`/`lib/env.ts` imports, emulator/structure tests, scripts, and `package.json` paths; delete genuinely-unused leftovers (record why).
+- [ ] Update `docs/README.md` and any architecture/operations doc that names a moved path.
+
+Exit criteria:
+
+- [ ] Repo root contains only tooling-required files (per the must-stay list) plus owned source/doc directories.
+- [ ] `npm run verify` and `npm run test:rules` green after the moves; the Firebase CLI still resolves rules.
+
+Suggested verification:
+
+- `npm run verify`; `npm run test:rules`; `git mv` history preserved; `rg` shows no dangling references to old paths.
+
 ## Final Verification And Closeout
 
 Required before marking this plan complete:
@@ -1373,8 +1411,9 @@ Required before marking this plan complete:
 19. [ ] **WS15** — Wire all views/metadata to final Abode Alerts copy and data.
 20. [ ] **WS18** — Account sharing & collaboration (invite + viewer/editor roles).
 21. [ ] **WS16** — Harden auth/security rules, OAuth token persistence, sharing rules, and production envs.
-22. [ ] **WS17** — Tests/CI/release gate and complete production smoke.
-23. [ ] Promote lasting rules to durable docs and retire the two superseded roadmaps.
+22. [ ] **WS19** — Repository structure & root hygiene (relocate Firebase/config files; root keeps only tooling-required files). Runs after rules content settles (WS16/WS18), before the final release gate.
+23. [ ] **WS17** — Tests/CI/release gate and complete production smoke.
+24. [ ] Promote lasting rules to durable docs and retire the two superseded roadmaps.
 
 ## Orchestrator Checkpoints
 
@@ -1399,13 +1438,14 @@ Directive: drive the ENTIRE roadmap to completion -- exhausted, verified, polish
 | WS5 RealtyAPI + search adapters                                   | CLOSED `2529a462`,`58c1b4ee` (persisted monthly quota; google-search adapter; composite dedupe; 74 tests)    |
 | WS9 toast system                                                  | CLOSED `55731441`,`e9699ec3` (portal toast host; banner removed; no-shift smoke 5/5)                         |
 | WS7 email-triggered ingestion + multiselect                       | CLOSED `6836b75f`,`c5fe5647` (connect/watch/push/scan routes; OIDC+AES-GCM; multiselect; 105 tests, rules 8) |
-| WS8 refresh/alert eval + re-watch/poll + monthly quota accounting | dispatching pass 1                                                                                           |
+| WS8 refresh/alert eval + re-watch/poll + monthly quota accounting | pass 1 landed `f58fd7b7`; pass 2 next |
 | WS12 compact listing dialog + actions                             | pending (needs WS4, WS9)                                                                                     |
 | WS13 CMA analytics rebuild                                        | pending (needs WS6, WS12)                                                                                    |
 | WS14 docs layout + content                                        | pending                                                                                                      |
 | WS15 product flows / metadata / page wiring                       | pending (needs WS8/WS12/WS13)                                                                                |
 | WS18 account sharing                                              | pending (needs WS16 rules)                                                                                   |
 | WS16 auth/rules/secret hardening                                  | pending (needs WS18)                                                                                         |
+| WS19 repository structure & root hygiene (relocate Firebase/config files) | pending (after WS16/WS18 rules settle) |
 | WS17 tests/CI/release gate + production smoke                     | pending (last)                                                                                               |
 
 Operator-pending (account/dashboard, cannot be done in code): run `add-auth-domains.ts` + `vercel-listings-check.ts` against prod; GCP budget alert; live 44224 re-backfill + Firestore readback; Gmail `watch`/Pub/Sub registration; OAuth consent-screen scopes/verification.

@@ -931,19 +931,25 @@ Primary areas:
 
 Implementation tasks:
 
-- [ ] Implement a toast provider: queue, auto-dismiss (~6–8s configurable), manual close, max visible stack.
-- [ ] Position fixed (e.g. `bottom-4 right-4`), `z-50`, `pointer-events` safe, with no impact on `main` layout or scrollbar gutter.
-- [ ] Remove the `#alert-toast` banner and `logMessage` strip if redundant (or demote the log strip to dev-only).
-- [ ] Wire the alert-match Firestore listener (and new-ingest events) to toasts instead of the banner.
+- [x] Implement a toast provider: queue, auto-dismiss (7000ms default, per-toast configurable via `duration`, `0` = sticky), manual close (`X` button), max-visible stack of 3 with overflow queued, and `success`/`info`/`error` variants. (`components/ui/toast.tsx`)
+- [x] Position fixed (`bottom-4 right-4`), `z-50`, rendered via a React portal into `document.body`; container is `pointer-events-none` with each toast `pointer-events-auto`. Zero impact on `main` layout or scrollbar gutter (browser smoke confirms identical header/main boxes and unchanged document width).
+- [x] Remove the `#alert-toast` banner and the `logMessage` strip entirely. (Both deleted from `components/dashboard.tsx`; `recentMatch`/`logMessage` state removed.)
+- [x] Wire the alert-match check (and all workspace action confirmations/errors: Gmail harvest, direct parse, commit, Sheets export, Calendar booking, alert create/delete, property delete, auth) to `toast(...)` instead of the banner/log strip. Alert matches raise a `success` toast with an "Inspect lead" action.
+
+Accessibility & integration notes:
+
+- [x] Each toast renders `role="status"` + `aria-live="polite"` (info/success) or `role="alert"` + `aria-live="assertive"` (error); close button is labelled "Dismiss notification"; the portal container is also an `aria-live="polite"` region.
+- [x] `ToastProvider` mounted once in `app/layout.tsx` (wraps all routes). Reuses existing Tailwind/`primary-*` tokens; no one-off styles.
+- [x] Non-React entry point: provider listens for a `window` `abode:toast` CustomEvent (`detail = ToastOptions`) so server/global handlers (and the smoke) can raise toasts without React context. Not a test-only hook.
 
 Exit criteria:
 
-- [ ] Playwright asserts no layout shift when a toast appears (header/listings bounding boxes unchanged).
-- [ ] Toasts auto-time out and can be manually closed.
+- [x] Playwright asserts no layout shift when a toast appears (header + main/listings bounding boxes and document width unchanged). (`scripts/browser-toast-noshift-check.ts` — local run 2026-06-09: header `{0,0,1280,65}` unchanged, main `{0,0,1280,15457}` unchanged, scrollWidth 1280→1280: PASS.)
+- [x] Toasts auto-time out and can be manually closed. (Smoke: auto-timeout PASS, manual close PASS.)
 
 Suggested verification:
 
-- Browser smoke + CSS/layout assertion script.
+- `scripts/browser-toast-noshift-check.ts` (no credentials; runs against `npm run dev` or `SMOKE_URL`). Local run 2026-06-09 — all 5 assertions PASS. `npm run verify` green (lint, typecheck, format:check, 74 tests, build).
 
 ## Workstream 10: Auth Chrome And Theme Density
 

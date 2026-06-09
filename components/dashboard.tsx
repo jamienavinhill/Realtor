@@ -38,6 +38,7 @@ import { AlertsWizardView } from "./views/AlertsWizardView";
 import { ListingsGrid } from "./views/ListingsGrid";
 import { CMAView } from "./views/CMAView";
 import { ThemeControls } from "./theme-controls";
+import { useToast } from "./ui/toast";
 
 // Request Google Workspace granular scopes
 googleProvider.addScope("https://www.googleapis.com/auth/gmail.readonly");
@@ -209,13 +210,8 @@ export default function Dashboard() {
   const [sheetLink, setSheetLink] = useState<{ id: string; url: string } | null>(null);
   const [calendarSchedulingPropId, setCalendarSchedulingPropId] = useState<string | null>(null);
   const [calendarEventTime, setCalendarEventTime] = useState<string>("");
-  const [logMessage, setLogMessage] = useState<string>("");
 
-  // Live Alert Matches trigger state
-  const [recentMatch, setRecentMatch] = useState<{
-    property: ListingProperty;
-    alertName: string;
-  } | null>(null);
+  const { toast } = useToast();
 
   // Load and listen to Auth state changes
   useEffect(() => {
@@ -321,13 +317,19 @@ export default function Dashboard() {
       const credential = GoogleAuthProvider.credentialFromResult(result);
       if (credential?.accessToken) {
         setAccessToken(credential.accessToken);
-        setLogMessage("Successfully authenticated and connected Google Workspace API services!");
+        toast({
+          variant: "success",
+          description: "Connected Google Workspace services.",
+        });
       } else {
-        setLogMessage("Signed in successfully, but Workspace token access was restricted.");
+        toast({
+          variant: "info",
+          description: "Signed in, but Workspace token access was restricted.",
+        });
       }
     } catch (error: unknown) {
       console.error("Google Auth error:", error);
-      setLogMessage(`Authorization failed: ${getErrorMessage(error)}`);
+      toast({ variant: "error", description: `Authorization failed: ${getErrorMessage(error)}` });
     }
   };
 
@@ -335,7 +337,7 @@ export default function Dashboard() {
     try {
       await signOut(auth);
       setAccessToken(null);
-      setLogMessage("Signed out of services.");
+      toast({ variant: "info", description: "Signed out of services." });
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -344,14 +346,15 @@ export default function Dashboard() {
   // Harvest real estate alert updates from real Gmail
   const triggerGmailHarvest = async () => {
     if (!user || !accessToken) {
-      setLogMessage(
-        "Active Google Workspace token required. Use 'Authorize Google Services' on the Ingest tab.",
-      );
+      toast({
+        variant: "error",
+        description:
+          "Active Google Workspace token required. Use 'Authorize Google Services' on the Ingest tab.",
+      });
       return;
     }
     setIsScanningGmail(true);
     setHarvestedPreviews([]);
-    setLogMessage("Scanning unread/labeled real estate notification alert emails in Gmail...");
 
     try {
       const response = await fetch("/api/properties", {
@@ -373,12 +376,13 @@ export default function Dashboard() {
       }
 
       setHarvestedPreviews(data.properties || []);
-      setLogMessage(
-        `Harvest completed: Found ${data.properties?.length || 0} real estate listings inside your Gmail inbox matching "${gmailQuery}".`,
-      );
+      toast({
+        variant: "success",
+        description: `Harvest complete: found ${data.properties?.length || 0} matching listing(s) in Gmail.`,
+      });
     } catch (error: unknown) {
       console.error(error);
-      setLogMessage(`Gmail Harvester Error: ${getErrorMessage(error)}`);
+      toast({ variant: "error", description: `Gmail harvester error: ${getErrorMessage(error)}` });
     } finally {
       setIsScanningGmail(false);
     }
@@ -387,11 +391,10 @@ export default function Dashboard() {
   // Submit direct raw email text or copy-pasted webpage alerts to Gemini
   const triggerDirectTextParse = async () => {
     if (!directPastedText.trim()) {
-      setLogMessage("Please paste details first.");
+      toast({ variant: "info", description: "Please paste listing details first." });
       return;
     }
     setIsParsingDirect(true);
-    setLogMessage("Executing server-side Gemini listing extraction pipeline...");
 
     try {
       const response = await fetch("/api/properties", {
@@ -410,15 +413,19 @@ export default function Dashboard() {
 
       if (data.property) {
         setHarvestedPreviews([data.property]);
-        setLogMessage(
-          "Gemini successfully structured the listing! Review details below & commit to DB.",
-        );
+        toast({
+          variant: "success",
+          description: "Listing structured. Review below and commit to the database.",
+        });
       } else {
-        setLogMessage("Gemini was unable to recognize any real property details in that string.");
+        toast({
+          variant: "info",
+          description: "No recognizable property details were found in that text.",
+        });
       }
     } catch (error: unknown) {
       console.error(error);
-      setLogMessage(`Parser Error: ${getErrorMessage(error)}`);
+      toast({ variant: "error", description: `Parser error: ${getErrorMessage(error)}` });
     } finally {
       setIsParsingDirect(false);
     }
@@ -427,7 +434,6 @@ export default function Dashboard() {
   // Commit Harvested/Parsed Listings to Firestore DB
   const commitListingsToFirestore = async () => {
     if (!user || harvestedPreviews.length === 0) return;
-    setLogMessage("Writing structured property listings to secure Firestore database...");
 
     let successCount = 0;
     try {
@@ -444,25 +450,28 @@ export default function Dashboard() {
           handleFirestoreError(err, OperationType.CREATE, path);
         }
       }
-      setLogMessage(
-        `Success! Safely saved ${successCount} verified listings. Alert pipelines evaluated!`,
-      );
+      toast({
+        variant: "success",
+        description: `Saved ${successCount} listing(s). Alert pipelines evaluated.`,
+      });
       setHarvestedPreviews([]);
       setActiveTab("listings");
     } catch (err: unknown) {
-      setLogMessage(`Commit halted: ${getErrorMessage(err)}`);
+      toast({ variant: "error", description: `Commit halted: ${getErrorMessage(err)}` });
     }
   };
 
   // Exports specific property data straight to user's Google Sheet
   const exportListingToGoogleSheet = async (prop: ListingProperty) => {
     if (!accessToken) {
-      setLogMessage("Google Workspace token expired or offline. Log in first.");
+      toast({
+        variant: "error",
+        description: "Google Workspace token expired or offline. Sign in first.",
+      });
       return;
     }
 
     setSheetsExportingPropId(prop.id);
-    setLogMessage(`Exporting Listing (${prop.title}) to Google Sheets spreadsheet...`);
 
     try {
       const response = await fetch("/api/properties", {
@@ -484,10 +493,14 @@ export default function Dashboard() {
       }
 
       setSheetLink({ id: data.spreadsheetId, url: data.url });
-      setLogMessage(`Logged successfully to Google Sheet! URL: ${data.url}`);
+      toast({
+        variant: "success",
+        description: "Listing logged to Google Sheets.",
+        action: { label: "Open sheet", onClick: () => window.open(data.url, "_blank") },
+      });
     } catch (err: unknown) {
       console.error(err);
-      setLogMessage(`Sheets Integration Error: ${getErrorMessage(err)}`);
+      toast({ variant: "error", description: `Sheets integration error: ${getErrorMessage(err)}` });
     } finally {
       setSheetsExportingPropId(null);
     }
@@ -496,11 +509,14 @@ export default function Dashboard() {
   // Schedules viewing appointment / tour automatically into Google Calendar
   const bookCalendarViewingEvent = async (prop: ListingProperty) => {
     if (!accessToken) {
-      setLogMessage("Workspace token offline. Please connect Google Workspace first.");
+      toast({
+        variant: "error",
+        description: "Workspace token offline. Connect Google Workspace first.",
+      });
       return;
     }
     if (!calendarEventTime) {
-      setLogMessage("Please specify date and time for the viewing tour first.");
+      toast({ variant: "info", description: "Specify a date and time for the viewing first." });
       return;
     }
 
@@ -510,7 +526,6 @@ export default function Dashboard() {
     if (!confirmed) return;
 
     setCalendarSchedulingPropId(prop.id);
-    setLogMessage(`Booking viewing on Google Calendar for ${calendarEventTime}...`);
 
     try {
       const response = await fetch("/api/properties", {
@@ -531,12 +546,19 @@ export default function Dashboard() {
         throw new Error(data.error || "Failed to add calendar schedule event.");
       }
 
-      setLogMessage(`Calendar event created successfully! Access standard link: ${data.htmlLink}`);
+      toast({
+        variant: "success",
+        description: "Calendar event created.",
+        action: { label: "Open event", onClick: () => window.open(data.htmlLink, "_blank") },
+      });
       // Clear scheduling inputs
       setCalendarEventTime("");
     } catch (err: unknown) {
       console.error(err);
-      setLogMessage(`Calendar Integration Error: ${getErrorMessage(err)}`);
+      toast({
+        variant: "error",
+        description: `Calendar integration error: ${getErrorMessage(err)}`,
+      });
     } finally {
       setCalendarSchedulingPropId(null);
     }
@@ -568,9 +590,10 @@ export default function Dashboard() {
       await setDoc(doc(db, "alerts", alertId), alertData);
       setNewAlertName("");
       setNewAlertMaxPrice("");
-      setLogMessage(
-        `Successfully initialized automated matcher: "${alertData.name}". Monitoring incoming streams.`,
-      );
+      toast({
+        variant: "success",
+        description: `Alert "${alertData.name}" is now monitoring incoming listings.`,
+      });
     } catch (err: unknown) {
       handleFirestoreError(err, OperationType.CREATE, path);
     }
@@ -582,7 +605,7 @@ export default function Dashboard() {
     const path = `alerts/${alertId}`;
     try {
       await deleteDoc(doc(db, "alerts", alertId));
-      setLogMessage("Muted search matched alert monitor.");
+      toast({ variant: "info", description: "Alert monitor removed." });
     } catch (err: unknown) {
       handleFirestoreError(err, OperationType.DELETE, path);
     }
@@ -594,7 +617,7 @@ export default function Dashboard() {
     const path = `properties/${propId}`;
     try {
       await deleteDoc(doc(db, "properties", propId));
-      setLogMessage("Property listing deleted successfully.");
+      toast({ variant: "info", description: "Property listing deleted." });
     } catch (err: unknown) {
       handleFirestoreError(err, OperationType.DELETE, path);
     }
@@ -618,14 +641,18 @@ export default function Dashboard() {
       }
 
       if (isMatch) {
-        setRecentMatch({
-          property,
-          alertName: alert.name,
+        toast({
+          variant: "success",
+          title: `Alert match: ${alert.name}`,
+          description: `${property.title} in ${property.city} — $${property.price.toLocaleString()} (${property.beds}b/${property.baths}b)`,
+          action: {
+            label: "Inspect lead",
+            onClick: () => {
+              setActiveTab("listings");
+              setSearchTerm(property.title);
+            },
+          },
         });
-        // Clear toast notification after 10 seconds
-        setTimeout(() => {
-          setRecentMatch(null);
-        }, 10000);
       }
     });
   };
@@ -700,60 +727,9 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* 2. REAL-TIME ALERT CONVULSIVE BANNER */}
-      {recentMatch && (
-        <div
-          id="alert-toast"
-          className="bg-primary-950 border-primary-500 animate-bounce border-y px-4 py-3.5 text-white shadow-xl shadow-stone-950/90"
-        >
-          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 sm:flex-row">
-            <div className="flex items-center space-x-3">
-              <div className="bg-primary-400 animate-pulse rounded-full p-2 text-stone-950 shadow-inner">
-                <Bell className="h-5 w-5" />
-              </div>
-              <div>
-                <span className="text-primary-400 block font-mono text-xs font-bold tracking-wider uppercase">
-                  ALERT TRIGGER MATCH: "{recentMatch.alertName}"
-                </span>
-                <span className="mt-0.5 block text-xs font-medium text-stone-900 dark:text-stone-200">
-                  Extracted listing match: {recentMatch.property.title} in{" "}
-                  {recentMatch.property.city} — ${recentMatch.property.price.toLocaleString()} (
-                  {recentMatch.property.beds}b/{recentMatch.property.baths}b)
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setActiveTab("listings");
-                setSearchTerm(recentMatch.property.title);
-              }}
-              className="text-primary-950 hover:bg-primary-50 cursor-pointer rounded bg-white px-4 py-1.5 text-xs font-bold shadow transition"
-            >
-              Inspect Lead
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 3. HERO DESCRIPTION PANEL */}
+      {/* Alert matches and workspace events surface through the toast system (components/ui/toast.tsx). */}
       <main className="mx-auto w-full max-w-7xl grow px-4 py-8 sm:px-6 lg:px-8">
-        {/* SYSTEM STATUS STATUS LOGGER */}
-        {logMessage && (
-          <div className="mb-6 flex items-center justify-between rounded-lg border border-stone-200 bg-white p-3.5 font-mono text-xs text-stone-700 transition-all dark:border-stone-800 dark:bg-stone-900/80 dark:text-stone-300">
-            <span className="flex items-center space-x-2 text-[11px] leading-relaxed">
-              <span className="bg-primary-400 h-2 w-2 shrink-0 animate-pulse rounded-full" />
-              <span>LOG: {logMessage}</span>
-            </span>
-            <button
-              onClick={() => setLogMessage("")}
-              className="ml-3 text-stone-500 transition hover:text-white"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {/* 5. TAB VIEW CONTAINER ROUTING */}
+        {/* TAB VIEW CONTAINER ROUTING */}
         {activeTab === "listings" && (
           <div className="space-y-6">
             <div className="flex flex-col items-center justify-between gap-4 rounded-xl border border-stone-200 bg-white p-4 shadow-sm md:flex-row dark:border-stone-800 dark:bg-stone-900">

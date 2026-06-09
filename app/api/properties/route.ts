@@ -142,7 +142,7 @@ If NO legitimate real estate listing is found inside the text, return an empty a
 Do NOT hallucinate properties if they are not inside this text.
 
 Analyze the text to extract:
-- Property Title (e.g. "Stunning Renovated Bungalow in Central Austin" or "Redfin Alert Listing")
+- Property Title (e.g. "Renovated Colonial in Stow, OH" or "Redfin Alert Listing")
 - Price (number only)
 - Address, City, State, Zip Code
 - Bedrooms, Bathrooms, Sqft
@@ -464,7 +464,7 @@ Return raw JSON schema.`;
       const eventBody = {
         summary: `🏠 Real Estate Tour & Inspection: ${prop.title}`,
         location: `${prop.address}, ${prop.city}, ${prop.state} ${prop.zipCode}`,
-        description: `Scheduled viewing for property:\n\nPrice: $${prop.price.toLocaleString()}\nBeds: ${prop.beds} | Baths: ${prop.baths}\nSqFt: ${prop.sqft}\nProperty Type: ${prop.propertyType}\n\nView details: ${prop.description || "N/A"}\n\nSynced & scheduled securely via Realty Monitor.`,
+        description: `Scheduled viewing for property:\n\nPrice: $${prop.price.toLocaleString()}\nBeds: ${prop.beds} | Baths: ${prop.baths}\nSqFt: ${prop.sqft}\nProperty Type: ${prop.propertyType}\n\nView details: ${prop.description || "N/A"}\n\nSynced & scheduled securely via Abode Alerts.`,
         start: {
           dateTime: startDateTime,
           timeZone: "UTC",

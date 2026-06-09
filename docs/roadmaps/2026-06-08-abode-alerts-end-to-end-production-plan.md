@@ -985,22 +985,22 @@ Primary areas:
 
 Implementation tasks:
 
-- [x] Remove static property baseline merging and delete the seeded property source file.
-- [x] Change extraction prompts to return empty `imageUrl` when no real listing media exists.
-- [x] Add no-media rendering in listing cards/modals.
-- [ ] Remove unused dashboard state/imports and fix all lint/type findings.
-- [ ] Rename user-facing brand from `Realty Monitor`/`Realty` to `Abode Alerts` across UI and docs where appropriate.
-- [ ] Replace Austin defaults with the `44224` Stow/Akron-area defaults.
-- [ ] Add empty-state copy that guides baseline backfill and ingestion rather than implying filters are wrong.
+- [x] Remove static property baseline merging and delete the seeded property source file. (`lib/static_properties.ts` confirmed absent; dashboard reads `properties` via `onSnapshot` only.)
+- [x] Change extraction prompts to return empty `imageUrl` when no real listing media exists. (`app/api/properties/route.ts` prompt: "If no real listing media URL is present, return an empty string. Never invent or substitute stock photos." Austin sample title also replaced with a Stow, OH example.)
+- [x] Add no-media rendering in listing cards/modals. (`ListingsGrid.tsx` `NoListingMedia` honest state on empty `imageUrl`; verified 0 broken images across the live 88-listing render.)
+- [x] Remove unused dashboard state/imports and fix all lint/type findings. (`npm run lint` clean at `--max-warnings 0`; `npm run typecheck` clean.)
+- [x] Rename user-facing brand from `Realty Monitor`/`Realty` to `Abode Alerts` across UI and docs where appropriate. (Header, footer, docs view, layout metadata all "Abode Alerts"; remaining route-copy "Realty Monitor" in the Calendar event description fixed.)
+- [x] Replace Austin defaults with the `44224` Stow/Akron-area defaults. (`lib/ingest/constants.ts`: `DEFAULT_ALERT_CITY="Stow"`, `DEFAULT_ALERT_STATE="OH"`, `BASELINE_ZIP="44224"`, `BASELINE_CENTER` Stow coords; consumed by `dashboard.tsx`.)
+- [x] Add empty-state copy that guides baseline backfill and ingestion rather than implying filters are wrong. (`ListingsGrid.tsx` empty state distinguishes empty-inventory vs filtered, points to the 44224 backfill / Gmail ingestion.)
 
 Exit criteria:
 
-- [ ] Fresh Firestore with zero listings shows a truthful empty state.
-- [ ] No runtime path imports or merges fake listing data.
+- [x] Fresh Firestore with zero listings shows a truthful empty state. (`ListingsGrid` renders "No listings loaded yet" + 44224 backfill guidance when `totalPropertyCount === 0`; verified by code path.)
+- [x] No runtime path imports or merges fake listing data. (`rg` for unsplash/stock hosts, static/mock/seed property arrays in shipped paths: none; the only listing arrays are populated from Firestore, Gmail-parsed email, or the RealtyAPI adapter.)
 
 Suggested verification:
 
-- `npm run lint`, `npm run typecheck`; manual browser smoke (sign out/in, listings empty without fake rows).
+- `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm run build`, `npm run verify` (49/49 tests pass) all GREEN. Signed-out local browser smoke: title "Abode Alerts", no "Realty Monitor", regional Stow/44224 copy present, real Firestore listings only, zero stock/broken images.
 
 ## Workstream 12: Listing Dialog, Actions, And Grid Density
 
@@ -1287,7 +1287,7 @@ Required before marking this plan complete:
 - [ ] Listing detail is a compact floating dialog (no large breakout views) with professional dense typography and interested/favorite/hide/compare/analyze actions plus export/schedule; hidden listings leave the default grid and are recoverable.
 - [ ] CMA tables paginate (10 default, 20/30/100) and sort; layout is balanced with multiple real-inventory charts and compact metric chips; rows open the listing dialog.
 - [ ] Docs TOC is pinned; the main content column scrolls independently; content is expanded with the required sections and honest claims.
-- [ ] No shipped path contains fake listings, seeded baseline data, stock listing images, or prototype/MVP copy; fixtures live only under tests.
+- [x] No shipped path contains fake listings, seeded baseline data, stock listing images, or prototype/MVP copy; fixtures live only under tests. (WS11 re-run 2026-06-09: audited via `rg`; honest empty/no-media states; real-Firestore-only render verified.)
 - [ ] Firebase Auth/Firestore remain the baseline storage/auth stack with clear upgrade triggers and budget guardrails; rules restrict users to their own alert/match/preference docs and block unauthorized shared writes.
 - [ ] Vercel production envs and Firebase authorized domains (production + local dev) are documented and verified.
 - [ ] Docs and agent prompts are project-specific, current, and reusable.
@@ -1306,7 +1306,7 @@ Required before marking this plan complete:
 10. [ ] **WS5** — RealtyAPI and Google search provider adapters (finalize).
 11. [ ] **WS9** — Toast system (unblocks notification UX).
 12. [ ] **WS10** — Auth chrome + theme density (quick, visible polish).
-13. [ ] **WS11** — Finish UI honesty, regional defaults, lint/type cleanup.
+13. [x] **WS11** — Finish UI honesty, regional defaults, lint/type cleanup. (Re-run 2026-06-09: brand/regional/no-fake-data exit criteria met; verify GREEN 49/49.)
 14. [ ] **WS7** — Multiselect ingest filter + email-triggered ingestion (Gmail `watch` → Pub/Sub push pipeline + enrichment fan-out).
 15. [ ] **WS8** — Refresh/alert evaluation + persisted matches; weekly re-watch + business-hours safety-net poll (free public-repo Actions); monthly RealtyAPI quota accounting.
 16. [ ] **WS12** — Compact listing dialog + actions + grid density.
@@ -1322,14 +1322,14 @@ Required before marking this plan complete:
 
 Directive: re-run the "completed" workstreams (WS1, WS2, WS3, WS6, WS10/WS11 baselines) to production shape; ≥2 fresh-context AUDIT/EXECUTE passes each, serialized on shared surfaces.
 
-| Stream | Pass          | Commit                | Result                                                                                                       | Status                                                         |
-| ------ | ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| WS4    | 1 (pre-pivot) | `10b541e6`            | listing-prefs scaffold                                                                                       | superseded by re-run                                           |
-| WS3    | 1+2 (re-run)  | `12b64b3c`,`323b3703` | enrichment/history/run-type contracts; provider_quota rules deny; +tests/doc                                 | **CLOSED** (verify green, 34 tests)                            |
-| WS1    | 1+2 (re-run)  | `c4978d0e`,`6298b1d7` | fixed RED gate (react-is@19, rules-unit-testing@5, emulator test relocated); dev-workflow doc; lockfile sync | **CLOSED** (verify GREEN)                                      |
-| WS2    | 1+2 (re-run)  | `098209fc`,`b31ac438` | constant-time token compare, no key-leak admin init, env-and-deploy doc, auth-domain reconcile               | **CLOSED** (37 tests); 3 operator-pending `[!]`                |
-| WS6    | 1+2 (re-run)  | `59a15a8a`,`e426739a` | fixed orphaned-run + dry-run-burns-quota bugs; DI seam + idempotency/lifecycle tests; provider-ingestion doc | **CLOSED** (49 tests); live re-backfill operator-pending `[!]` |
-| WS11   | 1 (re-run)    | --                    | UI honesty / no-fake-data / regional defaults baseline                                                       | dispatching                                                    |
+| Stream | Pass          | Commit                | Result                                                                                                                                                                                     | Status                                                         |
+| ------ | ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| WS4    | 1 (pre-pivot) | `10b541e6`            | listing-prefs scaffold                                                                                                                                                                     | superseded by re-run                                           |
+| WS3    | 1+2 (re-run)  | `12b64b3c`,`323b3703` | enrichment/history/run-type contracts; provider_quota rules deny; +tests/doc                                                                                                               | **CLOSED** (verify green, 34 tests)                            |
+| WS1    | 1+2 (re-run)  | `c4978d0e`,`6298b1d7` | fixed RED gate (react-is@19, rules-unit-testing@5, emulator test relocated); dev-workflow doc; lockfile sync                                                                               | **CLOSED** (verify GREEN)                                      |
+| WS2    | 1+2 (re-run)  | `098209fc`,`b31ac438` | constant-time token compare, no key-leak admin init, env-and-deploy doc, auth-domain reconcile                                                                                             | **CLOSED** (37 tests); 3 operator-pending `[!]`                |
+| WS6    | 1+2 (re-run)  | `59a15a8a`,`e426739a` | fixed orphaned-run + dry-run-burns-quota bugs; DI seam + idempotency/lifecycle tests; provider-ingestion doc                                                                               | **CLOSED** (49 tests); live re-backfill operator-pending `[!]` |
+| WS11   | 1 (re-run)    | _this commit_         | brand→Abode Alerts (route Calendar copy + Austin sample title); confirmed no-fake-data/no-stock-media; Stow/44224 regional defaults; lint/type/format/build/verify GREEN; signed-out smoke | **CLOSED** (verify GREEN, 49 tests)                            |
 
 Carried forward (NOT in completed-re-run scope; logged for their streams): **WS5** -- `lib/providers/quota.ts` in-memory and mislabeled "daily" (real ~250/MONTH per key); dedupe is provider-id-only, not the composite the roadmap claims. **WS4** -- `compareQueue` write PERMISSION_DENIED in `test:rules` (rules gap). **Operator-pending** -- run `add-auth-domains.ts` + `vercel-listings-check.ts` against prod; GCP budget alert; live 44224 re-backfill + Firestore readback.
 

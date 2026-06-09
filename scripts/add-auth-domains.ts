@@ -1,5 +1,5 @@
 import { getFirebaseAdminApp } from "@/lib/firebase-admin";
-import firebaseConfig from "@/firebase-applet-config.json";
+import firebaseConfig from "@/config/firebase/client-config.json";
 
 // Domains that must be authorized for Firebase Auth sign-in to work:
 //   - localhost / 127.0.0.1  → local Windows dev (next dev on :3000)

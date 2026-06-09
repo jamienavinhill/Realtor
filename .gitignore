@@ -42,4 +42,6 @@ Thumbs.db
 terminals/
 agent-tools/
 .playwright-cli/
+output/
+mcps/
 tsconfig.tsbuildinfo

@@ -13,7 +13,7 @@ import {
 
 /**
  * Client hook for per-user listing preferences (WS4 contract) and the compare
- * queue. These collections are owner-scoped and `firestore.rules` already permits
+ * queue. These collections are owner-scoped and `config/firebase/firestore.rules` already permits
  * the owner to read/write them directly, so — exactly like `alerts` in the
  * dashboard — the client SDK is the correct, server-route-free path. The Admin SDK
  * repository (`lib/repositories/listing-preferences.ts`) remains the server lane

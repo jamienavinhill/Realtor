@@ -6,7 +6,7 @@ import { decryptToken, encryptToken } from "@/lib/crypto/token-cipher";
 
 /**
  * Server-only repository for `users/{uid}/gmailSync/main`. The Admin SDK bypasses
- * `firestore.rules`, which deny all client access to this subcollection. The Google
+ * `config/firebase/firestore.rules`, which deny all client access to this subcollection. The Google
  * OAuth refresh token is encrypted (AES-256-GCM) before write and only decrypted here,
  * server-side, when the pipeline needs to mint an access token.
  */

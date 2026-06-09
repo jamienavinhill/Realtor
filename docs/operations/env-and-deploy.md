@@ -55,7 +55,7 @@ script inputs `AUTH_DOMAINS`, `PROD_URL`, `SMOKE_URL`, `GOOGLE_TEST_EMAIL`,
 `GOOGLE_TEST_PASSWORD`. These configure operator tooling and would be a privilege
 escalation if pushed to the deployed app.
 
-`firebase-applet-config.json` is **public** Firebase web-client config (apiKey,
+`config/firebase/client-config.json` is **public** Firebase web-client config (apiKey,
 authDomain, projectId, `firestoreDatabaseId: "abode-alerts"`, etc.) — it is not a
 secret. Security comes from Firestore rules and the server-side admin credential.
 

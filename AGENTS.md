@@ -12,7 +12,7 @@ Abode Alerts is a **production-shaped property monitoring workspace**: a Next.js
 - **UI components** (`components/`) — dashboard shell, auth chrome, theme controls, listing views, alert setup, ingestion views, CMA, and in-app docs surfaces.
 - **Client/platform adapters** (`lib/`) — Firebase client SDK today; provider adapters, env validation, repositories, and ingestion modules as the roadmap executes.
 - **Shared contracts** (`types/`) — listing and alert TypeScript contracts; expand through schema-owned contracts before provider automation.
-- **Firebase config/rules** (`firebase-applet-config.json`, `firestore.rules`) — Firebase client configuration and Firestore access policy. Client config is not a secret; rules are security-critical.
+- **Firebase config/rules** (`config/firebase/client-config.json`, `config/firebase/firestore.rules`) — Firebase client configuration and Firestore access policy. Client config is not a secret; rules are security-critical.
 - **Docs** (`docs/`) — active roadmaps under `docs/roadmaps/`, repo-wide engineering standards under `docs/engineering/`, research under `docs/research/`, and durable architecture/operations docs as they are created.
 
 ## Where To Start

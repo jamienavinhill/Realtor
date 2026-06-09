@@ -8,7 +8,7 @@
  * starts (the in-memory QuotaTracker is only a per-run fast path).
  *
  * This collection is server-only: it is never client-readable (see
- * `firestore.rules` — WS3 added the `provider_quota` deny).
+ * `config/firebase/firestore.rules` — WS3 added the `provider_quota` deny).
  */
 export interface ProviderQuotaMonth {
   /** Calendar month this document accounts for, formatted "YYYY-MM". */

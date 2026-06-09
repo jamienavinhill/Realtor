@@ -4,7 +4,7 @@
  * Google OAuth refresh token so the email pipeline can run without a browser session.
  *
  * The refresh token is stored ENCRYPTED at rest (AES-256-GCM, see
- * `lib/crypto/token-cipher.ts`) and is NEVER returned to the client — `firestore.rules`
+ * `lib/crypto/token-cipher.ts`) and is NEVER returned to the client — `config/firebase/firestore.rules`
  * denies all client read/write of `gmailSync`, and the repository only ever decrypts
  * server-side inside the pipeline.
  */

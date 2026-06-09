@@ -11,7 +11,7 @@ Abode Alerts stores a shared listing catalog, user-owned alerts and matches, and
 | Repositories       | `lib/repositories/*.ts`                     | Collection paths, upsert/idempotency logic, and mandatory validation on every Admin SDK write.     |
 | Provider adapters  | `lib/providers/*.ts`                        | Fetch third-party data, normalize into `ProviderListingProperty`, validate, and attach provenance. |
 | Env readiness      | `lib/env.ts`                                | Fail closed with actionable errors when server secrets or credentials are missing.                 |
-| Access policy      | `firestore.rules`                           | Client read/write boundaries; Admin SDK ingestion bypasses rules.                                  |
+| Access policy      | `config/firebase/firestore.rules`           | Client read/write boundaries; Admin SDK ingestion bypasses rules.                                  |
 
 **Rule:** UI and API routes do not write provider-shaped listings directly. Ingestion scripts and `/api/ingest/*` routes call adapters → validators → repositories.
 
@@ -24,7 +24,7 @@ Abode Alerts stores a shared listing catalog, user-owned alerts and matches, and
 | `alert_matches/{matchId}` | `AlertMatch`      | owner                        | Admin SDK only                                                              | `lib/repositories/matches.ts`  |
 | `ingest_runs/{runId}`     | `IngestRun`       | denied to clients            | Admin SDK only                                                              | `lib/repositories/runs.ts`     |
 
-`firestore.rules` also carries an explicit server-only deny block for `provider_quota/{YYYY-MM}` (RealtyAPI monthly budget accounting) so the base access model matches the Collection Map. Its `ProviderQuotaMonth` contract type and repository land with WS5 — the rules deny is intentionally in place ahead of the writer so the path is never client-readable.
+`config/firebase/firestore.rules` also carries an explicit server-only deny block for `provider_quota/{YYYY-MM}` (RealtyAPI monthly budget accounting) so the base access model matches the Collection Map. Its `ProviderQuotaMonth` contract type and repository land with WS5 — the rules deny is intentionally in place ahead of the writer so the path is never client-readable.
 
 ### Provider-ingested listing fields
 
@@ -59,7 +59,7 @@ Two optional fields extend `ListingProperty` without breaking existing documents
 
 ## Planned Collections (not yet implemented)
 
-These paths are defined in the active roadmap and must follow the same `types/` → `lib/schemas/` → `lib/repositories/` → `firestore.rules` pattern when their workstreams land:
+These paths are defined in the active roadmap and must follow the same `types/` → `lib/schemas/` → `lib/repositories/` → `config/firebase/firestore.rules` pattern when their workstreams land:
 
 | Path                                         | Contract             | Workstream         |
 | -------------------------------------------- | -------------------- | ------------------ |
@@ -94,7 +94,7 @@ Names only — values live in `.env` (local) or Vercel/GitHub encrypted secrets.
 
 ## Migration Policy
 
-1. **Additive first** — new fields are optional in validators and `firestore.rules` until backfill scripts populate them.
+1. **Additive first** — new fields are optional in validators and `config/firebase/firestore.rules` until backfill scripts populate them.
 2. **Backfill scripts** — one-off or idempotent scripts under `scripts/` migrate existing documents; record progress in `ingest_runs` when applicable.
 3. **Read-path cutover** — UI and API routes may depend on new fields only after a verification readback confirms coverage.
 4. **No destructive renames** — rename fields by writing the new key, backfilling, then deprecating the old key in a later pass.

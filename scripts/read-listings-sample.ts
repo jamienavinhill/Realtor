@@ -1,6 +1,6 @@
 import { getFirebaseAdminApp } from "@/lib/firebase-admin";
 import { listActiveListings } from "@/lib/repositories/listings";
-import firebaseConfig from "@/firebase-applet-config.json";
+import firebaseConfig from "@/config/firebase/client-config.json";
 
 async function main() {
   getFirebaseAdminApp();

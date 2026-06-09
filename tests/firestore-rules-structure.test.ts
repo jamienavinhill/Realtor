@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, it } from "node:test";
 
-const RULES_PATH = resolve(process.cwd(), "firestore.rules");
+const RULES_PATH = resolve(process.cwd(), "config/firebase/firestore.rules");
 
 describe("firestore rules structure", () => {
   const rules = readFileSync(RULES_PATH, "utf8");

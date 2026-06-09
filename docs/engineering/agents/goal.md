@@ -16,7 +16,7 @@ The repo's owned surfaces:
 - `components/` - dashboard shell, Google auth chrome, theme controls, listing cards/modals, alert setup, ingestion views, CMA, and in-app docs.
 - `lib/` - Firebase client adapter now; env validation, provider adapters, repositories, schemas, and ingestion modules as the roadmap executes.
 - `types/` - listing, alert, provider run, and shared TypeScript contracts.
-- `firebase-applet-config.json` and `firestore.rules` - Firebase client app config and Firestore access policy.
+- `config/firebase/client-config.json` and `config/firebase/firestore.rules` - Firebase client app config and Firestore access policy.
 - `docs/` - active roadmap, engineering standards, architecture/operations docs, research, and orchestration logs.
 
 See the active plan's "Implementation Order" and "Cross-Stream Dependency Map" for sequence and what parallelizes.

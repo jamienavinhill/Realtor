@@ -283,12 +283,12 @@ export function DocsView() {
               </li>
             </ul>
             <p className="text-stone-600 dark:text-stone-400">
-              The Firebase web client config (<code>firebase-applet-config.json</code>) is public
-              configuration, not a secret — security comes from Firestore rules and the server-side
-              admin credential. Operator-only values (Vercel PAT/project id, test inputs) live in
-              the local <code>.env</code> and are never added to the deployed app&rsquo;s runtime
-              env. Optional <code>GOOGLE_SEARCH_*</code> keys enable cited public-search enrichment;
-              when unset, enrichment is a no-op.
+              The Firebase web client config (<code>config/firebase/client-config.json</code>) is
+              public configuration, not a secret — security comes from Firestore rules and the
+              server-side admin credential. Operator-only values (Vercel PAT/project id, test
+              inputs) live in the local <code>.env</code> and are never added to the deployed
+              app&rsquo;s runtime env. Optional <code>GOOGLE_SEARCH_*</code> keys enable cited
+              public-search enrichment; when unset, enrichment is a no-op.
             </p>
           </Section>
 

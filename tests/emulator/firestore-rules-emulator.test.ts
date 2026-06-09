@@ -7,9 +7,9 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import firebaseConfig from "@/firebase-applet-config.json";
+import firebaseConfig from "@/config/firebase/client-config.json";
 
-const RULES = readFileSync(resolve(process.cwd(), "firestore.rules"), "utf8");
+const RULES = readFileSync(resolve(process.cwd(), "config/firebase/firestore.rules"), "utf8");
 const PROJECT_ID = firebaseConfig.projectId;
 
 let testEnv: RulesTestEnvironment;

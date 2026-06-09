@@ -3,7 +3,7 @@ import { appendFileSync } from "node:fs";
 import { chromium } from "playwright";
 import { getAuth } from "firebase-admin/auth";
 import { getFirebaseAdminApp } from "@/lib/firebase-admin";
-import firebaseConfig from "@/firebase-applet-config.json";
+import firebaseConfig from "@/config/firebase/client-config.json";
 
 const logPath =
   "C:\\Users\\james\\AppData\\Local\\Temp\\grok-goal-c79db15364ff\\implementer\\browser-smoke.log";

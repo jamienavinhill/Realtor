@@ -2,7 +2,7 @@
   "firestore": [
     {
       "database": "abode-alerts",
-      "rules": "firestore.rules"
+      "rules": "config/firebase/firestore.rules"
     }
   ],
   "emulators": {

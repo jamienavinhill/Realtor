@@ -2,9 +2,9 @@
 
 Date: 2026-06-08
 Status: [~] Active
-Source reports: `README.md`, `package.json`, `app/api/properties/route.ts`, `app/api/gemini/route.ts`, `app/globals.css`, `components/dashboard.tsx`, `components/theme-controls.tsx`, `components/views/ListingsGrid.tsx`, `components/views/CMAView.tsx`, `components/views/DocsView.tsx`, `lib/firebase.ts`, `lib/firebase-admin.ts`, `lib/env.ts`, `lib/providers/realty-api.ts`, `lib/schemas/*`, `types/listings.ts`, `firebase-applet-config.json`, `firestore.rules`, `docs/research/INBOX_PARSING.md`, RealtyAPI pricing, Vercel/Firebase/GitHub/Gemini free-tier docs
+Source reports: `README.md`, `package.json`, `app/api/properties/route.ts`, `app/api/gemini/route.ts`, `app/globals.css`, `components/dashboard.tsx`, `components/theme-controls.tsx`, `components/views/ListingsGrid.tsx`, `components/views/CMAView.tsx`, `components/views/DocsView.tsx`, `lib/firebase.ts`, `lib/firebase-admin.ts`, `lib/env.ts`, `lib/providers/realty-api.ts`, `lib/schemas/*`, `types/listings.ts`, `config/firebase/client-config.json`, `config/firebase/firestore.rules`, `docs/research/INBOX_PARSING.md`, RealtyAPI pricing, Vercel/Firebase/GitHub/Gemini free-tier docs
 Owner: Abode Alerts engineering
-Surface: Next.js app (`app/`, `components/`), server routes (`app/api/`), env/ops (`lib/env.ts`, `.env.example`, Vercel on `jamienavinhill`), Firebase Auth/Firestore (`lib/firebase.ts`, `lib/firebase-admin.ts`, `firestore.rules`, `types/`), Gemini extraction, Google Workspace OAuth, provider ingestion jobs, production deployment
+Surface: Next.js app (`app/`, `components/`), server routes (`app/api/`), env/ops (`lib/env.ts`, `.env.example`, Vercel on `jamienavinhill`), Firebase Auth/Firestore (`lib/firebase.ts`, `lib/firebase-admin.ts`, `config/firebase/firestore.rules`, `types/`), Gemini extraction, Google Workspace OAuth, provider ingestion jobs, production deployment
 
 ## Purpose
 
@@ -21,7 +21,7 @@ Build Abode Alerts into its final production-shaped real estate monitoring works
 
 - The app is a Next.js 15 App Router project with React 19, TypeScript, Tailwind CSS 4, Firebase, Gemini SDK, and Google Workspace-oriented routes in `package.json`, `app/api/properties/route.ts`, and `lib/firebase.ts`.
 - Production domain history includes `abode-alerts.vercel.app`; the user has moved the project to the **`jamienavinhill`** Vercel account (not `jami.studio`). A rogue `jami.studio` deploy must be removed and the correct linked project confirmed.
-- Firebase Auth and Firestore are wired through `lib/firebase.ts` using `firebase-applet-config.json` (public client config); Firestore was migrated to the `abode-alerts` database.
+- Firebase Auth and Firestore are wired through `lib/firebase.ts` using `config/firebase/client-config.json` (public client config); Firestore was migrated to the `abode-alerts` database.
 - `lib/firebase-admin.ts` currently loads the service account by **file path only**, which is incompatible with Vercel serverless unless inline service-account JSON env support is added.
 - `lib/env.ts` accepts `REALTY_API_KEYS` as a comma-separated list or any `rt_`-prefixed env aliases; `QuotaTracker` rotates keys at ~250 req/key/day. The `44224` backfill (~88 listings) used minimal quota and did **not** exhaust all keys — rotation exists for resilience/failover, not because one key is insufficient.
 - `components/dashboard.tsx` listens to `properties` and `alerts`, signs in through Google OAuth, requests Gmail/Sheets/Calendar/Drive scopes, parses Gmail (`parse_gmail`) and pasted text, commits listings to Firestore, exports Sheets rows, and creates Calendar events.
@@ -38,7 +38,7 @@ Build Abode Alerts into its final production-shaped real estate monitoring works
 - `ListingProperty` has no per-user `interested` / `favorite` / `hidden` state; this needs a user-scoped Firestore subcollection plus rules.
 - Auth chrome shows avatar plus separate Connect/Logout buttons and a "Sign in with Google" label; it must match the compact profile-menu spec (sign-in OR avatar, never both).
 - `components/views/ListingsGrid.tsx` assumed a listing image existed and needed no-media handling once fake fallbacks were removed.
-- `firestore.rules` exists and must be audited before launch-hardening any backfill, saved search, listing-preference, or user-owned collections.
+- `config/firebase/firestore.rules` exists and must be audited before launch-hardening any backfill, saved search, listing-preference, or user-owned collections.
 - The repo-wide engineering standards under `docs/engineering/standards/` (planning style, report style, docs standards) remain intact and point at this project.
 - Official pricing: Firebase Authentication is no-cost for most sign-in options; Firestore free quota is 1 GiB stored, 50K reads/day, 20K writes/day, 20K deletes/day, 10 GiB/month egress; the Google Cloud `$300` credit applies to Vertex AI Gemini and most paid Firebase/Google Cloud services but **not** Gemini Developer API usage.
 
@@ -69,7 +69,7 @@ Build Abode Alerts into its final production-shaped real estate monitoring works
 - [x] Do not use Firebase Storage for third-party listing images by default. Store source media URLs and metadata first; add an image cache/proxy only if provider terms allow caching and product performance requires it.
 - [x] Use Gemini **server-side only** for extraction/enrichment. `GEMINI_API_KEY` remains a Vercel/server env var. Do not expose it to the browser.
 - [x] **RealtyAPI on Vercel**: set `REALTY_API_KEYS` to the **full comma-separated list** of all `rt_` keys. The adapter rotates across keys; the `44224` ingest did not burn all keys, but multiple keys provide quota headroom and failover. A single key is sufficient only for minimal smoke — not recommended for production. Store all keys in a single server env var, rotate server-side, never expose to the browser.
-- [x] **Firebase Admin on Vercel**: add support for inline service account JSON via a new env (e.g. `FIREBASE_SERVICE_ACCOUNT_JSON`) while keeping path-based vars for local Windows dev. Never commit JSON to the repo. Firebase client config stays in `firebase-applet-config.json` (public); server admin creds are runtime secrets on Vercel.
+- [x] **Firebase Admin on Vercel**: add support for inline service account JSON via a new env (e.g. `FIREBASE_SERVICE_ACCOUNT_JSON`) while keeping path-based vars for local Windows dev. Never commit JSON to the repo. Firebase client config stays in `config/firebase/client-config.json` (public); server admin creds are runtime secrets on Vercel.
 - [x] **Email-triggered, near-real-time ingestion is THE primary flow (DECIDED).** The operator runs instant listing-alert emails from 5–6 realtor accounts (Zillow, Trulia, Homes.com, Redfin, realtor.com) all landing in `jamienavinhill@gmail.com`. A new such email IS the trigger. The pipeline fires automatically: detect new email → Gemini extracts the listing → enrich generously from free sources (RealtyAPI property-detail when warranted, free web search, Gemini grounding) → validate → upsert to Firestore with provenance/dedupe → evaluate alerts → notify (toast in-app + optional email via the user's own Gmail). The operator never clicks "scan"; manual scan stays only as an advanced fallback.
 - [x] **Watcher mechanism (DECIDED): Gmail `watch` → Cloud Pub/Sub push → pipeline endpoint.** Blaze + Pub/Sub are available, so use real push, not polling — this is how we avoid missing a listing by even an hour during the day. The Gmail `watch` registration must be renewed (Gmail expires it ≤7 days) by a small scheduled re-watch (free public-repo GitHub Action). A lightweight **business-hours safety-net poll** (free public-repo Action, ~every 15 min, ~6am–8pm America/New_York) backstops the push; **quiet 8pm–6am** (rely on push only / mostly idle). This is NOT a Vercel deploy cron.
 - [x] **RealtyAPI usage policy (DECIDED, first-principles).** RealtyAPI (realtor.com data via `realtor.realtyapi.io`) is the _authoritative structured_ source but the _scarcest_ budget: the free plan is **250 requests/MONTH per key** (NOT per day — our code's "daily" label and in-memory `QuotaTracker` do not enforce a real monthly budget; this must be fixed). True budget ≈ **8 × 250 = ~2,000 RealtyAPI calls/month**. Therefore: discovery comes FREE from the email alerts (do NOT spend RealtyAPI to _find_ listings); spend RealtyAPI only on **(a)** a periodic baseline/refresh sweep of the 44224 zone (`/search/bylocation`, a few pages, cheap) and **(b)** per-new-listing **property-detail enrichment** when an emailed listing needs authoritative fields/photos/history a free source can't give. Everything else — parsing, structured extraction, comparison, analysis, gap-fill — runs on Gemini/Vertex (credits) and free web search. Persist enrichment so we never re-spend a call for the same listing.
@@ -227,7 +227,7 @@ The exact query list, per-listing call ceilings, and the `profile`/`history` sch
 3. Connect Firebase and all required runtime envs to Vercel via **CLI + PAT** (full operator access).
 4. Clean up env template and local env naming: rename confusing vars, remove unused vars, document only what the app actually reads.
 5. Clarify RealtyAPI key strategy for Vercel: comma-separated full key list vs single key (see Locked Decisions — full list).
-6. Firebase client config stays in `firebase-applet-config.json` (public); server admin creds are runtime secrets on Vercel.
+6. Firebase client config stays in `config/firebase/client-config.json` (public); server admin creds are runtime secrets on Vercel.
 7. Production must support protected ingest routes (`INGEST_JOB_TOKEN`) and scheduled daily refresh once envs are wired.
 
 ### B. Ingest query filter UX (Gmail / email sources)
@@ -308,7 +308,7 @@ The exact query list, per-listing call ceilings, and the `profile`/`history` sch
 
 ## Data Contracts & Firestore Collection Map
 
-This is the authoritative, unambiguous contract surface. Implement to these exact shapes. Existing contracts live in `types/listings.ts` + `lib/schemas/*` with hand-written validators (this repo uses runtime validators, not zod) and `firestore.rules` for access. New contracts follow the same pattern: a TypeScript interface in `types/`, a `validate*` function in `lib/schemas/`, a repository in `lib/repositories/`, and matching `firestore.rules`. All timestamps are ISO‑8601 strings. IDs match `^[a-zA-Z0-9_\-]+$`, ≤128 chars.
+This is the authoritative, unambiguous contract surface. Implement to these exact shapes. Existing contracts live in `types/listings.ts` + `lib/schemas/*` with hand-written validators (this repo uses runtime validators, not zod) and `config/firebase/firestore.rules` for access. New contracts follow the same pattern: a TypeScript interface in `types/`, a `validate*` function in `lib/schemas/`, a repository in `lib/repositories/`, and matching `config/firebase/firestore.rules`. All timestamps are ISO‑8601 strings. IDs match `^[a-zA-Z0-9_\-]+$`, ≤128 chars.
 
 ### Existing contracts (already implemented — do not redefine, only extend additively)
 
@@ -676,7 +676,7 @@ Enables:
 
 Primary areas:
 
-- `types/listings.ts`, `lib/schemas/*`, `lib/env.ts`, `lib/repositories/*`, `firestore.rules`, `.env.example`, `docs/architecture/data-model.md`
+- `types/listings.ts`, `lib/schemas/*`, `lib/env.ts`, `lib/repositories/*`, `config/firebase/firestore.rules`, `.env.example`, `docs/architecture/data-model.md`
 
 Implementation tasks:
 
@@ -690,7 +690,7 @@ Implementation tasks:
 
 Re-run findings (WS3 audit pass 2, 2026-06-09) — surface was already largely complete; gaps closed:
 
-- [x] Added an explicit server-only deny block for `provider_quota/{YYYY-MM}` in `firestore.rules` so the base access model matches the Collection Map exactly (`ingest_runs` and `provider_quota` both `allow read, write: if false`). The `ProviderQuotaMonth` type/repo still land with WS5; only the base-model rules deny is in WS3 lane.
+- [x] Added an explicit server-only deny block for `provider_quota/{YYYY-MM}` in `config/firebase/firestore.rules` so the base access model matches the Collection Map exactly (`ingest_runs` and `provider_quota` both `allow read, write: if false`). The `ProviderQuotaMonth` type/repo still land with WS5; only the base-model rules deny is in WS3 lane.
 - [x] Extended `tests/firestore-rules-structure.test.ts` to assert the WS3 base model (global deny-by-default, public `properties` read, owner-scoped `alerts`/`alert_matches`, server-only `ingest_runs`/`provider_quota`) — previously it covered only the WS4 preference/compare paths.
 - [x] Reconciled the `docs/architecture/data-model.md` Tests list and added the `provider_quota` rules note (no contract drift found in schemas/repositories/env vs. live code).
 - [x] Audited validators (`lib/schemas/*`): all handwritten, uniform `ValidationResult`/`fail`/`ok` style, reject malformed payloads, and stay backward-compatible with the 88 live listings (which carry every required provider field). Repositories all validate-before-write and persist ISO-8601 timestamps + provenance with one consistent pattern. `lib/env.ts` accepts inline JSON or local path with actionable per-var errors. No further changes needed.
@@ -719,7 +719,7 @@ Enables:
 
 Primary areas:
 
-- `types/listings.ts`, `lib/schemas/listing-preferences.ts`, `lib/repositories/listing-preferences.ts`, `firestore.rules`
+- `types/listings.ts`, `lib/schemas/listing-preferences.ts`, `lib/repositories/listing-preferences.ts`, `config/firebase/firestore.rules`
 
 Implementation tasks:
 
@@ -908,7 +908,7 @@ Enables:
 
 Primary areas:
 
-- `lib/ingest/daily-refresh.ts`, `app/api/ingest/daily/route.ts`, `app/api/gmail/watch/route.ts`, `.github/workflows/gmail-rewatch.yml` + `.github/workflows/ingest-poll.yml` (free public-repo Actions — NOT deploy crons), `firestore.rules`, `types/listings.ts`
+- `lib/ingest/daily-refresh.ts`, `app/api/ingest/daily/route.ts`, `app/api/gmail/watch/route.ts`, `.github/workflows/gmail-rewatch.yml` + `.github/workflows/ingest-poll.yml` (free public-repo Actions — NOT deploy crons), `config/firebase/firestore.rules`, `types/listings.ts`
 
 Implementation tasks:
 
@@ -1190,11 +1190,11 @@ Enables:
 
 Primary areas:
 
-- `app/layout.tsx`, `metadata.json`, `components/dashboard.tsx`, `components/views/*`, `README.md`, `docs/README.md`
+- `app/layout.tsx`, `config/app/metadata.json`, `components/dashboard.tsx`, `components/views/*`, `README.md`, `docs/README.md`
 
 Implementation tasks:
 
-- [x] Update app metadata, title, descriptions, social metadata, and icons for Abode Alerts and the deployed domain. Done via the Next 15 App Router `metadata` export in `app/layout.tsx` (`metadataBase` = `https://abode-alerts.vercel.app`, title template, applicationName, OpenGraph, Twitter, robots), a file-based `app/icon.svg`, and a generated `app/opengraph-image.tsx` (1200×630). `metadata.json` content reconciled (name/description) without relocating the file (WS19 owns the move). Verified via served HTML head + 200s on `/icon.svg` and `/opengraph-image`.
+- [x] Update app metadata, title, descriptions, social metadata, and icons for Abode Alerts and the deployed domain. Done via the Next 15 App Router `metadata` export in `app/layout.tsx` (`metadataBase` = `https://abode-alerts.vercel.app`, title template, applicationName, OpenGraph, Twitter, robots), a file-based `app/icon.svg`, and a generated `app/opengraph-image.tsx` (1200×630). `config/app/metadata.json` content reconciled (name/description). Verified via served HTML head + 200s on `/icon.svg` and `/opengraph-image`.
 - [x] Ensure the setup/wizard explains the one-email sign-up flow for the baseline platforms and others without embedding account credentials. `AlertsWizardView` and the in-app Docs/Quickstart describe subscribing to Zillow/Trulia/Homes.com/Redfin/realtor.com email alerts; no account credentials are collected or stored.
 - [x] Wire CMA to real baseline and comparable records; hide or replace any synthetic chart values. (WS13 `CMAView` derives every figure from the Firestore inventory passed in; consumed unchanged.)
 - [x] Wire the Docs view to current docs or remove in-app docs if stale. (WS14 `DocsView` reflects the live flows; consumed unchanged.)
@@ -1225,11 +1225,11 @@ Enables:
 
 Primary areas:
 
-- `firestore.rules`, `lib/firebase.ts`, `app/api/*`, `docs/architecture/auth-and-secrets.md`, `docs/operations/development-workflow.md`
+- `config/firebase/firestore.rules`, `lib/firebase.ts`, `app/api/*`, `docs/architecture/auth-and-secrets.md`, `docs/operations/development-workflow.md`
 
 Implementation tasks:
 
-- [ ] Audit `firestore.rules` for listings read access, user alert ownership, alert-match ownership, listing-preference own-only access, and admin/operator writes.
+- [ ] Audit `config/firebase/firestore.rules` for listings read access, user alert ownership, alert-match ownership, listing-preference own-only access, and admin/operator writes.
 - [ ] Move provider writes through server/admin paths if client writes are too permissive for shared collections.
 - [ ] Add App Check or a documented mitigation path if abuse risk rises.
 - [ ] Finalize the OAuth/refresh-token persistence decision: encrypted, user-scoped, server-side, rules-hardened; document it.
@@ -1298,7 +1298,7 @@ Enables:
 
 Primary areas:
 
-- `types/`, `lib/schemas/`, `lib/repositories/account-members.ts`, `firestore.rules`
+- `types/`, `lib/schemas/`, `lib/repositories/account-members.ts`, `config/firebase/firestore.rules`
 - `components/` (invite UI in the profile menu; pending-invite acceptance)
 - `app/api/` (create/accept/revoke invite)
 
@@ -1307,14 +1307,14 @@ Model (keep it simple):
 - An **account** is owned by the owner `uid` (their existing data is the workspace). `accounts/{ownerUid}/members/{memberUid}` holds `{ role: "viewer" | "editor", invitedAt, acceptedAt }`. `invites/{token}` holds `{ ownerUid, email, role, status }` for pending email invites.
 - **viewer** = read-only across the owner's listings, alerts, matches, preferences, profile.
 - **editor** = everything the owner can do **except delete the owner's account** (and except removing the owner). Editors may add/remove other members at/below editor.
-- Membership is resolved server-side and in `firestore.rules`; a member's `request.auth.uid` is checked against the owner's `members` subcollection.
+- Membership is resolved server-side and in `config/firebase/firestore.rules`; a member's `request.auth.uid` is checked against the owner's `members` subcollection.
 
 Implementation tasks:
 
 - [ ] Define `AccountMember` / `AccountInvite` schemas and a repository with create-invite, accept-invite, list-members, change-role, revoke.
 - [ ] Invite flow: owner enters an email + role → invite record + (optional) email via the owner's Gmail with an accept link. Accepting (signed-in Google user) writes the membership.
 - [ ] Profile-menu UI: "Share workspace" → list members + roles, invite form, revoke control. Visible to owner and editors.
-- [ ] `firestore.rules`: reads/writes on owner-scoped collections allow the owner and any `members` entry per role; **only the owner can delete the account**; editors cannot delete the account or demote/remove the owner.
+- [ ] `config/firebase/firestore.rules`: reads/writes on owner-scoped collections allow the owner and any `members` entry per role; **only the owner can delete the account**; editors cannot delete the account or demote/remove the owner.
 - [ ] Read paths resolve "which workspace am I viewing" (own vs. one I'm a member of) and a simple workspace switcher if the user belongs to more than one.
 
 Exit criteria:
@@ -1337,29 +1337,29 @@ Depends on:
 
 Enables:
 
-- [ ] A clean, uniform repo root for WS17 release-gate and future contributors.
+- [x] A clean, uniform repo root for WS17 release-gate and future contributors.
 
 Primary areas:
 
-- Repo root, a new `firebase/` (or similarly named) config subdirectory, `firebase.json`, `lib/firebase.ts`, `lib/env.ts`, `tests/`, `scripts/`, `package.json` script paths, `docs/README.md` + relevant architecture/operations docs.
+- Repo root, the `config/` directory, `firebase.json`, `lib/firebase.ts`, `lib/env.ts`, `tests/`, `scripts/`, `package.json` script paths, `docs/README.md` + relevant architecture/operations docs.
 
 Constraints (verify against official tooling docs before moving anything):
 
 - **MUST stay at root** (tool discovery is path-fixed): `package.json`, `package-lock.json`, `tsconfig.json`, `next.config.ts`, `next-env.d.ts`, `eslint.config.mjs`, `postcss.config.mjs`, `.prettierrc.mjs`, `.prettierignore`, `.gitignore`, `.env.example`, `README.md`, `AGENTS.md`, and `firebase.json` (the Firebase CLI resolves it from the working directory).
-- **Relocatable with reference updates**: `firestore.rules` (re-point `firebase.json` `firestore.rules`, the emulator/structure tests, and any script that reads it), `firebase-applet-config.json` (update the `lib/firebase.ts` import + any `lib/env.ts` reference), `firebase-blueprint.json` and `metadata.json` (audit who reads them first; move to the config dir or delete if unused/AI-Studio leftovers), and the root `mcps/` directory (audit; relocate or gitignore as appropriate). `firestore.indexes.json` if present.
+- **Moved under `config/` with reference updates**: `config/firebase/firestore.rules` (`firebase.json`, emulator tests, structure tests), `config/firebase/client-config.json` (`lib/firebase.ts`, `lib/firebase-admin.ts`, operator scripts, emulator tests), `config/firebase/blueprint.json`, and `config/app/metadata.json`. Empty untracked `mcps/` and `output/` leftovers plus the ignored `firestore-debug.log` were removed from the root. `firestore.indexes.json` is not present.
 - No file moves that break a tool default, no broad path shims, no behavior change — only relocation plus exact reference updates. Each moved file's new home must be referenced from the canonical config, not duplicated.
 
 Implementation tasks:
 
-- [ ] Inventory every root file; classify must-stay vs relocatable; confirm each relocatable file's readers via `rg`.
-- [ ] Create the config subdirectory and move the relocatable Firebase/config files into it.
-- [ ] Update `firebase.json` rules path, `lib/firebase.ts`/`lib/env.ts` imports, emulator/structure tests, scripts, and `package.json` paths; delete genuinely-unused leftovers (record why).
-- [ ] Update `docs/README.md` and any architecture/operations doc that names a moved path.
+- [x] Inventory every root file; classify must-stay vs relocatable; confirm each relocatable file's readers via `rg`.
+- [x] Create the config subdirectory and move the relocatable Firebase/config files into it.
+- [x] Update `firebase.json` rules path, `lib/firebase.ts`/`lib/env.ts` imports, emulator/structure tests, scripts, and `package.json` paths; delete genuinely-unused leftovers (record why).
+- [x] Update `docs/README.md` and any architecture/operations doc that names a moved path.
 
 Exit criteria:
 
-- [ ] Repo root contains only tooling-required files (per the must-stay list) plus owned source/doc directories.
-- [ ] `npm run verify` and `npm run test:rules` green after the moves; the Firebase CLI still resolves rules.
+- [x] Repo root contains only tooling-required files (per the must-stay list) plus owned source/doc directories.
+- [x] `npm run verify` and `npm run test:rules` green after the moves; the Firebase CLI still resolves rules.
 
 Suggested verification:
 
@@ -1385,7 +1385,7 @@ Required before marking this plan complete:
 
 - [ ] Abode Alerts runs locally and builds for production with clean lint, type, format, and build gates; `npm run verify` passes.
 - [ ] Single Vercel project `realtor` (account `jamie-navin`, `https://abode-alerts.vercel.app/`) with runtime envs set; deploys are automatic on `git push`; the protected ingest route is reachable and token-gated. No deploy cron, no second project.
-- [ ] Firebase Admin initializes on Vercel serverless via inline service-account JSON; Firebase client config stays public in `firebase-applet-config.json`.
+- [ ] Firebase Admin initializes on Vercel serverless via inline service-account JSON; Firebase client config stays public in `config/firebase/client-config.json`.
 - [ ] `REALTY_API_KEYS` contains the full key list; docs state the keys were not all exhausted for the `44224` baseline; rotation provides resilience/failover.
 - [ ] Firestore contains real active listings within 10 miles of `44224` (~88), all with provenance and no invented/stock media; re-running backfill is idempotent.
 - [ ] A new realtor-alert email in `jamienavinhill@gmail.com` triggers the pipeline **automatically and near-real-time** (Gmail `watch` → Pub/Sub push) — no manual scan, listing surfaced within minutes during the day; manual scan remains only as advanced fallback; automatic path preserves provenance and dedupe.

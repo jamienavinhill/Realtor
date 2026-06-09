@@ -97,7 +97,7 @@ starts — an in-memory counter alone would reset every invocation and silently
 overspend. One document per calendar month lives at `provider_quota/{YYYY-MM}`
 (`ProviderQuotaMonth`: `perKey`, `monthlyLimitPerKey`, `totalSpent`, `updatedAt`).
 This collection is **server-only** — never client-readable (the `provider_quota` deny
-is in `firestore.rules`).
+is in `config/firebase/firestore.rules`).
 
 Before every live RealtyAPI call the adapter (`lib/providers/realty-api.ts`) reserves
 one call against the next key via `MonthlyQuotaStore.reserve`

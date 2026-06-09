@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getAuth, type Auth } from "firebase-admin/auth";
-import firebaseConfig from "@/firebase-applet-config.json";
+import firebaseConfig from "@/config/firebase/client-config.json";
 
 let adminApp: App | undefined;
 let adminDb: Firestore | undefined;
@@ -76,7 +76,7 @@ export function getAdminFirestore(): Firestore {
   const databaseId = firebaseConfig.firestoreDatabaseId;
   if (!databaseId) {
     throw new Error(
-      "firebase-applet-config.json is missing firestoreDatabaseId (expected 'abode-alerts').",
+      "config/firebase/client-config.json is missing firestoreDatabaseId (expected 'abode-alerts').",
     );
   }
   adminDb = getFirestore(app, databaseId);

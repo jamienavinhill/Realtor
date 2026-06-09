@@ -89,6 +89,24 @@ export interface AlertMatch {
   lastSeenAt: string;
 }
 
+export type ListingUserState = "interested" | "notInterested" | "favorite" | "hidden";
+
+export interface ListingUserPreference {
+  listingId: string;
+  userId: string;
+  state: ListingUserState;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface CompareQueue {
+  userId: string;
+  listingIds: string[];
+  updatedAt: string;
+}
+
+export const MAX_COMPARE_LISTINGS = 4;
+
 export interface IngestRun {
   id: string;
   type: "backfill" | "daily";

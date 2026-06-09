@@ -101,6 +101,34 @@ service cloud.firestore {
         && data.lastSeenAt is string;
     }
 
+    function isValidListingUserState(state) {
+      return state in ['interested', 'notInterested', 'favorite', 'hidden'];
+    }
+
+    function isValidListingPreference(data) {
+      return data.keys().hasAll(['listingId', 'userId', 'state', 'createdAt', 'updatedAt'])
+        && data.keys().size() <= 8
+        && data.listingId is string && data.listingId.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.userId == request.auth.uid
+        && isValidListingUserState(data.state)
+        && data.createdAt is string && data.createdAt.size() <= 64
+        && data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    function isValidCompareQueue(data) {
+      return data.keys().hasAll(['userId', 'listingIds', 'updatedAt'])
+        && data.keys().size() <= 6
+        && data.userId is string && data.userId.size() <= 128
+        && data.userId == request.auth.uid
+        && data.listingIds is list && data.listingIds.size() <= 4
+        && data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
     // --- Path Rules ---
 
     match /properties/{propertyId} {
@@ -127,6 +155,20 @@ service cloud.firestore {
     match /ingest_runs/{runId} {
       // Operator/server records only. Admin SDK bypasses rules for ingestion jobs.
       allow read, write: if false;
+    }
+
+    match /users/{userId}/listingPreferences/{listingId} {
+      allow list, get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(listingId) && isValidListingPreference(incoming());
+      allow update: if isOwner(userId) && isValidId(listingId) && isValidListingPreference(incoming())
+        && incoming().listingId == listingId;
+      allow delete: if isOwner(userId) && isValidId(listingId);
+    }
+
+    match /users/{userId}/compareQueue {
+      allow get: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidCompareQueue(incoming());
+      allow delete: if isOwner(userId);
     }
   }
 }

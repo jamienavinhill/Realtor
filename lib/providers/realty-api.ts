@@ -7,13 +7,15 @@ import type {
   RadiusCenter,
 } from "@/types/listings";
 import { validateListingProperty } from "@/lib/schemas/listing";
+import type { MonthlyQuotaStore } from "@/lib/repositories/provider-quota";
+import { firestoreMonthlyQuotaStore } from "@/lib/repositories/provider-quota";
 import {
   mapHttpStatusToProviderError,
   RealtyApiMalformedPayloadError,
   RealtyApiNoResultsError,
   RealtyApiQuotaExhaustedError,
 } from "./errors";
-import { DEFAULT_DAILY_QUOTA_PER_KEY, QuotaTracker } from "./quota";
+import { QuotaTracker, REALTY_API_MONTHLY_QUOTA_PER_KEY } from "./quota";
 import type {
   ProviderFetchResult,
   ProviderSearchParams,
@@ -49,6 +51,66 @@ export function hashRawPayload(payload: unknown): string {
 
 function sanitizeDocId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 128);
+}
+
+/** Canonicalize a source URL for dedupe: drop scheme casing, query, fragment, trailing slash. */
+function canonicalizeSourceUrl(href: string | undefined): string {
+  if (!href) return "";
+  try {
+    const url = new URL(href);
+    const path = url.pathname.replace(/\/+$/, "");
+    return `${url.host.toLowerCase()}${path.toLowerCase()}`;
+  } catch {
+    return href.trim().toLowerCase();
+  }
+}
+
+/** Normalize an address line for dedupe: lowercase, collapse whitespace, strip punctuation. */
+function normalizeAddressToken(value: string | undefined): string {
+  if (!value) return "";
+  return value.toLowerCase().replace(/[.,#]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Round a coordinate to ~11m precision so trivially-different fixes still collide. */
+function coordToken(value: number | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "";
+  return value.toFixed(4);
+}
+
+/**
+ * Robust composite dedupe key: normalized street address + city/zip + rounded
+ * coordinates + canonical source URL. This collapses the same physical listing even
+ * when a provider re-issues it under a different listing/property id, or when two
+ * sources point at the same home. The provider id is appended last only as a final
+ * tiebreaker/fallback when address+coords+url are all absent (so a sparse payload
+ * still yields a stable, non-empty key).
+ *
+ * Format: `realtyapi:addr=<...>|geo=<lat,lng>|url=<host/path>` (or `|id=<id>` fallback).
+ * The `realtyapi:` prefix is retained for backward compatibility with the existing
+ * single-provider baseline; see WS5 dedupe reconciliation in the roadmap.
+ */
+export function buildDedupeKey(result: RealtyApiSearchResult): string {
+  const addr = normalizeAddressToken(result.address?.line);
+  const locality = normalizeAddressToken(
+    `${result.address?.city ?? ""} ${result.address?.state_code ?? ""} ${
+      result.address?.postal_code ?? ""
+    }`,
+  );
+  const geo = `${coordToken(result.address?.latitude)},${coordToken(result.address?.longitude)}`;
+  const url = canonicalizeSourceUrl(result.href);
+
+  const parts: string[] = [];
+  if (addr) parts.push(`addr=${addr} ${locality}`.trim());
+  if (geo !== ",") parts.push(`geo=${geo}`);
+  if (url) parts.push(`url=${url}`);
+
+  if (parts.length === 0) {
+    // Sparse payload: fall back to the provider id so the key is still stable.
+    const id = result.listing_id || result.property_id || "";
+    return `realtyapi:id=${id}`;
+  }
+
+  return `realtyapi:${parts.join("|")}`;
 }
 
 function buildMedia(result: RealtyApiSearchResult): ListingMedia[] {
@@ -141,7 +203,7 @@ export function normalizeRealtyApiListing(
   const media = buildMedia(result);
   const imageUrls = media.map((item) => item.url);
   const imageUrl = media.find((item) => item.type === "primary")?.url ?? imageUrls[0] ?? "";
-  const dedupeKey = `realtyapi:${result.listing_id || result.property_id}`;
+  const dedupeKey = buildDedupeKey(result);
   const distanceMiles = haversineDistanceMiles(
     options.radiusCenter.lat,
     options.radiusCenter.lng,
@@ -221,14 +283,71 @@ function validateSearchResponse(payload: unknown): RealtyApiSearchResponse {
   };
 }
 
+export interface RealtyApiClientOptions {
+  /**
+   * Per-key monthly ceiling. Defaults to the RealtyAPI free-plan limit
+   * (250/MONTH/key). Used both by the in-run tracker and as the durable-store
+   * reservation limit.
+   */
+  monthlyLimitPerKey?: number;
+  /**
+   * Durable monthly budget store. Defaults to the Firestore-backed store so the
+   * ceiling survives serverless cold starts. Tests inject an in-memory store to
+   * exercise quota behavior with no live Firestore.
+   */
+  quotaStore?: MonthlyQuotaStore;
+  /** Override the fetch implementation (tests inject a stub; no live HTTP). */
+  fetchImpl?: typeof fetch;
+}
+
 export class RealtyApiClient {
   private readonly quota: QuotaTracker;
+  private readonly monthlyLimitPerKey: number;
+  private readonly quotaStore: MonthlyQuotaStore;
+  private readonly fetchImpl: typeof fetch;
 
   constructor(
     private readonly keys: RealtyApiKeyEntry[],
-    private readonly dailyQuotaPerKey = DEFAULT_DAILY_QUOTA_PER_KEY,
+    options: RealtyApiClientOptions = {},
   ) {
-    this.quota = new QuotaTracker(keys, dailyQuotaPerKey);
+    this.monthlyLimitPerKey = options.monthlyLimitPerKey ?? REALTY_API_MONTHLY_QUOTA_PER_KEY;
+    this.quotaStore = options.quotaStore ?? firestoreMonthlyQuotaStore;
+    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.quota = new QuotaTracker(keys, this.monthlyLimitPerKey);
+  }
+
+  /**
+   * Reserve one durable monthly call against the next key with in-run headroom,
+   * rotating across keys. Returns the granted key alias/key, or null when every key
+   * is exhausted in the durable monthly budget (caller degrades to PARTIAL).
+   *
+   * The durable reservation is the authority: the in-run tracker only narrows which
+   * key we try first so a single run does not pin one alias.
+   */
+  private async reserveKey(): Promise<RealtyApiKeyEntry | null> {
+    for (let attempt = 0; attempt < this.keys.length; attempt += 1) {
+      const candidate = this.quota.nextAvailableKey();
+      if (!candidate) {
+        return null;
+      }
+
+      const reservation = await this.quotaStore.reserve(candidate.alias, {
+        monthlyLimitPerKey: this.monthlyLimitPerKey,
+      });
+
+      if (reservation.granted) {
+        this.quota.recordSpend(candidate.alias);
+        return candidate;
+      }
+
+      // Durable budget says this alias is exhausted this month even though the
+      // in-run tracker thought it had headroom (e.g. spent by a prior invocation).
+      // Mark it locally exhausted so nextAvailableKey() skips it, then rotate on.
+      this.quota.markExhausted(candidate.alias);
+      this.quota.rotatePast(candidate.alias);
+    }
+
+    return null;
   }
 
   async fetchPage(
@@ -236,19 +355,17 @@ export class RealtyApiClient {
     page: number,
     _options?: { providerRunId?: string },
   ): Promise<{ response: RealtyApiSearchResponse; keyAlias: string }> {
-    const keyEntry = this.quota.nextAvailableKey();
+    const keyEntry = await this.reserveKey();
     if (!keyEntry) {
       throw new RealtyApiQuotaExhaustedError();
     }
-
-    this.quota.reserve(keyEntry.alias);
 
     const url = new URL(`${REALTY_API_BASE_URL}/search/bylocation`);
     url.searchParams.set("location", params.location);
     url.searchParams.set("radius", String(params.radiusMiles));
     url.searchParams.set("page", String(page));
 
-    const response = await fetch(url, {
+    const response = await this.fetchImpl(url, {
       method: "GET",
       headers: {
         "x-realtyapi-key": keyEntry.key,
@@ -284,6 +401,7 @@ export class RealtyApiClient {
     const errors: string[] = [];
     let page = 1;
     let pagesFetched = 0;
+    let partial = false;
     const maxPages = options?.maxPages ?? 100;
 
     const radiusCenter: RadiusCenter = {
@@ -294,7 +412,10 @@ export class RealtyApiClient {
 
     while (page <= maxPages) {
       if (!this.quota.hasAvailableKey()) {
-        errors.push("Stopped pagination because all RealtyAPI keys reached daily quota.");
+        errors.push(
+          "Stopped pagination because all RealtyAPI keys reached their monthly quota (~250/MONTH per key).",
+        );
+        partial = true;
         break;
       }
 
@@ -337,7 +458,19 @@ export class RealtyApiClient {
 
         page += 1;
       } catch (error) {
-        errors.push(error instanceof Error ? error.message : String(error));
+        // Quota exhaustion mid-pagination is an expected degraded outcome: keep the
+        // listings already gathered and surface a PARTIAL result rather than crashing
+        // or silently failing. Any other provider error also stops pagination but is
+        // recorded distinctly.
+        if (error instanceof RealtyApiQuotaExhaustedError) {
+          errors.push(error.message);
+          partial = true;
+        } else {
+          errors.push(error instanceof Error ? error.message : String(error));
+          // A first-page hard failure with nothing gathered is a true failure;
+          // a later-page failure after some listings is partial.
+          partial = listings.length > 0;
+        }
         break;
       }
     }
@@ -350,6 +483,7 @@ export class RealtyApiClient {
         keyAliasesUsed: this.quota.getUsedAliases(),
         quotaUsed: this.quota.getUsage(),
         errors,
+        partial,
       },
     };
   }

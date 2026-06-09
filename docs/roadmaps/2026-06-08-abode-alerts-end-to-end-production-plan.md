@@ -750,27 +750,35 @@ Enables:
 
 Primary areas:
 
-- `lib/providers/realty-api.ts`, `lib/providers/google-search.ts`, `lib/providers/types.ts`, `lib/ingest/quota.ts`, `.env.example`, `docs/operations/provider-ingestion.md`
+- `lib/providers/realty-api.ts`, `lib/providers/google-search.ts`, `lib/providers/types.ts`, `lib/providers/errors.ts`, `lib/providers/quota.ts`, `types/provider-quota.ts`, `lib/schemas/provider-quota.ts`, `lib/repositories/provider-quota.ts`, `.env.example`, `docs/operations/provider-ingestion.md`
 
 Implementation tasks:
 
-- [ ] Implement RealtyAPI adapter for active listings within radius/ZIP criteria.
-- [ ] Accept comma-separated `REALTY_API_KEYS` (and `rt_` aliases) and rotate by run/key alias without logging values.
-- [!] **Fix quota accounting to MONTHLY.** RealtyAPI free is **250 req/MONTH per key** (verify in dashboards), but `lib/providers/quota.ts` (`DEFAULT_DAILY_QUOTA_PER_KEY`) is in-memory per-run and mislabeled "daily." Persist per-key monthly usage (Firestore `provider_quota/{yyyy-mm}`) and stop before the ~2,000/month ceiling.
-- [ ] Normalize RealtyAPI records into the listing schema with source provenance and media arrays.
-- [ ] Implement public search enrichment adapter behind `GOOGLE_SEARCH_API_KEY`/`GOOGLE_SEARCH_ENGINE_ID` only for missing non-authoritative fields and source URLs.
-- [ ] Add provider error classes for rate limit, auth, provider outage, malformed payload, and no-results.
-- [ ] Document provider setup and expected envs.
+- [x] Implement RealtyAPI adapter for active listings within radius/ZIP criteria (`lib/providers/realty-api.ts`, `/search/bylocation` pagination).
+- [x] Accept comma-separated `REALTY_API_KEYS` (and `rt_` aliases) and rotate by run/key alias without logging values. Rotation is deterministic; key values never enter logs, errors, or stats (asserted by `tests/realty-key-rotation.test.ts`).
+- [x] **Fixed quota accounting to MONTHLY (no shim).** RealtyAPI free is **250 req/MONTH per key** (verified against the realtyapi.io pricing page 2026-06-09 — monthly, not daily). Implemented `ProviderQuotaMonth` (`types/provider-quota.ts`), a handwritten validator (`lib/schemas/provider-quota.ts`), and a Firestore-backed `lib/repositories/provider-quota.ts` (`MonthlyQuotaStore`) that PERSISTS per-key monthly usage to `provider_quota/{YYYY-MM}` via the Admin SDK (transactional reserve) and refuses to spend past the per-key ceiling (~2,000/month over 8 keys). The adapter reserves against this durable store before each live call; the in-memory `QuotaTracker` remains only a per-run rotation fast path (renamed off "daily"; `DEFAULT_DAILY_QUOTA_PER_KEY` kept as a deprecated alias of `REALTY_API_MONTHLY_QUOTA_PER_KEY`). Injection seam (`MonthlyQuotaStore` + `createInMemoryMonthlyQuotaStore`) makes it unit-testable with no live Firestore/RealtyAPI.
+- [x] Normalize RealtyAPI records into the listing schema with source provenance and `media[]` (`normalizeRealtyApiListing`).
+- [x] **Composite dedupe key (reconciled).** `buildDedupeKey` now folds normalized address + locality + rounded coordinates + canonical source URL (`realtyapi:addr=...|geo=...|url=...`), collapsing the same physical home even under a re-issued provider id; falls back to `realtyapi:id=<id>` only for sparse payloads. This resolves the WS6 finding that the key was provider-id-only. Doc + tests updated to agree.
+- [x] Implement public search enrichment adapter behind `GOOGLE_SEARCH_API_KEY`/`GOOGLE_SEARCH_ENGINE_ID` (`lib/providers/google-search.ts`, Custom Search JSON API; endpoint/quota verified 2026-06-09). Fills only missing non-authoritative fields, ALWAYS returns source URLs/citations, never invents data, clear no-op when envs absent. Behind the port; not called from UI.
+- [x] Add provider error classes for rate limit, auth, provider outage, malformed payload, no-results (and quota-exhausted) — RealtyAPI + Google-search variants in `lib/providers/errors.ts`, used by both adapters.
+- [x] Document provider setup and expected envs (`docs/operations/provider-ingestion.md`, `.env.example`).
 
 Exit criteria:
 
-- [ ] Provider calls are isolated from UI and Firestore write code.
-- [ ] Key rotation is deterministic and inspectable without exposing keys.
-- [ ] Quota exhaustion degrades to partial run results, not silent failure.
+- [x] Provider calls are isolated from UI and Firestore write code (ports under `lib/providers/`; UI never imports them).
+- [x] Key rotation is deterministic and inspectable without exposing keys (verified by `tests/realty-key-rotation.test.ts` incl. a no-key-leakage assertion).
+- [x] Quota exhaustion degrades to partial run results, not silent failure (`ProviderFetchStats.partial`; PARTIAL on monthly-budget exhaustion).
+
+Re-run findings (WS5, 2026-06-09) — surface was scaffolded but the flagged monthly-quota bug, the composite dedupe reconciliation, and the Google-search adapter were outstanding; all closed:
+
+- [x] Monthly quota is now durable (Firestore `provider_quota/{YYYY-MM}`) and enforced before each live call, with an in-memory injection seam for tests. The "daily" mislabel is gone.
+- [x] Composite dedupe implemented in the adapter (the principled option); the WS6 provider-id-only finding is resolved and the ops doc + idempotency tests now reflect the composite key.
+- [x] `lib/providers/google-search.ts` added (citation-bearing, env-gated no-op, behind the port). Error taxonomy extended with Google-search variants.
+- [x] Test count: gate moved from 51 → 72 (added `provider-quota`, `realty-key-rotation`, `google-search`, `provider-errors`; updated `backfill-idempotency`, `backfill-run`, `schemas` for the new dedupe key + `partial` stat). No live RealtyAPI/Google calls in any test.
 
 Suggested verification:
 
-- `npm run typecheck`; adapter tests with sanitized fixtures; live smoke with one low-limit key only after env is present.
+- `npm run verify` (lint, typecheck, format:check, 72 tests, build); adapter tests with sanitized fixtures. **Operator-pending:** live smoke with one low-limit key only after env is present (RealtyAPI credentials/quota); Google-search live smoke once `GOOGLE_SEARCH_*` envs are set.
 
 ## Workstream 6: 44224 Ten-Mile Baseline Backfill
 
@@ -794,7 +802,7 @@ Implementation tasks:
 
 - [x] Define radius center for ZIP `44224` and radius `10` miles (`lib/ingest/constants.ts`).
 - [x] Fetch active listings from RealtyAPI across available accounts/keys until complete or quotas are safely exhausted (~88 listings ingested; not all keys burned).
-- [~] Dedupe by provider id (`realtyapi:<listing_id||property_id>`), deterministic and stable across runs — verified by `tests/backfill-idempotency.test.ts`. The composite "normalized address + coordinates + canonical source URL" key is **NOT** implemented; the key is built in `lib/providers/realty-api.ts`, which is WS5-owned. Recorded as a WS5 finding below; the provider-id key is robust for the single-provider baseline.
+- [x] Dedupe by a **composite** key (normalized address + locality + rounded coordinates + canonical source URL: `realtyapi:addr=...|geo=...|url=...`), deterministic and stable across runs, with a `realtyapi:id=<id>` fallback for sparse payloads — built by `buildDedupeKey` in `lib/providers/realty-api.ts` (WS5) and verified by `tests/backfill-idempotency.test.ts`. **Resolved 2026-06-09 by WS5** (was provider-id-only); the composite collapses the same physical home even under a re-issued provider id.
 - [x] Persist listings with source provenance (`sourceProvider`, `sourceUrl`, `sourceListingId`, `ingestedAt`, `media[]`, `rawHash`, `dedupeKey`, `radiusCenter`, `distanceMiles`, `provenance`), media URLs, timestamps, and raw hash. Real media only — no stock/placeholder path.
 - [x] Record a baseline run document via the runs repo with counts, key aliases used, quota used, and errors.
 - [x] Add an operator script that can run locally (`npm run backfill`, `--env-file=.env`) and a protected API route for hosted trigger (`POST /api/ingest/backfill`, `INGEST_JOB_TOKEN`-gated).
@@ -806,7 +814,7 @@ Re-run findings (WS6 re-run, 2026-06-09) — backfill was functional but not pro
 - [x] **Dry-run is now truly side-effect-free** (`lib/ingest/backfill.ts`, `scripts/backfill-44224.ts`): `--dry-run` previously still called `fetchAllActiveListings`, spending the scarce ~250/MONTH RealtyAPI budget just to preview. Dry-run now validates env + run wiring, writes nothing, and makes **no live provider calls**; the script logs this and returns `status: "completed"` with zero counts. The script exits non-zero only when `status === "failed"`.
 - [x] **Idempotency/dedupe tests added** (`tests/backfill-idempotency.test.ts`, sanitized fixtures, no live calls): dedupeKey + doc-id determinism across runs, independence from timestamp/alias/runId, in-batch collapse of repeated `listing_id`, `property_id` fallback, `rawHash` change-detection, and the full persisted provenance set. (Run-lifecycle coverage added in pass 2; see below — gate now 49 tests.)
 - [x] **Durable ops doc created** (`docs/operations/provider-ingestion.md`, indexed in `docs/README.md`): provenance, idempotency/dedupe, dry-run + token-gated run, and cost posture.
-- [!] **WS5 finding (not fixed here — WS5-owned):** the dedupe key is provider-id only (built in `lib/providers/realty-api.ts`); the roadmap's "normalized address + coordinates + canonical source URL" composite is not implemented. Also `lib/providers/quota.ts` is in-memory and labels the budget "daily" (`DEFAULT_DAILY_QUOTA_PER_KEY = 250`) when the real RealtyAPI free limit is ~250 req/MONTH per key — no persisted monthly accounting. Both must be addressed in WS5.
+- [x] **WS5 finding — RESOLVED 2026-06-09 (in WS5):** the dedupe key is now a composite (normalized address + coordinates + canonical source URL, `buildDedupeKey` in `lib/providers/realty-api.ts`), and `lib/providers/quota.ts` is no longer mislabeled "daily" — monthly accounting is persisted in Firestore `provider_quota/{YYYY-MM}` (`lib/repositories/provider-quota.ts`) and enforced before each live call. See the WS5 section.
 
 Pass 2 audit (WS6 re-run, 2026-06-09) — independent re-audit of the full WS6 lane; one real coverage gap closed, the rest verified quiet:
 

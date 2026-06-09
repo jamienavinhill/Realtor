@@ -21,7 +21,7 @@ test("validateListingProperty accepts normalized RealtyAPI fixture", () => {
 
   if (result.success) {
     assert.equal(result.data.sourceProvider, "realtyapi");
-    assert.equal(result.data.dedupeKey, "realtyapi:fixture_listing_001");
+    assert.ok(result.data.dedupeKey?.startsWith("realtyapi:addr="));
     assert.equal(result.data.media?.length, 2);
     assert.ok((result.data.rawHash?.length ?? 0) > 0);
     assert.equal(result.data.radiusCenter?.zipCode, "44224");

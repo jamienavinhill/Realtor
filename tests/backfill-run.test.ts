@@ -23,6 +23,7 @@ const emptyFetch: ProviderFetchResult = {
     keyAliasesUsed: ["realty_key_1"],
     quotaUsed: { realty_key_1: 1 },
     errors: [],
+    partial: false,
   },
 };
 
@@ -108,6 +109,7 @@ test("a successful backfill opens and closes the run record as completed", async
           keyAliasesUsed: ["realty_key_1"],
           quotaUsed: { realty_key_1: 1 },
           errors: [],
+          partial: false,
         },
       }) as unknown as ProviderFetchResult,
     upsert: async () => ({ upserted: 1, skipped: 0, errors: [] }),
@@ -133,6 +135,7 @@ test("fetch/upsert errors with zero upserts close the run as failed (never left 
         keyAliasesUsed: ["realty_key_1"],
         quotaUsed: { realty_key_1: 1 },
         errors: ["provider exploded"],
+        partial: false,
       },
     }),
     upsert: async () => ({ upserted: 0, skipped: 0, errors: [] }),
@@ -173,6 +176,7 @@ test("partial failure (some upserts, some errors) closes the run as partial", as
           keyAliasesUsed: ["realty_key_1"],
           quotaUsed: { realty_key_1: 1 },
           errors: [],
+          partial: false,
         },
       }) as unknown as ProviderFetchResult,
     upsert: async () => ({

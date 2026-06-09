@@ -29,10 +29,16 @@ real source URLs only — there is no stock/placeholder media path.
 Re-running the backfill updates existing records rather than duplicating them. This
 relies on two deterministic keys derived from the provider payload:
 
-- **`dedupeKey`** = `realtyapi:<listing_id || property_id>` — stable across runs,
-  independent of timestamp, key alias, or run id.
-- **Doc id** = the sanitized provider listing id — the upsert writes to the same
-  `properties/<id>` document on every run.
+- **`dedupeKey`** = a **composite** of normalized street address + locality + rounded
+  coordinates (~11 m) + canonical source URL, built by `buildDedupeKey` in
+  `lib/providers/realty-api.ts`. Format:
+  `realtyapi:addr=<...>|geo=<lat,lng>|url=<host/path>`. It is stable across runs and
+  independent of timestamp, key alias, or run id. Because it is keyed on the physical
+  listing rather than the provider id, the same home collapses to one record even if
+  the provider re-issues it under a different `listing_id`/`property_id`. A sparse
+  payload with no address/coords/url falls back to `realtyapi:id=<id>`.
+- **Doc id** = the sanitized provider listing id (falling back to `property_id`) — the
+  upsert writes to the same `properties/<id>` document on every run.
 
 `upsertListing` looks up an existing record by `dedupeKey`, preserves the original
 `createdAt`, and merges the fresh payload (refreshing `updatedAt`/`ingestedAt`). The
@@ -47,11 +53,9 @@ and the "never left `running`" guarantee on success/partial/error paths — is c
 the function level by `tests/backfill-run.test.ts`, which injects in-memory
 env/provider/repository fakes (zero live calls, zero writes) via `BackfillOptions.deps`.
 
-> Dedupe is keyed on the provider listing/property id today. A composite key that also
-> folds normalized address + coordinates + canonical source URL is a **WS5 adapter**
-> concern (the key is built in `lib/providers/realty-api.ts`); see the roadmap's WS5
-> findings. The current key is robust and deterministic for the single-provider
-> RealtyAPI baseline.
+Composite-dedupe determinism is covered by `tests/backfill-idempotency.test.ts`
+(including a re-issue under a different provider id collapsing to one key, and the
+sparse-payload id fallback).
 
 ## Running it
 
@@ -77,23 +81,72 @@ only and is never printed.
 
 ## Cost posture
 
-RealtyAPI's free plan is **~250 requests/MONTH per key** (not per day — verify in the
-key dashboards). The backfill spends only a few pages per run, but the budget is
-monthly and scarce, so:
+RealtyAPI's free plan is **250 requests/MONTH per key** (not per day — verified
+against the realtyapi.io pricing page on 2026-06-09). With ~8 keys the effective
+budget is ~2,000 calls/month. The backfill spends only a few pages per run, but the
+budget is monthly and scarce, so:
 
 - Use `--dry-run` for any wiring/env check — it spends zero provider quota.
 - Treat real backfill runs as deliberate; discovery of new listings comes free from
   the email pipeline, not from re-sweeping RealtyAPI.
 
-> Known WS5 gap: `lib/providers/quota.ts` is in-memory and labels the budget "daily"
-> (`DEFAULT_DAILY_QUOTA_PER_KEY = 250`). It does not enforce a real, persisted monthly
-> ceiling. Tracked as a WS5 finding; not fixed here.
+### Durable monthly quota accounting
+
+The monthly budget is **persisted in Firestore** so it survives serverless cold
+starts — an in-memory counter alone would reset every invocation and silently
+overspend. One document per calendar month lives at `provider_quota/{YYYY-MM}`
+(`ProviderQuotaMonth`: `perKey`, `monthlyLimitPerKey`, `totalSpent`, `updatedAt`).
+This collection is **server-only** — never client-readable (the `provider_quota` deny
+is in `firestore.rules`).
+
+Before every live RealtyAPI call the adapter (`lib/providers/realty-api.ts`) reserves
+one call against the next key via `MonthlyQuotaStore.reserve`
+(`lib/repositories/provider-quota.ts`), which runs a Firestore transaction so
+concurrent invocations cannot both slip past the per-key ceiling. When a key is at its
+monthly limit the adapter rotates to the next key; when **all** keys are exhausted the
+fetch **degrades to a PARTIAL result** (listings already gathered are returned, the run
+is marked `partial`, and a monthly-quota reason is recorded) rather than crashing or
+silently failing. The in-memory `QuotaTracker` remains only as a per-run rotation fast
+path; the Firestore store is the durable authority.
+
+The store exposes an injection seam (`MonthlyQuotaStore` interface +
+`createInMemoryMonthlyQuotaStore`) so quota behavior is unit-tested with **no live
+Firestore or RealtyAPI** — see `tests/provider-quota.test.ts` and
+`tests/realty-key-rotation.test.ts` (deterministic rotation, stop-before-ceiling,
+no key-value leakage).
+
+## Google public-search enrichment (optional, free lane)
+
+`lib/providers/google-search.ts` is the permitted public-search enrichment port
+(Google Custom Search JSON API — endpoint `https://www.googleapis.com/customsearch/v1`,
+free tier 100 queries/day, up to 10 results/request; verified 2026-06-09). It is
+**behind the provider port** — UI never calls it directly.
+
+- Activates only when **both** `GOOGLE_SEARCH_API_KEY` and `GOOGLE_SEARCH_ENGINE_ID`
+  are set; otherwise it is a clear no-op (`configured: false`, no citations, never
+  throws).
+- Fills **only missing non-authoritative** fields (neighborhood narrative, school
+  references, commute notes). It never overwrites authoritative provider data and never
+  invents values.
+- **Always returns source URLs/citations.** Every result without a usable URL is
+  dropped rather than cited, and each citation yields a `ListingEnrichmentSource`
+  (`provider: "google-search"`, `field`, `url`, `fetchedAt`) ready to append to
+  `ListingProperty.enrichment.sources`.
+- Errors map through the shared taxonomy (`GoogleSearchAuthError`,
+  `GoogleSearchRateLimitError` for daily-quota 429, `GoogleSearchOutageError`).
+
+Covered by `tests/google-search.test.ts` (citation shape, env-absent no-op, error
+mapping) — no live calls.
 
 ## Verification
 
 - `npm run test` — includes `tests/backfill-idempotency.test.ts`,
   `tests/backfill-run.test.ts` (run lifecycle + dry-run cost safety, injected fakes),
-  and `tests/realty-normalize.test.ts` (no live calls).
+  `tests/realty-normalize.test.ts`, `tests/realty-key-rotation.test.ts` (rotation +
+  monthly-quota stop, injected in-memory quota store + stub fetch),
+  `tests/provider-quota.test.ts` (validator + stop-before-ceiling),
+  `tests/google-search.test.ts` (citation shape + env-absent no-op), and
+  `tests/provider-errors.test.ts` (taxonomy mapping) — all no live calls.
 - `npm run backfill -- --dry-run` — env + wiring smoke, zero side effects.
 - A real run + Firestore readback (count + sample-record provenance audit) is
   **operator-pending**: it needs live RealtyAPI credentials/quota.

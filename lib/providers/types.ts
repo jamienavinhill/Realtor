@@ -44,6 +44,8 @@ export interface ProviderFetchStats {
   keyAliasesUsed: string[];
   quotaUsed: Record<string, number>;
   errors: string[];
+  /** True when the fetch stopped early (quota exhaustion or mid-pagination error) but still returned listings. */
+  partial: boolean;
 }
 
 export interface ProviderFetchResult {

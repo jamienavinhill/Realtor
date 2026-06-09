@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { hashRawPayload, normalizeRealtyApiListing } from "@/lib/providers/realty-api";
+import {
+  buildDedupeKey,
+  hashRawPayload,
+  normalizeRealtyApiListing,
+} from "@/lib/providers/realty-api";
 import type { RealtyApiSearchResult } from "@/lib/providers/types";
 import { BASELINE_CENTER } from "@/lib/ingest/constants";
 
@@ -27,7 +31,11 @@ test("dedupeKey is deterministic across repeated normalization of the same paylo
   const second = normalizeRealtyApiListing(fixture, normalizeOptions);
 
   assert.equal(first.dedupeKey, second.dedupeKey);
-  assert.equal(first.dedupeKey, "realtyapi:fixture_listing_001");
+  // Composite key: normalized address + locality + rounded coords + canonical URL.
+  assert.equal(
+    first.dedupeKey,
+    "realtyapi:addr=123 sample st stow oh 44224|geo=41.1600,-81.4400|url=example.test/listing/fixture_listing_001",
+  );
 });
 
 test("doc id is deterministically derived from the provider listing id", () => {
@@ -67,11 +75,53 @@ test("two payloads sharing a listing_id collapse to one dedupeKey (in-batch dedu
   assert.notEqual(original.rawHash, updated.rawHash);
 });
 
-test("dedupeKey falls back to property_id when listing_id is absent", () => {
-  const listing = normalizeRealtyApiListing({ ...fixture, listing_id: "" }, normalizeOptions);
+test("dedupeKey is stable when listing_id is absent (composite is address/geo/url based)", () => {
+  // The composite key does not depend on the provider listing id, so a re-issue under
+  // a different id (or with listing_id dropped) still collapses to the same physical
+  // listing. The doc id, however, falls back to property_id.
+  const withListingId = normalizeRealtyApiListing(fixture, normalizeOptions);
+  const withoutListingId = normalizeRealtyApiListing(
+    { ...fixture, listing_id: "" },
+    normalizeOptions,
+  );
 
-  assert.equal(listing.dedupeKey, "realtyapi:fixture_property_001");
-  assert.equal(listing.id, "fixture_property_001");
+  assert.equal(withoutListingId.dedupeKey, withListingId.dedupeKey);
+  assert.equal(withoutListingId.id, "fixture_property_001");
+});
+
+test("dedupeKey falls back to the provider id only for sparse payloads (no address/geo/url)", () => {
+  const sparse = buildDedupeKey({
+    property_id: "sparse_property_001",
+    listing_id: "",
+    status: "for_sale",
+    href: "",
+    list_price: 0,
+    beds: null,
+    baths: null,
+    sqft: 0,
+    property_type: "single_family",
+    address: {
+      line: "",
+      city: "",
+      state_code: "",
+      postal_code: "",
+      latitude: Number.NaN,
+      longitude: Number.NaN,
+    },
+  });
+
+  assert.equal(sparse, "realtyapi:id=sparse_property_001");
+});
+
+test("a re-issue under a different listing/property id still collapses to one dedupeKey", () => {
+  const original = normalizeRealtyApiListing(fixture, normalizeOptions);
+  const reissued = normalizeRealtyApiListing(
+    { ...fixture, listing_id: "different_listing_999", property_id: "different_property_999" },
+    normalizeOptions,
+  );
+
+  // Same physical home (address/coords/url unchanged) → one dedupe key.
+  assert.equal(original.dedupeKey, reissued.dedupeKey);
 });
 
 test("rawHash changes only when the underlying provider payload changes", () => {

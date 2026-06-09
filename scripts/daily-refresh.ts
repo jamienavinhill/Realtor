@@ -1,6 +1,17 @@
+import { validateServerEnv } from "@/lib/env";
 import { runDailyRefresh } from "@/lib/ingest/daily-refresh";
 
 async function main() {
+  const envCheck = validateServerEnv();
+  if (!envCheck.ok) {
+    console.error("Server environment not ready:");
+    for (const error of envCheck.errors) {
+      console.error(`  - ${error}`);
+    }
+    process.exitCode = 1;
+    return;
+  }
+
   const dryRun = process.argv.includes("--dry-run");
 
   console.log(`Starting daily refresh${dryRun ? " (dry run)" : ""}...`);

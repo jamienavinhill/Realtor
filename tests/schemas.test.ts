@@ -25,7 +25,22 @@ test("validateListingProperty accepts normalized RealtyAPI fixture", () => {
     assert.equal(result.data.media?.length, 2);
     assert.ok((result.data.rawHash?.length ?? 0) > 0);
     assert.equal(result.data.radiusCenter?.zipCode, "44224");
+    assert.equal(result.data.provenance?.keyAlias, "test_key");
   }
+});
+
+test("validateListingProperty rejects malformed provenance", () => {
+  const listing = normalizeRealtyApiListing(fixture, {
+    radiusCenter: { lat: 41.1595, lng: -81.4404, zipCode: "44224" },
+    ingestedAt: "2026-06-08T12:00:00.000Z",
+    keyAlias: "test_key",
+  });
+
+  const result = validateListingProperty({
+    ...listing,
+    provenance: { fetchPage: 0 },
+  });
+  assert.equal(result.success, false);
 });
 
 test("validateListingProperty rejects malformed listing", () => {

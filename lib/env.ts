@@ -104,6 +104,55 @@ function requireNonEmpty(name: string, value: string | undefined): string {
   return stripQuotes(value.trim());
 }
 
+function collectServerEnvErrors(options?: { envFilePath?: string }): string[] {
+  const envFilePath = options?.envFilePath ?? resolve(process.cwd(), ".env");
+  const errors: string[] = [];
+
+  const geminiRaw = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
+  if (!geminiRaw?.trim()) {
+    errors.push("Missing required environment variable: GEMINI_API_KEY");
+  }
+
+  if (collectRealtyApiKeys(envFilePath).length === 0) {
+    errors.push(
+      "Missing RealtyAPI keys. Set REALTY_API_KEYS or provide rt_ values in .env / process env.",
+    );
+  }
+
+  if (!process.env.INGEST_JOB_TOKEN?.trim()) {
+    errors.push("Missing required environment variable: INGEST_JOB_TOKEN");
+  }
+
+  const inlineServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
+  if (inlineServiceAccount) {
+    try {
+      JSON.parse(inlineServiceAccount);
+    } catch (error) {
+      errors.push(
+        `FIREBASE_SERVICE_ACCOUNT_JSON is set but is not valid JSON: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  } else {
+    const pathRaw =
+      process.env.PATH_TO_FIREBASE_ADMIN_SDK ?? process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    if (!pathRaw?.trim()) {
+      errors.push(
+        "Missing Firebase admin credentials. Set FIREBASE_SERVICE_ACCOUNT_JSON (serverless) " +
+          "or PATH_TO_FIREBASE_ADMIN_SDK / GOOGLE_APPLICATION_CREDENTIALS (local file path).",
+      );
+    } else {
+      const credentialsPath = normalizeCredentialsPath(pathRaw);
+      if (!existsSync(credentialsPath)) {
+        errors.push(`Firebase admin credentials file not found at: ${credentialsPath}`);
+      }
+    }
+  }
+
+  return errors;
+}
+
 export function getServerEnv(options?: { envFilePath?: string }): ServerEnv {
   const envFilePath = options?.envFilePath ?? resolve(process.cwd(), ".env");
 
@@ -169,13 +218,11 @@ export function validateServerEnv(options?: { envFilePath?: string }): {
   errors: string[];
   env?: ServerEnv;
 } {
-  try {
-    const env = getServerEnv(options);
-    return { ok: true, errors: [], env };
-  } catch (error) {
-    return {
-      ok: false,
-      errors: [error instanceof Error ? error.message : String(error)],
-    };
+  const errors = collectServerEnvErrors(options);
+  if (errors.length > 0) {
+    return { ok: false, errors };
   }
+
+  const env = getServerEnv(options);
+  return { ok: true, errors: [], env };
 }

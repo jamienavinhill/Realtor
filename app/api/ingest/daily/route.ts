@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getErrorMessage } from "@/lib/errors";
-import { getServerEnv } from "@/lib/env";
+import { validateServerEnv } from "@/lib/env";
 import { validateIngestToken } from "@/lib/ingest/auth";
 import { runDailyRefresh } from "@/lib/ingest/daily-refresh";
 
@@ -21,7 +21,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    getServerEnv();
+    const envCheck = validateServerEnv();
+    if (!envCheck.ok) {
+      return NextResponse.json(
+        { error: "Server environment not ready", details: envCheck.errors },
+        { status: 503 },
+      );
+    }
 
     const dryRun = req.nextUrl.searchParams.get("dryRun") === "true";
     const result = await runDailyRefresh({ dryRun });

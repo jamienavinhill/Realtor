@@ -1,4 +1,9 @@
-import type { ListingMedia, ListingProperty, RadiusCenter } from "@/types/listings";
+import type {
+  ListingMedia,
+  ListingProperty,
+  ListingProvenance,
+  RadiusCenter,
+} from "@/types/listings";
 import {
   fail,
   isNonEmptyString,
@@ -35,6 +40,33 @@ function validateMediaItem(value: unknown): ValidationResult<ListingMedia> {
     url: value.url as string,
     type: value.type as ListingMedia["type"],
     sourceUrl: value.sourceUrl as string | undefined,
+  });
+}
+
+function validateListingProvenance(value: unknown): ValidationResult<ListingProvenance> {
+  if (!isObject(value)) {
+    return fail(["provenance must be an object"]);
+  }
+
+  const errors: string[] = [];
+  if (value.providerRunId !== undefined && !isNonEmptyString(value.providerRunId, 128)) {
+    errors.push("provenance.providerRunId must be a string when provided");
+  }
+  if (value.keyAlias !== undefined && !isNonEmptyString(value.keyAlias, 64)) {
+    errors.push("provenance.keyAlias must be a string when provided");
+  }
+  if (value.fetchPage !== undefined && !isNumber(value.fetchPage, 1)) {
+    errors.push("provenance.fetchPage must be a number >= 1 when provided");
+  }
+
+  if (errors.length > 0) {
+    return fail(errors);
+  }
+
+  return ok({
+    providerRunId: value.providerRunId as string | undefined,
+    keyAlias: value.keyAlias as string | undefined,
+    fetchPage: value.fetchPage as number | undefined,
   });
 }
 
@@ -165,6 +197,15 @@ export function validateListingProperty(value: unknown): ValidationResult<Listin
     radiusCenter = centerResult.data;
   }
 
+  let provenance: ListingProvenance | undefined;
+  if (value.provenance !== undefined) {
+    const provenanceResult = validateListingProvenance(value.provenance);
+    if (!provenanceResult.success) {
+      return fail(provenanceResult.errors.map((error) => `provenance: ${error}`));
+    }
+    provenance = provenanceResult.data;
+  }
+
   return ok({
     id: value.id as string,
     title: value.title as string,
@@ -194,7 +235,7 @@ export function validateListingProperty(value: unknown): ValidationResult<Listin
     sourceListingId: value.sourceListingId as string,
     sourceUpdatedAt: value.sourceUpdatedAt as string | undefined,
     ingestedAt: value.ingestedAt as string,
-    provenance: value.provenance as ListingProperty["provenance"],
+    provenance,
     media,
     rawHash: value.rawHash as string,
     dedupeKey: value.dedupeKey as string,

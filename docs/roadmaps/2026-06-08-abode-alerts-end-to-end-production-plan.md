@@ -641,8 +641,8 @@ Goal: Define durable typed contracts for listings, alerts, provider runs, media,
 
 Depends on:
 
-- [ ] WS1 command baseline.
-- [ ] WS11 fake-data removal (parallel-safe).
+- [x] WS1 command baseline.
+- [x] WS11 fake-data removal (parallel-safe).
 
 Enables:
 
@@ -654,18 +654,18 @@ Primary areas:
 
 Implementation tasks:
 
-- [ ] Add a runtime schema library or handwritten validators for listing, media, alert, and ingest-run payloads.
-- [ ] Expand listing contract with `sourceProvider`, `sourceUrl`, `sourceListingId`, `sourceUpdatedAt`, `ingestedAt`, `provenance`, `media[]`, `rawHash`, `dedupeKey`, `radiusCenter`, and `distanceMiles`.
-- [ ] Define provider run records with status, started/finished timestamps, key alias, quota used, result counts, error counts, and idempotency key.
-- [ ] Add env validation for `GEMINI_API_KEY`, `REALTY_API_KEYS`, `INGEST_JOB_TOKEN`, `FIREBASE_SERVICE_ACCOUNT_JSON`, optional `GOOGLE_SEARCH_API_KEY` / `GOOGLE_SEARCH_ENGINE_ID`, and optional Firebase env promotion values.
-- [ ] Write repository functions for listings, alerts, and ingest runs.
-- [ ] Document schema ownership and migrations in `docs/architecture/data-model.md`.
+- [x] Add a runtime schema library or handwritten validators for listing, media, alert, and ingest-run payloads.
+- [x] Expand listing contract with `sourceProvider`, `sourceUrl`, `sourceListingId`, `sourceUpdatedAt`, `ingestedAt`, `provenance`, `media[]`, `rawHash`, `dedupeKey`, `radiusCenter`, and `distanceMiles`.
+- [x] Define provider run records with status, started/finished timestamps, key alias, quota used, result counts, error counts, and idempotency key.
+- [x] Add env validation for `GEMINI_API_KEY`, `REALTY_API_KEYS`, `INGEST_JOB_TOKEN`, `FIREBASE_SERVICE_ACCOUNT_JSON`, optional `GOOGLE_SEARCH_API_KEY` / `GOOGLE_SEARCH_ENGINE_ID`, and optional Firebase env promotion values.
+- [x] Write repository functions for listings, alerts, and ingest runs.
+- [x] Document schema ownership and migrations in `docs/architecture/data-model.md`.
 
 Exit criteria:
 
-- [ ] API routes and scripts validate external/provider payloads before writing Firestore.
-- [ ] Firestore writes include provenance and dedupe metadata.
-- [ ] Env failures are explicit and actionable before any provider call runs.
+- [x] API routes and scripts validate external/provider payloads before writing Firestore.
+- [x] Firestore writes include provenance and dedupe metadata.
+- [x] Env failures are explicit and actionable before any provider call runs.
 
 Suggested verification:
 
@@ -1254,7 +1254,7 @@ Required before marking this plan complete:
 5. [x] Replace auth-header and accent-picker baseline behavior (WS10 baseline).
 6. [x] Define `44224` radius backfill and ingest ~88 real listings with provenance (WS6).
 7. [x] **WS2** — Confirm the single Vercel `realtor` project, push runtime envs via PAT, add inline Firebase Admin JSON, clean `.env`/`.env.example`. (No deploy cron — deploys are automatic on push.)
-8. [ ] **WS3** — Schemas, env validation, repositories, Firestore base model.
+8. [x] **WS3** — Schemas, env validation, repositories, Firestore base model.
 9. [ ] **WS4** — User listing preferences contract + rules scaffold.
 10. [ ] **WS5** — RealtyAPI and Google search provider adapters (finalize).
 11. [ ] **WS9** — Toast system (unblocks notification UX).

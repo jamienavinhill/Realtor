@@ -12,6 +12,16 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
  * `scroll-mt-*` so an anchored heading is not hidden under the sticky in-column
  * header.
  *
+ * Mount context: this view renders inside the dashboard's centered, padded
+ * `<main className="mx-auto max-w-7xl grow px-4 py-8 sm:px-6 lg:px-8">`, and the
+ * window itself is the document scroll container (sticky 64px header in normal
+ * flow). A naive `h-[calc(100vh-64px)]` block would sit BELOW the wrapper's
+ * `py-8`, overflow the viewport by ~64px, and scroll the whole window — dragging
+ * the "pinned" TOC away. So the root cancels the wrapper's vertical padding
+ * (`-my-8`) and bleeds past its horizontal padding (responsive negative margins)
+ * to occupy exactly the `100vh - 64px` region under the header. That keeps the
+ * inner `main` the single scroll container and the window static.
+ *
  * Content reflects what the app ACTUALLY does today (WS7 email ingest, WS8 daily
  * refresh + alerts, WS12 listing actions, WS13 CMA) and the durable docs under
  * `docs/operations/*` and `docs/architecture/*`. Honest claims only — no MLS
@@ -69,7 +79,14 @@ export function DocsView() {
     const target = container?.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
     if (!container || !target) return;
     const top = target.offsetTop - 16;
-    container.scrollTo({ top: top < 0 ? 0 : top, behavior: "smooth" });
+    // Respect prefers-reduced-motion: jump instantly instead of smooth-scrolling.
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    container.scrollTo({
+      top: top < 0 ? 0 : top,
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+    });
     setActiveId(id);
   }, []);
 
@@ -99,7 +116,7 @@ export function DocsView() {
   }, []);
 
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
+    <div className="-mx-4 -my-8 flex h-[calc(100vh-64px)] overflow-hidden bg-stone-50 text-stone-900 sm:-mx-6 lg:-mx-8 dark:bg-stone-950 dark:text-stone-100">
       {/* Pinned TOC — fixed height, only its own inner list scrolls if it overflows. */}
       <nav
         aria-label="Documentation sections"
@@ -143,7 +160,7 @@ export function DocsView() {
       {/* Main content — the SOLE scroll container. */}
       <main
         ref={mainRef}
-        className="relative flex-1 overflow-y-auto scroll-smooth px-6 py-8 lg:px-12"
+        className="relative flex-1 overflow-y-auto scroll-smooth px-6 py-8 motion-reduce:scroll-auto lg:px-12"
       >
         <div className="prose prose-stone dark:prose-invert prose-sm prose-headings:font-semibold prose-headings:tracking-tight max-w-3xl">
           <Section id="intro" className="scroll-mt-6">

@@ -2,8 +2,8 @@
 
 Date: 2026-06-08
 Status: [~] Active
-Source reports: `README.md`, `package.json`, `app/api/properties/route.ts`, `app/api/gemini/route.ts`, `app/globals.css`, `components/dashboard.tsx`, `components/theme-controls.tsx`, `components/views/ListingsGrid.tsx`, `components/views/CMAView.tsx`, `components/views/DocsView.tsx`, `lib/firebase.ts`, `lib/firebase-admin.ts`, `lib/env.ts`, `types/listings.ts`, `firebase-applet-config.json`, `firestore.rules`, `docs/research/INBOX_PARSING.md`, `docs/engineering/agents/orchestrator-logs/2026-06-08-production-shape-goal.md`, Google Cloud Free Program, Firebase pricing, Firestore pricing, Firebase AI Logic pricing
-Owner: Orchestrator + Abode Alerts workstream agents
+Source reports: `README.md`, `package.json`, `app/api/properties/route.ts`, `app/api/gemini/route.ts`, `app/globals.css`, `components/dashboard.tsx`, `components/theme-controls.tsx`, `components/views/ListingsGrid.tsx`, `components/views/CMAView.tsx`, `components/views/DocsView.tsx`, `lib/firebase.ts`, `lib/firebase-admin.ts`, `lib/env.ts`, `lib/providers/realty-api.ts`, `lib/schemas/*`, `types/listings.ts`, `firebase-applet-config.json`, `firestore.rules`, `docs/research/INBOX_PARSING.md`, RealtyAPI pricing, Vercel/Firebase/GitHub/Gemini free-tier docs
+Owner: Abode Alerts engineering
 Surface: Next.js app (`app/`, `components/`), server routes (`app/api/`), env/ops (`lib/env.ts`, `.env.example`, Vercel on `jamienavinhill`), Firebase Auth/Firestore (`lib/firebase.ts`, `lib/firebase-admin.ts`, `firestore.rules`, `types/`), Gemini extraction, Google Workspace OAuth, provider ingestion jobs, production deployment
 
 ## Purpose
@@ -39,7 +39,7 @@ Build Abode Alerts into its final production-shaped real estate monitoring works
 - Auth chrome shows avatar plus separate Connect/Logout buttons and a "Sign in with Google" label; it must match the compact profile-menu spec (sign-in OR avatar, never both).
 - `components/views/ListingsGrid.tsx` assumed a listing image existed and needed no-media handling once fake fallbacks were removed.
 - `firestore.rules` exists and must be audited before launch-hardening any backfill, saved search, listing-preference, or user-owned collections.
-- `docs/engineering/standards/planning-style.md`, `report-style.md`, and `orchestration-reliability.md` define the planning/reporting/orchestration style that must remain intact but point at this project.
+- The repo-wide engineering standards under `docs/engineering/standards/` (planning style, report style, docs standards) remain intact and point at this project.
 - Official pricing: Firebase Authentication is no-cost for most sign-in options; Firestore free quota is 1 GiB stored, 50K reads/day, 20K writes/day, 20K deletes/day, 10 GiB/month egress; the Google Cloud `$300` credit applies to Vertex AI Gemini and most paid Firebase/Google Cloud services but **not** Gemini Developer API usage.
 
 ### Source Findings Audit (Current State → Gap)
@@ -62,20 +62,27 @@ Build Abode Alerts into its final production-shaped real estate monitoring works
 ## Locked Decisions
 
 - [x] Product name in docs is **Abode Alerts**. Internal package name may remain `realty-monitor` until a package rename is intentionally done.
-- [x] Keep the deployed Next.js app on **Vercel under the `jamienavinhill` account** (not `jami.studio`). The rogue `jami.studio` deploy is removed; production target is the correctly linked project.
-- [x] Keep Firebase Auth and Firestore as the production auth/storage baseline. Firebase free quota is generous enough for current listings, alerts, users, and backfill metadata. Upgrade to Blaze only when a required Google Cloud/Firebase feature needs billing or quota exceeds Spark/free limits, and only with budget alerts.
+- [x] **Single Vercel project, never another.** The live production app is the one and only project: `realtor` at `https://vercel.com/jamie-navin/realtor`, serving `https://abode-alerts.vercel.app/`. It is live on the correct account. The rogue `jami.studio` deploy was already deleted by the operator. Do NOT create, fork, or re-link any new Vercel project — always target this existing one.
+- [x] **Deployment is automatic on `git push`.** Vercel's Git integration builds and deploys every push. Do NOT add a deploy cron, a deploy GitHub Action, or any scheduled redeploy — it is redundant and wastes build minutes/credits. "Redeploy" in this plan means "push to git."
+- [x] **Out-of-pocket cost stays $0 — but we use everything free that's available to us.** Free tiers AND trial credits are in-scope and used generously: Firebase is on **Blaze** (its large free quotas apply; Cloud Functions + Pub/Sub are available to us), plus **Vertex AI trial credits** (Gemini calls + GenAI App Builder), **AWS trial credits**, and **IBM trial credits**. Master credential paths live in `.env`: `PATH_TO_FIREBASE_KEYS`, `PATH_TO_GCS_KEYS`, `PATH_TO_AWS_KEYS`, `PATH_TO_IBM_KEYS`. Rule: exhaust free quotas/credits first, "spend only when needed, never pay a real nickel," and surface any genuinely-billable step to the operator before enabling it. See **Cost Model & Free-Tier Budget**.
+- [x] **Use every free enrichment call available.** When a listing enters the system, supplement it generously — Gemini (on Vertex credits), free web search, and any other free realtor-data calls. No reason to leave detail out if we can fetch it for free. Reserve the genuinely-scarce budget (RealtyAPI) for authoritative structured data that free sources can't supply.
 - [x] Do not use Firebase Storage for third-party listing images by default. Store source media URLs and metadata first; add an image cache/proxy only if provider terms allow caching and product performance requires it.
 - [x] Use Gemini **server-side only** for extraction/enrichment. `GEMINI_API_KEY` remains a Vercel/server env var. Do not expose it to the browser.
 - [x] **RealtyAPI on Vercel**: set `REALTY_API_KEYS` to the **full comma-separated list** of all `rt_` keys. The adapter rotates across keys; the `44224` ingest did not burn all keys, but multiple keys provide quota headroom and failover. A single key is sufficient only for minimal smoke — not recommended for production. Store all keys in a single server env var, rotate server-side, never expose to the browser.
 - [x] **Firebase Admin on Vercel**: add support for inline service account JSON via a new env (e.g. `FIREBASE_SERVICE_ACCOUNT_JSON`) while keeping path-based vars for local Windows dev. Never commit JSON to the repo. Firebase client config stays in `firebase-applet-config.json` (public); server admin creds are runtime secrets on Vercel.
-- [x] Use Google Workspace OAuth for user-owned Gmail, Sheets, Calendar, and Drive workflows. **Automatic email ingest** is the primary flow: implement a scheduled Gmail poll + incremental history per signed-in user using a server-stored OAuth refresh token (encrypted in Firestore, user-scoped) until Gmail `watch` + Pub/Sub is justified. Manual scan becomes secondary/advanced.
-- [x] Use a protected scheduled ingestion endpoint plus a daily trigger (GitHub Actions or Vercel Cron via `vercel.json`). Default schedule is daily at `11:00 UTC` / `06:00 America/New_York`. Protected routes require `INGEST_JOB_TOKEN`.
+- [x] **Email-triggered, near-real-time ingestion is THE primary flow (DECIDED).** The operator runs instant listing-alert emails from 5–6 realtor accounts (Zillow, Trulia, Homes.com, Redfin, realtor.com) all landing in `jamienavinhill@gmail.com`. A new such email IS the trigger. The pipeline fires automatically: detect new email → Gemini extracts the listing → enrich generously from free sources (RealtyAPI property-detail when warranted, free web search, Gemini grounding) → validate → upsert to Firestore with provenance/dedupe → evaluate alerts → notify (toast in-app + optional email via the user's own Gmail). The operator never clicks "scan"; manual scan stays only as an advanced fallback.
+- [x] **Watcher mechanism (DECIDED): Gmail `watch` → Cloud Pub/Sub push → pipeline endpoint.** Blaze + Pub/Sub are available, so use real push, not polling — this is how we avoid missing a listing by even an hour during the day. The Gmail `watch` registration must be renewed (Gmail expires it ≤7 days) by a small scheduled re-watch (free public-repo GitHub Action). A lightweight **business-hours safety-net poll** (free public-repo Action, ~every 15 min, ~6am–8pm America/New_York) backstops the push; **quiet 8pm–6am** (rely on push only / mostly idle). This is NOT a Vercel deploy cron.
+- [x] **RealtyAPI usage policy (DECIDED, first-principles).** RealtyAPI (realtor.com data via `realtor.realtyapi.io`) is the _authoritative structured_ source but the _scarcest_ budget: the free plan is **250 requests/MONTH per key** (NOT per day — our code's "daily" label and in-memory `QuotaTracker` do not enforce a real monthly budget; this must be fixed). True budget ≈ **8 × 250 = ~2,000 RealtyAPI calls/month**. Therefore: discovery comes FREE from the email alerts (do NOT spend RealtyAPI to _find_ listings); spend RealtyAPI only on **(a)** a periodic baseline/refresh sweep of the 44224 zone (`/search/bylocation`, a few pages, cheap) and **(b)** per-new-listing **property-detail enrichment** when an emailed listing needs authoritative fields/photos/history a free source can't give. Everything else — parsing, structured extraction, comparison, analysis, gap-fill — runs on Gemini/Vertex (credits) and free web search. Persist enrichment so we never re-spend a call for the same listing.
+- [x] **Protected ingest endpoints require `INGEST_JOB_TOKEN`.** The Pub/Sub push handler and the safety-net poll both authenticate to these routes; the token is server-side only.
 - [x] Baseline backfill target is all current active listings within 10 miles of ZIP `44224`, centered on Stow, Ohio. Persist source provenance, fetch timestamp, provider account id/key alias, dedupe key, coordinates, media URLs, and raw provider payload hash.
 - [x] Google/free search enrichment can fill gaps only with permitted public/indexed data and source citations. Do not scrape behind auth, evade rate limits, or invent values.
 - [x] **Listing user actions** (interested/not-interested/favorite/hidden/compare) store under `users/{uid}/listingPreferences/{listingId}` (or equivalent) — never on shared catalog documents. Compare set uses `users/{uid}/compareQueue` capped at N (e.g. 4).
 - [x] **Toasts**: single shared toast host (portal/fixed layer), top-right or bottom-right, `pointer-events` safe, with auto-timeout and manual close, never participating in document flow.
 - [x] **Typography**: reduce `font-extrabold` / oversized hero headings on data surfaces; align with compact dashboard density.
-- [x] No mock listings, placeholder property rows, stock real estate images, or prototype copy in shipped product paths. Fixtures belong under tests only.
+- [x] **Account sharing (DECIDED, keep it simple).** A user can invite another person to **their** account/database by email and pick a role: **viewer** (read-only) or **editor**. An editor can do everything the owner can **except delete the owner's account**. This is deliberately NOT a complex RBAC system — it is "let my mother (or anyone) into my workspace so we can work on it together." Data is not sensitive/critical; favor the simplest clean invite + role flow that works. (See Workstream: Account Sharing & Collaboration.)
+- [x] **Repository is PUBLIC.** This unlocks free-unlimited GitHub Actions (the re-watch + safety-net poll cost nothing). No secrets ever live in the repo — they stay in `.env` (gitignored) and Vercel/GitHub encrypted secrets.
+- [x] **No ambiguity, no leftovers, no shims, no mocked data, no placeholders, no prototype/MVP/v1-v2-v3 framing — anywhere.** Every shipped surface is the final, polished, fully-wired form. Fixtures live under `tests/` only and never reach a shipped path. Half-built features are either finished end-to-end or not merged. This is a non-negotiable quality bar, not an aspiration.
+- [x] **Full end-to-end with the nice-to-haves included.** Dev delights, polish, intentional UX, and the niceties are in-scope by default, not deferred. "Done" means delightful and complete, not minimally functional.
 - [x] Engineering tooling baseline is npm, ESLint, Prettier, TypeScript, Next build, and `npm run verify`.
 
 ## Scope Boundaries
@@ -86,18 +93,75 @@ Build Abode Alerts into its final production-shaped real estate monitoring works
 - Gmail automation requires user OAuth consent with `gmail.readonly`; refresh-token storage must be documented and rules-hardened.
 - Migrations: Firestore collection/schema changes must be additive first, backfilled with scripts, then read paths can rely on them after verification.
 - Public claims: no claim of MLS completeness, exclusive access, guaranteed real-time freshness, or investment advice unless backed by source contracts and legal review. CMA charts reflect Firestore inventory only; empty states stay honest.
-- Cost: Firebase Spark/free tier remains the default. Enable Blaze/paid Google Cloud only for an explicit capability and with budget alerts.
+- Cost: **$0 is the requirement.** Every host stays on its perpetual free tier (see Cost Model & Free-Tier Budget). No design may assume Blaze, paid Vercel, or any metered overage. If a desired capability cannot be done for free, it is raised to the operator as an explicit decision with the exact cost — never silently enabled.
 
 ### Explicit Non-Goals For This Plan
 
 - Do not reintroduce mock listings, stock media, or prototype-only data paths.
 - Do not change unrelated dirty/untracked local artifacts (`.playwright-cli/`, `agent-tools/`, etc.).
 - Do not expand scope beyond the requirements captured below unless required as a direct dependency (e.g. Firestore rules for user listing preferences).
+- Do not create a second Vercel project or a deploy cron. Do not incur real out-of-pocket charges — free quotas and trial credits only.
+
+## Cost Model & Free-Tier Budget
+
+Verified free-tier capacities as of 2026-06-08 (sources below). These are the hard ceilings the whole system must live within. Numbers drift — re-verify in each provider's console before relying on a margin.
+
+| Host                             | Free-tier capacity (relevant limits)                                                                                                                                                                                                                                                                               | What consumes it here                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| **Vercel Hobby**                 | 100 GB bandwidth/mo · 1M edge requests/mo · 1M function invocations/mo · **4 hrs Active CPU/mo** · 360 GB-hrs memory/mo · 5k image transforms/mo. No overage (hits cap → app pauses till reset). Hobby terms are non-commercial.                                                                                   | Page loads, API routes (`/api/*`), each Gemini/ingest call runs as a function (CPU-time is the scarce one). |
+| **Firebase Blaze (free quotas)** | Firestore: **50k reads/day · 20k writes/day · 20k deletes/day · 1 GB stored · 10 GiB/mo egress**. Cloud Functions: **2M invocations/mo free**. Pub/Sub: 10 GB/mo free. Auth free. On Blaze these stay $0 until quotas are exceeded; budget alert set so nothing surprises us.                                      | Dashboard listener reads, ingest writes, alert-match writes, the Pub/Sub push handler.                      |
+| **Vertex AI (trial credits)**    | Gemini on Vertex billed to **trial credits** (not the 1,500/day free-key cap). Effectively our high-volume model lane for extraction/enrichment/analysis.                                                                                                                                                          | Email parsing, structured extraction, enrichment reasoning, listing analysis.                               |
+| **Gemini API (free key)**        | Gemini 3 Flash: **10 req/min · 1,500 req/day** free; quota is per-project, not per-key. Fallback/local lane.                                                                                                                                                                                                       | Low-volume/local extraction when not using Vertex.                                                          |
+| **GitHub Actions**               | **Public repo: unlimited free minutes** (repo is public).                                                                                                                                                                                                                                                          | Gmail-`watch` weekly re-registration + business-hours safety-net poll.                                      |
+| **RealtyAPI**                    | ⚠️ Free plan is **250 req/MONTH per key** (per the realtyapi.io pricing page — NOT per day). 8 keys ≈ **2,000 req/MONTH** (~66/day if smoothed). **Verify in the key dashboards before relying on it; our `QuotaTracker` is in-memory only and labels it "daily" — must be corrected to real monthly accounting.** | Periodic zone sweep + per-new-listing property-detail enrichment only.                                      |
+| **AWS / IBM (trial credits)**    | Generous trial credits available as overflow compute/services if ever needed.                                                                                                                                                                                                                                      | Not required by the core design; reserve as optional overflow.                                              |
+| **Google Custom Search**         | 100 queries/day free.                                                                                                                                                                                                                                                                                              | Gap-fill enrichment (`GOOGLE_SEARCH_*`).                                                                    |
+
+Cost-architecture rules that follow from the table:
+
+- **Discovery is free** — the operator's instant realtor-alert emails surface every new listing. Never spend a RealtyAPI call to _discover_ a listing.
+- **RealtyAPI is the scarcest budget (~2,000/MONTH)** — reserve strictly for authoritative structured data free sources can't supply (periodic zone sweep + per-listing property detail). Persist results so the same listing never costs a second call.
+- **Gemini runs on Vertex trial credits** for volume; the free key is the fallback lane. Use generously for extraction/enrichment/analysis.
+- **Server-side reactions** use the Gmail-`watch` → **Pub/Sub push → Cloud Function/route** pipeline (Blaze makes this free within quota), plus a free public-repo Action that (a) renews the Gmail `watch` weekly and (b) runs a business-hours safety-net poll. Client-side `onSnapshot` listeners drive the live UI for free.
+- **Email notifications** send via the user's own Gmail (Gmail API send scope) — no third-party email vendor.
+- Vercel Hobby Active CPU (4 hrs/mo) stays the tightest ceiling — keep functions fast; push heavy/looping work to Cloud Functions or Actions.
+
+Sources: [Vercel Hobby limits](https://vercel.com/docs/plans/hobby) · [Firebase pricing plans](https://firebase.google.com/docs/projects/billing/firebase-pricing-plans) · [Firestore quotas](https://firebase.google.com/docs/firestore/quotas) · [GitHub Actions billing](https://docs.github.com/billing/managing-billing-for-github-actions/about-billing-for-github-actions) · [Gemini API rate limits](https://ai.google.dev/gemini-api/docs/rate-limits) · [RealtyAPI pricing](https://www.realtyapi.io/)
+
+## Baseline Preseeding — Current State (audited 2026-06-08)
+
+Firestore live contents (admin readback): `properties` **88** (real RealtyAPI actives, full provenance: `sourceProvider`, `sourceUrl`, `sourceListingId`, `media[]`, `coordinates`, `distanceMiles`, `dedupeKey`, `rawHash`, `radiusCenter`, `provenance.keyAlias/providerRunId`), `alerts` **1** (operator seed), `alert_matches` **40**, `ingest_runs` **5**.
+
+- [x] **Listing baseline DONE** — 88 current active listings within 10 mi of `44224`, real media, auditable provenance, idempotent backfill (`lib/ingest/backfill.ts`, `scripts/backfill-44224.ts`).
+- [ ] **Historical data NOT done** — properties hold a current snapshot only; no price history / sold comps / time series for the analysis tools.
+- [ ] **User profile & preferences baseline NOT done** — no `users/{uid}/profile` or `listingPreferences`; "OUR preferences/profile" is not yet captured in writing or in Firestore.
+- [ ] **Google web-search enrichment NOT exercised** — no `GOOGLE_SEARCH_*` enrichment has run against gaps.
+- [ ] **RealtyAPI budget largely UNSPENT (but scarce: ~2,000/MONTH)** — backfill used a couple of pages on one key alias; the monthly budget is mostly available, but it is monthly, not daily, so the deep preseed must be deliberate.
+
+### Preseeding Strategy (DECIDED — deterministic, written before execution)
+
+First-principles target: a robust, current baseline of homes matching our criteria + the historical depth our analysis tools need + our own profile/preferences, built mostly from free lanes, spending RealtyAPI only where it's the only authoritative source.
+
+1. **Gemini/Vertex first (credits, generous).** Use Gemini for the heavy lifting: normalize/enrich the existing 88 listings, derive analysis features (price/sqft, type mix, neighborhood summaries), and draft historical/market context via Gemini web-search grounding. This is the primary preseed engine.
+2. **Free web search next.** Google Custom Search (100/day) + Gemini grounding to gap-fill non-authoritative fields (schools, neighborhood, commute, listing narrative) with citations — never invented.
+3. **RealtyAPI last, surgically.** Spend the ~2,000/month only on: (a) one fuller `/search/bylocation` sweep of the 44224 zone to widen/refresh the active set beyond the initial 88, and (b) `property-detail` calls for high-interest listings needing authoritative fields/photos/history. Persist every result so it's never re-fetched.
+4. **Capture OUR profile/preferences explicitly** in Firestore (`users/{uid}/profile`): target zone(s), price band, beds/baths, must-haves/deal-breakers, and weighting — so ranking and alerts are tailored to us, deterministically, not guessed by agents.
+5. **Historical depth**: record a price-history/observations trail per listing going forward (every refresh appends a dated snapshot) so the analysis tools accrue real time-series even where RealtyAPI history isn't fetched.
+
+The exact query list, per-listing call ceilings, and the `profile`/`history` schemas are specified in **Workstream 3 / Workstream 6** before any agent runs the preseed.
+
+### Resolved Decisions (operator sign-off received 2026-06-08)
+
+1. **Ingestion cadence** — Gmail `watch` → Pub/Sub push pipeline (real-time) + free public-repo Action for weekly re-watch and a business-hours (~6am–8pm ET) safety-net poll; quiet 8pm–6am. (Locked above.)
+2. **Preseeding** — strategy above; deterministic recipe finalized in WS3/WS6.
+3. **Repo visibility** — PUBLIC (free-unlimited Actions). (Locked above.)
+4. **Cost posture** — Blaze + Vertex/AWS/IBM trial credits in use; $0 out-of-pocket. (Locked above.)
+5. **Account sharing** — owner invites viewer/editor; editor can do all but delete the account. (Locked above; see Workstream: Account Sharing & Collaboration.)
 
 ## Repo Guidance
 
-- Follow `AGENTS.md`, this roadmap, `docs/engineering/standards/planning-style.md`, and `docs/engineering/agents/orchestration-reliability.md`. Read relevant files before editing.
-- Windows local dev; Vercel production on `jamienavinhill`. Use `rg`/project search before changing shared flows.
+- Follow `AGENTS.md`, this roadmap, and the standards under `docs/engineering/standards/`. Read relevant files before editing.
+- Windows local dev; single Vercel project `realtor`. Use `rg`/project search before changing shared flows.
 - Keep responsibilities explicit: UI renders state, API routes validate/authenticate/orchestrate, provider adapters fetch data, Firestore stores source-owned records, docs capture durable rules.
 - Replace fake data by removing the dependency, not by hiding it behind different labels.
 - Every ingestion record must carry provenance and be traceable back to source and run id. Any daily/automatic job must be idempotent and safe to rerun.
@@ -141,9 +205,9 @@ Build Abode Alerts into its final production-shaped real estate monitoring works
 - `types/`
   - shared listing/alert/run/listing-preference contracts, or generated exports from schema files
 - `vercel.json`
-  - cron for `/api/ingest/daily` with bearer auth header pattern
+  - project config only (NO deploy cron — deploys are automatic on `git push`)
 - `.github/workflows/`
-  - scheduled daily refresh workflow if GitHub is initialized and selected as scheduler
+  - optional **free public-repo** ingest-poll Action hitting the protected route, only if the Open Decision selects a closed-app poll (not a deploy trigger)
 - `docs/`
   - `README.md` index
   - `roadmaps/2026-06-08-abode-alerts-end-to-end-production-plan.md`
@@ -242,6 +306,219 @@ Build Abode Alerts into its final production-shaped real estate monitoring works
 7. Every visible page/view wired to real data and final Abode Alerts copy/metadata.
 8. Automated + manual verification and a reliable `npm run verify` release gate.
 
+## Data Contracts & Firestore Collection Map
+
+This is the authoritative, unambiguous contract surface. Implement to these exact shapes. Existing contracts live in `types/listings.ts` + `lib/schemas/*` with hand-written validators (this repo uses runtime validators, not zod) and `firestore.rules` for access. New contracts follow the same pattern: a TypeScript interface in `types/`, a `validate*` function in `lib/schemas/`, a repository in `lib/repositories/`, and matching `firestore.rules`. All timestamps are ISO‑8601 strings. IDs match `^[a-zA-Z0-9_\-]+$`, ≤128 chars.
+
+### Existing contracts (already implemented — do not redefine, only extend additively)
+
+```ts
+// types/listings.ts — shipped today, backing the 88 live listings.
+interface ListingMedia {
+  url: string;
+  type?: "photo" | "primary";
+  sourceUrl?: string;
+}
+interface RadiusCenter {
+  lat: number;
+  lng: number;
+  zipCode: string;
+}
+interface ListingProvenance {
+  providerRunId?: string;
+  keyAlias?: string;
+  fetchPage?: number;
+}
+interface ListingProperty {
+  id: string;
+  title: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  price: number;
+  beds: number;
+  baths: number;
+  sqft: number;
+  propertyType: "Single Family" | "Condo" | "Townhouse" | "Multi-Family" | "Land" | string;
+  status: "Active" | "Pending" | "Sold" | string;
+  imageUrl: string;
+  imageUrls?: string[];
+  coordinates: { lat: number; lng: number };
+  yearBuilt?: number;
+  description?: string;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+  sourceProvider?: string;
+  sourceUrl?: string;
+  sourceListingId?: string;
+  sourceUpdatedAt?: string;
+  ingestedAt?: string;
+  provenance?: ListingProvenance;
+  media?: ListingMedia[];
+  rawHash?: string;
+  dedupeKey?: string;
+  distanceMiles?: number;
+  radiusCenter?: RadiusCenter;
+}
+interface ProviderListingProperty extends ListingProperty {
+  /* sourceProvider, sourceUrl, sourceListingId, ingestedAt, media, rawHash, dedupeKey all required */
+}
+interface PropertyAlert {
+  id: string;
+  userId: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  criteria: {
+    minPrice?: number;
+    maxPrice?: number;
+    city?: string;
+    beds?: number;
+    baths?: number;
+    propertyType?: string;
+  };
+}
+interface AlertMatch {
+  id: string;
+  alertId: string;
+  listingId: string;
+  userId: string;
+  matchReason: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+interface IngestRun {
+  id: string;
+  type: "backfill" | "daily";
+  status: "running" | "completed" | "failed" | "partial";
+  startedAt: string;
+  finishedAt?: string;
+  idempotencyKey: string;
+  zipCode?: string;
+  radiusMiles?: number;
+  radiusCenter?: RadiusCenter;
+  keyAliasesUsed: string[];
+  quotaUsed: Record<string, number>;
+  listingsFetched: number;
+  listingsUpserted: number;
+  listingsSkipped: number;
+  alertMatchesCreated: number;
+  alertMatchesUpdated: number;
+  errors: string[];
+}
+```
+
+Additive extensions to existing contracts (new optional fields — keep validators backward-compatible):
+
+```ts
+// ListingProperty — enrichment + history additions:
+enrichment?: {                       // free-lane enrichment, with citations; never presented as provider-verified
+  schools?: { name: string; rating?: number; sourceUrl: string }[];
+  neighborhood?: string;             // Gemini/web summary, with sources[] below
+  walkability?: number; commuteNotes?: string;
+  sources: { field: string; url: string; provider: "gemini" | "google-search" | "web"; fetchedAt: string }[];
+  realtyApiDetailFetchedAt?: string; // set when RealtyAPI property-detail was spent on this listing (gate against re-spend)
+};
+history?: { observedAt: string; price: number; status: string; source: string }[]; // dated trail appended on each refresh
+// IngestRun — add ingest type for the email pipeline:
+type IngestRun.type = "backfill" | "daily" | "email" | "poll";
+```
+
+### New contracts (to implement)
+
+```ts
+// types/profile.ts — OUR criteria/preferences, so ranking + alerts are tailored deterministically. Owner-scoped.
+interface UserProfile {
+  uid: string;
+  displayName?: string;
+  targetZones: { zipCode: string; radiusMiles: number; label?: string }[]; // e.g. [{ zipCode: "44224", radiusMiles: 10 }]
+  priceMin?: number;
+  priceMax?: number;
+  bedsMin?: number;
+  bathsMin?: number;
+  sqftMin?: number;
+  propertyTypes?: string[]; // allow-list; empty = any
+  mustHaves?: string[];
+  dealBreakers?: string[]; // free-text criteria for Gemini scoring
+  weighting?: { price?: number; size?: number; location?: number; condition?: number }; // 0..1 ranking weights
+  updatedAt: string;
+}
+
+// types/preferences.ts — per-user, per-listing state (WS4). Owner-scoped subcollection.
+type ListingUserStateValue = "interested" | "notInterested" | "favorite" | "hidden";
+interface ListingUserState {
+  listingId: string;
+  state: ListingUserStateValue;
+  note?: string;
+  updatedAt: string;
+}
+interface CompareQueue {
+  listingIds: string[];
+  updatedAt: string;
+} // max 4 entries
+
+// types/sharing.ts — account sharing (WS18). Owner = workspace owner uid.
+type MemberRole = "viewer" | "editor";
+interface AccountMember {
+  memberUid: string;
+  email: string;
+  role: MemberRole;
+  invitedAt: string;
+  acceptedAt?: string;
+}
+interface AccountInvite {
+  token: string;
+  ownerUid: string;
+  email: string;
+  role: MemberRole;
+  status: "pending" | "accepted" | "revoked";
+  createdAt: string;
+  acceptedAt?: string;
+  acceptedByUid?: string;
+}
+
+// types/provider-quota.ts — REAL monthly RealtyAPI budget accounting (WS5 fix). One doc per calendar month.
+interface ProviderQuotaMonth {
+  month: string; // "YYYY-MM"
+  perKey: Record<string, number>; // keyAlias -> calls spent this month
+  monthlyLimitPerKey: number; // 250 (verify in dashboards)
+  totalSpent: number;
+  updatedAt: string;
+}
+
+// types/gmail-sync.ts — per-user Gmail watch + cursor state (WS7). Owner-scoped; refresh token stored ENCRYPTED.
+interface GmailSync {
+  uid: string;
+  historyId?: string;
+  watchExpiresAt?: string;
+  lastProcessedAt?: string;
+  platformSelection: string[];
+  customQuery?: string;
+  refreshTokenEnc?: string; // encrypted at rest; never returned to client
+  updatedAt: string;
+}
+```
+
+### Firestore Collection Map (paths, owner, writer, rules intent)
+
+| Path                                         | Holds                         | Read                          | Write                                                                    |
+| -------------------------------------------- | ----------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
+| `properties/{listingId}`                     | `ListingProperty` catalog     | public (`list,get` true)      | server/Admin SDK (ingestion); client write paths to be tightened in WS16 |
+| `alerts/{alertId}`                           | `PropertyAlert`               | owner (`userId == auth.uid`)  | owner only                                                               |
+| `alert_matches/{matchId}`                    | `AlertMatch`                  | owner                         | server/Admin SDK only                                                    |
+| `ingest_runs/{runId}`                        | `IngestRun`                   | server only                   | server/Admin SDK only                                                    |
+| `provider_quota/{YYYY-MM}`                   | `ProviderQuotaMonth`          | server only                   | server/Admin SDK only                                                    |
+| `users/{uid}/profile/main`                   | `UserProfile`                 | owner + workspace members     | owner + editors                                                          |
+| `users/{uid}/listingPreferences/{listingId}` | `ListingUserState`            | owner + workspace members     | owner + editors                                                          |
+| `users/{uid}/compareQueue/main`              | `CompareQueue`                | owner + workspace members     | owner + editors                                                          |
+| `users/{uid}/gmailSync/main`                 | `GmailSync` (token encrypted) | server only (never to client) | server/Admin SDK only                                                    |
+| `accounts/{ownerUid}/members/{memberUid}`    | `AccountMember`               | owner + members               | owner; editors may add/remove ≤ editor; only owner removes owner         |
+| `invites/{token}`                            | `AccountInvite`               | invitee-by-token + owner      | owner creates/revokes; invitee accepts                                   |
+
+Rules invariants (WS16/WS18): global deny-by-default stays; `properties` read stays public; **only the workspace owner can delete the account/owner record**; an **editor** may do everything an owner can on the workspace data **except delete the account or remove/demote the owner**; a **viewer** is read-only across the owner's `profile`, `listingPreferences`, `compareQueue`, `alerts`, `alert_matches`; non-members get nothing; `gmailSync` (refresh token) and `provider_quota` are never client-readable.
+
 ## Cross-Stream Dependency Map
 
 - **WS1 (Tooling/Docs baseline)** creates quality gates, agent operating model, and docs index used by all streams.
@@ -259,20 +536,22 @@ Build Abode Alerts into its final production-shaped real estate monitoring works
 - **WS13 (CMA analytics)** depends on WS6 data and optionally WS4 row actions; reuses WS12 dialog.
 - **WS14 (Docs layout + content)** depends on durable docs; parallel to UI streams.
 - **WS15 (Product flows, metadata, page wiring)** depends on WS11 cleanup, WS6 data, WS8 alert matches, WS12/WS13 views.
-- **WS16 (Auth, rules, secret hardening)** depends on WS3/WS4 final collection model and WS7/WS8 scheduled routes.
-- **WS17 (Tests, verification, release gate)** depends on WS1–WS16.
+- **WS16 (Auth, rules, secret hardening)** depends on WS3/WS4 final collection model, WS7/WS8 ingest routes, and WS18 sharing model.
+- **WS18 (Account sharing & collaboration)** depends on WS3 collection model and WS16 rules; enables multi-user workspaces.
+- **WS17 (Tests, verification, release gate)** depends on WS1–WS16, WS18.
 
-```
+```text
 WS1 ──► all streams
 WS2 ──┬──► WS7  ┬──► WS17
        └──► WS8  ┘
 WS3 ──► WS5 ──► WS6 ──► WS8, WS13, WS15
-WS3 ──► WS7, WS8, WS16
+WS3 ──► WS7, WS8, WS16, WS18
 WS4 ──► WS12, WS13, WS16
 WS9 ──► WS7, WS8, WS12, WS13
 WS10 ──► WS17 ; WS11 ──► WS15 ; WS14 ──► WS17 (parallel)
 WS12 ──► WS15 ; WS13 ──► WS15
-WS1..WS16 ──► WS17
+WS16 ──► WS18 ──► WS17
+WS1..WS16, WS18 ──► WS17
 ```
 
 ## Workstream 1: Tooling, Docs Baseline, And Agent Operating Model
@@ -291,7 +570,7 @@ Primary areas:
 
 - `package.json`, `eslint.config.mjs`, `.prettierrc.mjs`, `.prettierignore`, `.gitignore`, `.env.example`
 - `AGENTS.md`, `README.md`, `docs/README.md`
-- `docs/engineering/agents/goal.md`, `docs/engineering/standards/docs-standards.md`, `docs/engineering/agents/orchestration-reliability.md`
+- `docs/engineering/standards/docs-standards.md`
 
 Implementation tasks:
 
@@ -300,7 +579,7 @@ Implementation tasks:
 - [x] Add `.gitignore` that blocks local env, Vercel, build, and dependency artifacts.
 - [x] Add `.env.example` with required server env names and no values.
 - [x] Create `AGENTS.md` from the provided structure, refreshed for this Next/Firebase app.
-- [x] Refresh `goal.md` to point to this roadmap and this repo's verification commands while preserving the reusable prompt flow.
+- [x] Point the repo's agent entry doc (`AGENTS.md`) at the active roadmap directory and this repo's verification commands.
 - [x] Add `docs/README.md` index.
 - [ ] Add `docs/operations/development-workflow.md` after the first full green verification pass.
 - [ ] Add `docs/architecture/auth-and-secrets.md` after auth/token persistence is finalized.
@@ -340,7 +619,7 @@ Implementation tasks:
 - [x] Extend `firebase-admin.ts` to load inline service-account JSON from `FIREBASE_SERVICE_ACCOUNT_JSON` when present, falling back to the local file path for Windows/local dev. `lib/env.ts` validation accepts either source.
 - [x] Clean `.env`: removed prose dumps, code snippet, and duplicate `rt_` alias lines; dropped redundant `GOOGLE_API_KEY`; organized into App-runtime / Firebase-admin / Optional-search / Operator-only / RealtyAPI-alias-reference / unrelated-local-tooling sections; preserved all values.
 - [x] Rewrite `.env.example` to match the cleaned canonical env (adds `FIREBASE_SERVICE_ACCOUNT_JSON`, separates local path vars from Vercel JSON, marks operator-only Vercel vars local-only).
-- [ ] Add `vercel.json` cron for `/api/ingest/daily` with bearer auth header pattern (default `11:00 UTC` / `06:00 America/New_York`).
+- [~] Ingest cadence: do NOT add a Vercel deploy cron. Deploys are automatic on `git push`. The ingest-trigger mechanism is an Open Decision (write-time eval + optional free public-repo GitHub Action) — defer until the operator signs off on the cost map.
 - [ ] Verify Firebase authorized domains include the production Vercel URL and the local development domain (`scripts/add-auth-domains.ts` exists).
 - [ ] Add budget alerts if Blaze or paid Google Cloud is enabled.
 - [ ] Redeploy production; read back the `44224` baseline (~88 listings) on the production URL.
@@ -443,7 +722,7 @@ Implementation tasks:
 
 - [ ] Implement RealtyAPI adapter for active listings within radius/ZIP criteria.
 - [ ] Accept comma-separated `REALTY_API_KEYS` (and `rt_` aliases) and rotate by run/key alias without logging values.
-- [ ] Track daily quota consumption per key (~250 req/key/day) and stop before limits are exceeded.
+- [!] **Fix quota accounting to MONTHLY.** RealtyAPI free is **250 req/MONTH per key** (verify in dashboards), but `lib/providers/quota.ts` (`DEFAULT_DAILY_QUOTA_PER_KEY`) is in-memory per-run and mislabeled "daily." Persist per-key monthly usage (Firestore `provider_quota/{yyyy-mm}`) and stop before the ~2,000/month ceiling.
 - [ ] Normalize RealtyAPI records into the listing schema with source provenance and media arrays.
 - [ ] Implement public search enrichment adapter behind `GOOGLE_SEARCH_API_KEY`/`GOOGLE_SEARCH_ENGINE_ID` only for missing non-authoritative fields and source URLs.
 - [ ] Add provider error classes for rate limit, auth, provider outage, malformed payload, and no-results.
@@ -497,50 +776,50 @@ Suggested verification:
 
 - `node --env-file=.env scripts/backfill-44224.ts --dry-run`; Firestore readback count and sample-record provenance audit.
 
-## Workstream 7: Automatic Gmail Ingestion And Multiselect Filter (Primary Flow)
+## Workstream 7: Email-Triggered Ingestion Pipeline (Primary Flow) + Multiselect Filter
 
-Goal: New listing emails are processed automatically without a manual scan, driven by a platform multiselect + optional custom query.
+Goal: A new realtor-alert email in `jamienavinhill@gmail.com` triggers the full pipeline automatically and near-real-time — no manual scan — enriching each listing from free lanes before it lands in Firestore.
 
 Depends on:
 
-- [ ] WS2 server envs, WS3 contracts, WS9 toasts; OAuth scopes already in `dashboard.tsx`.
+- [ ] WS2 server envs, WS3 contracts, WS9 toasts, WS5 provider adapters; OAuth scopes already in `dashboard.tsx`.
 
 Enables:
 
-- [ ] WS8 alert evaluation, WS17 verification.
+- [ ] WS8 alert evaluation/refresh, WS17 verification.
 
 Primary areas:
 
-- `app/api/gmail/*` or extended `app/api/properties/route.ts`
-- `lib/gmail/` (poll, history-id watermark, query builder)
-- `lib/gmail/query-builder.ts`
-- Firestore: `users/{uid}/gmailSync` state
+- `app/api/gmail/push/route.ts` (Pub/Sub push handler), `app/api/gmail/watch/route.ts` (register/renew `watch`)
+- `lib/gmail/` (message fetch, `historyId` watermark, query builder)
+- `lib/ingest/pipeline.ts` (extract → enrich → validate → upsert → evaluate → notify)
+- `lib/enrich/` (Gemini/Vertex extractor, free web-search enrichment, RealtyAPI property-detail gate)
+- Firestore: `users/{uid}/gmailSync` (historyId, watch expiry), encrypted refresh token
 - `components/dashboard.tsx` ingest tab; `components/views/AlertsWizardView`
 
 Implementation tasks:
 
-- [ ] Persist the Google refresh token securely after sign-in (server route, encrypted, user-scoped in Firestore).
-- [ ] Build a query composer from selected platforms + optional custom string, producing correct `subject:"Redfin" OR subject:"Zillow"...` style queries.
-- [ ] Multiselect dropdown component with baseline five platforms (**Zillow, Trulia, Homes.com, Redfin, realtor.com**) plus extensions (MLS digests, Realtor.com variants, regional portals); optional free-text input appended with documented AND/OR rules and a live preview of the composed query.
-- [ ] Persist user selection in `localStorage` or Firestore user prefs.
-- [ ] Cron or Vercel scheduled function: poll new messages since `historyId` / internal-date watermark per signed-in user.
-- [ ] For each new message: Gemini structured extract → validate → upsert listing (provenance + dedupe) → evaluate alerts → toast user.
-- [ ] Keep manual "Scan Gmail" as a secondary, collapsed "Advanced" action.
+- [ ] Persist the Google refresh token securely after sign-in (server route, encrypted, user-scoped in Firestore) so the pipeline runs without a browser session.
+- [ ] **Gmail `watch` registration** → Cloud Pub/Sub topic; store `historyId` + watch expiry. Push notifications hit `app/api/gmail/push/route.ts` (verify Pub/Sub JWT / shared secret).
+- [ ] On push: fetch new messages since `historyId`, filter to the platform set; for each, run the pipeline.
+- [ ] **Pipeline (`lib/ingest/pipeline.ts`)**: Gemini/Vertex structured extract from the email → enrich generously (free web search + Gemini grounding; RealtyAPI `property-detail` ONLY when an authoritative field/photo/history is otherwise missing and monthly budget allows) → validate → upsert listing (provenance + dedupe, persist enrichment so it never re-spends) → evaluate alerts → toast + optional Gmail email notify.
+- [ ] Query composer from selected platforms + optional custom string (`subject:"Redfin" OR subject:"Zillow"...`), with live preview; multiselect with the five baseline platforms + extensions; persist selection (Firestore user prefs).
+- [ ] Keep manual "Scan Gmail" as a secondary, collapsed "Advanced" action (same pipeline).
 - [ ] Update `AlertsWizardView` platform list to the five baseline platforms.
 
 Exit criteria:
 
-- [ ] A test email (or seeded Gmail fixture) triggers ingest without a button click.
-- [ ] Provenance and dedupe preserved on the automatic path.
-- [ ] Selecting Redfin + Zillow generates the correct composed query.
+- [ ] A real/seeded alert email triggers ingestion via Pub/Sub push with no button click; listing appears within minutes.
+- [ ] Each listing is enriched from free lanes first; RealtyAPI is touched only when justified and within monthly budget; enrichment persisted.
+- [ ] Provenance + dedupe preserved; selecting Redfin + Zillow generates the correct composed query.
 
 Suggested verification:
 
-- Live Gmail smoke with operator account; Firestore readback of the new listing; unit test for the query builder; browser selection smoke.
+- Live Gmail push smoke with the operator account; Firestore readback of the new enriched listing; unit test for the query builder + the RealtyAPI enrichment gate; browser selection smoke.
 
-## Workstream 8: Daily Refresh And Alert Rotation Data Flow
+## Workstream 8: Watch Renewal, Safety-Net Poll, And Alert Data Flow
 
-Goal: Refresh listings daily via RealtyAPI, evaluate saved alerts, and persist actionable alert matches without relying on a browser session.
+Goal: Keep the email pipeline alive (renew the Gmail `watch`), backstop it with a business-hours poll, periodically refresh the zone, evaluate saved alerts, and persist actionable matches — all without a browser session and within budget.
 
 Depends on:
 
@@ -552,26 +831,27 @@ Enables:
 
 Primary areas:
 
-- `lib/ingest/daily-refresh.ts`, `app/api/ingest/daily/route.ts`, `vercel.json` cron or `.github/workflows/daily-refresh.yml`, `firestore.rules`, `types/listings.ts`
+- `lib/ingest/daily-refresh.ts`, `app/api/ingest/daily/route.ts`, `app/api/gmail/watch/route.ts`, `.github/workflows/gmail-rewatch.yml` + `.github/workflows/ingest-poll.yml` (free public-repo Actions — NOT deploy crons), `firestore.rules`, `types/listings.ts`
 
 Implementation tasks:
 
-- [ ] Implement a protected daily route that requires `INGEST_JOB_TOKEN`.
-- [ ] Add daily refresh orchestration: fetch new/changed listings, upsert records, mark stale records, evaluate active alerts.
-- [ ] Persist alert-match records with listing id, alert id, match reason, first seen, latest seen, and user id.
-- [ ] Add scheduler default: daily at `11:00 UTC` (GitHub Actions if repo is initialized; Vercel Cron via `vercel.json` if plan/support confirmed).
-- [ ] Add idempotency so retries do not duplicate alert matches; record failed keys/partial quotas in run status.
-- [ ] Surface alert matches via the toast system and add a UI read path for persisted matches instead of only in-session toast.
+- [ ] Protected routes require `INGEST_JOB_TOKEN` (token in GitHub Actions secret, server-side only).
+- [ ] **Weekly Gmail `watch` re-registration** Action (Gmail expires `watch` ≤7 days) so push never silently dies.
+- [ ] **Business-hours safety-net poll** Action (~every 15 min, ~6am–8pm America/New_York; **quiet 8pm–6am**) that calls the ingest route to catch anything push missed — idempotent against the email pipeline.
+- [ ] Periodic zone refresh: fetch new/changed listings via RealtyAPI **within the monthly budget**, upsert, mark stale, append a dated price/observation snapshot to each listing's history.
+- [ ] Persist alert-match records with listing id, alert id, match reason, first seen, latest seen, user id; idempotent so retries never duplicate matches.
+- [ ] Surface matches via the toast system + a UI read path for persisted matches (not only in-session toast).
+- [ ] Record run status: messages processed, listings upserted, RealtyAPI calls spent (monthly running total), errors.
 
 Exit criteria:
 
-- [ ] Daily refresh runs without a browser session.
-- [ ] Users can see persisted alert matches after sign-in.
-- [ ] Failed provider keys or partial quotas are recorded in run status.
+- [ ] Pipeline survives indefinitely (watch auto-renewed); no listing missed by more than the poll interval during business hours.
+- [ ] Refresh/alert evaluation run without a browser session; matches visible after sign-in.
+- [ ] RealtyAPI monthly spend is tracked and never exceeds the ceiling; run status records it.
 
 Suggested verification:
 
-- Protected-route unauthorized request returns 401/403; dry-run produces no writes; live scheduled smoke after env is present.
+- Protected-route unauthorized request returns 401/403; dry-run produces no writes; Action logs show successful re-watch + poll; monthly quota readback.
 
 ## Workstream 9: Toast Notification System
 
@@ -868,7 +1148,7 @@ Implementation tasks:
 - [ ] Add Playwright critical-path smokes: auth chrome, listings/compact dialog + one listing action, toast non-shift, docs TOC pinned, CMA pagination.
 - [ ] Add a CI workflow when Git is initialized.
 - [ ] Define the release gate: lint, typecheck, format check, tests, build, env verification, protected-route smoke, Firestore rules verification.
-- [ ] Production runbook: sign-in → profile-menu sign-out; ~88 listings with compact dialog + one action; toast on simulated alert match without layout shift; docs TOC pinned; CMA pagination; protected daily ingest cron working.
+- [ ] Production runbook: sign-in → profile-menu sign-out; ~88 listings with compact dialog + one action; toast on simulated alert match without layout shift; docs TOC pinned; CMA pagination; protected ingest route returns 401 without token / 200 with token.
 
 Exit criteria:
 
@@ -879,6 +1159,49 @@ Exit criteria:
 Suggested verification:
 
 - `npm run verify`; Playwright critical-path smokes; CI run once a repository exists.
+
+## Workstream 18: Account Sharing & Collaboration (Invite + Roles)
+
+Goal: A user can invite another person into their workspace by email with a **viewer** or **editor** role, so they can work on the same database together. Simple, not abstract RBAC.
+
+Depends on:
+
+- [ ] WS3 final collection model (the owner's data scope), WS16 rules engine.
+
+Enables:
+
+- [ ] Multi-user collaboration (e.g. the operator + their mother on one workspace).
+
+Primary areas:
+
+- `types/`, `lib/schemas/`, `lib/repositories/account-members.ts`, `firestore.rules`
+- `components/` (invite UI in the profile menu; pending-invite acceptance)
+- `app/api/` (create/accept/revoke invite)
+
+Model (keep it simple):
+
+- An **account** is owned by the owner `uid` (their existing data is the workspace). `accounts/{ownerUid}/members/{memberUid}` holds `{ role: "viewer" | "editor", invitedAt, acceptedAt }`. `invites/{token}` holds `{ ownerUid, email, role, status }` for pending email invites.
+- **viewer** = read-only across the owner's listings, alerts, matches, preferences, profile.
+- **editor** = everything the owner can do **except delete the owner's account** (and except removing the owner). Editors may add/remove other members at/below editor.
+- Membership is resolved server-side and in `firestore.rules`; a member's `request.auth.uid` is checked against the owner's `members` subcollection.
+
+Implementation tasks:
+
+- [ ] Define `AccountMember` / `AccountInvite` schemas and a repository with create-invite, accept-invite, list-members, change-role, revoke.
+- [ ] Invite flow: owner enters an email + role → invite record + (optional) email via the owner's Gmail with an accept link. Accepting (signed-in Google user) writes the membership.
+- [ ] Profile-menu UI: "Share workspace" → list members + roles, invite form, revoke control. Visible to owner and editors.
+- [ ] `firestore.rules`: reads/writes on owner-scoped collections allow the owner and any `members` entry per role; **only the owner can delete the account**; editors cannot delete the account or demote/remove the owner.
+- [ ] Read paths resolve "which workspace am I viewing" (own vs. one I'm a member of) and a simple workspace switcher if the user belongs to more than one.
+
+Exit criteria:
+
+- [ ] Owner can invite by email, choose viewer/editor, and the invitee gains exactly that access after accepting.
+- [ ] Editor can perform all workspace actions except deleting the account; viewer is strictly read-only.
+- [ ] Rules tests prove a non-member has no access and a viewer cannot write.
+
+Suggested verification:
+
+- Firebase rules tests for owner/editor/viewer/non-member; two-account browser flow (invite → accept → edit/view); revoke removes access.
 
 ## Final Verification And Closeout
 
@@ -892,7 +1215,6 @@ Required before marking this plan complete:
 - [ ] `vercel env ls`; confirm Vercel envs and Firebase authorized domains; confirm protected daily ingest returns 401 without token and 200 with token.
 - [ ] `git diff --check`; confirm no tracked file contains secrets or private account tokens.
 - [ ] Update `README.md`, `docs/README.md`, operations docs (`env-and-deploy.md`, `provider-ingestion.md`, `development-workflow.md`), architecture docs (`data-model.md`, `auth-and-secrets.md`), and changelog/source-map records.
-- [ ] Update the orchestrator log in `docs/engineering/agents/orchestrator-logs/`.
 - [ ] If Git exists, stage only intentional files, commit, and push according to `AGENTS.md`.
 - [ ] Move the superseded "Production Shape" and "Product Polish & Automation" roadmaps under `docs/_legacy/roadmaps/` after durable docs carry ongoing rules.
 - [ ] Promote permanent decisions into `docs/decisions/`.
@@ -900,14 +1222,18 @@ Required before marking this plan complete:
 ## Acceptance Criteria
 
 - [ ] Abode Alerts runs locally and builds for production with clean lint, type, format, and build gates; `npm run verify` passes.
-- [ ] Vercel production is under **`jamienavinhill`** with envs set via CLI; the `jami.studio` deploy is removed; the protected daily ingest cron is working.
+- [ ] Single Vercel project `realtor` (account `jamie-navin`, `https://abode-alerts.vercel.app/`) with runtime envs set; deploys are automatic on `git push`; the protected ingest route is reachable and token-gated. No deploy cron, no second project.
 - [ ] Firebase Admin initializes on Vercel serverless via inline service-account JSON; Firebase client config stays public in `firebase-applet-config.json`.
 - [ ] `REALTY_API_KEYS` contains the full key list; docs state the keys were not all exhausted for the `44224` baseline; rotation provides resilience/failover.
 - [ ] Firestore contains real active listings within 10 miles of `44224` (~88), all with provenance and no invented/stock media; re-running backfill is idempotent.
-- [ ] Gmail ingest runs **automatically** on new mail; the manual scan is optional/advanced; automatic path preserves provenance and dedupe.
+- [ ] A new realtor-alert email in `jamienavinhill@gmail.com` triggers the pipeline **automatically and near-real-time** (Gmail `watch` → Pub/Sub push) — no manual scan, listing surfaced within minutes during the day; manual scan remains only as advanced fallback; automatic path preserves provenance and dedupe.
+- [ ] Each new listing is **enriched generously from free lanes** (Gemini/Vertex + free web search) and from RealtyAPI property-detail **only when authoritative data is otherwise unavailable**; enrichment is persisted so no listing costs a repeat call.
 - [ ] Ingest filter is a multiselect including **Zillow, Trulia, Homes.com, Redfin, realtor.com** plus extensions and an optional custom query, with a live composed-query preview.
-- [ ] Daily refresh rotates RealtyAPI keys safely, records run status, evaluates alerts idempotently, and persists alert matches viewable after sign-in without a browser session.
+- [ ] Refresh/poll evaluates alerts idempotently and persists alert matches viewable after sign-in without a browser session; the Gmail `watch` is auto-renewed weekly by a free public-repo Action; safety-net poll runs business hours, quiet 8pm–6am.
+- [ ] **RealtyAPI spend respects the real ~2,000/MONTH budget** — `QuotaTracker` enforces monthly (not fictional daily) accounting; discovery never spends RealtyAPI; runs record per-key monthly usage.
 - [ ] Google/free search enrichment stores citations and never presents inferred fields as provider-verified.
+- [ ] **Account sharing works**: owner invites by email → viewer or editor; viewer is read-only; editor does everything except delete the account; non-members have no access (rules-proven).
+- [ ] **$0 out-of-pocket**: Blaze + Vertex/AWS/IBM trial credits cover all compute; no billable step is enabled without explicit operator sign-off; budget alert configured.
 - [ ] Toasts are uniform, dismissible, time out, surface alert/ingest/error/confirmation events, and cause zero layout shift.
 - [ ] Auth chrome: "Sign in" label only when signed out (no avatar); avatar + profile menu (name, Sign out) when signed in (no header sign-in/sign-out); sign-in and avatar mutually exclusive.
 - [ ] Accent control is an icon-only color picker tinted with the current accent, with arbitrary persisted color (no presets, no duplicate swatch).
@@ -921,32 +1247,32 @@ Required before marking this plan complete:
 
 ## Implementation Order
 
-1. [x] Create the active roadmap under `docs/roadmaps/` and point the goal prompt at it.
+1. [x] Consolidate the active roadmap under `docs/roadmaps/`.
 2. [x] Install/configure linting, typecheck, formatting, verify, `.gitignore`, `.env.example` (WS1).
 3. [x] Add project-specific `AGENTS.md`, `README.md`, and docs index (WS1).
 4. [x] Remove static listing baseline and stock-image fallback behavior (WS11).
 5. [x] Replace auth-header and accent-picker baseline behavior (WS10 baseline).
 6. [x] Define `44224` radius backfill and ingest ~88 real listings with provenance (WS6).
-7. [ ] **WS2** — Confirm Vercel `jamienavinhill`, push envs via CLI+PAT, add inline Firebase Admin JSON, `vercel.json` cron.
+7. [x] **WS2** — Confirm the single Vercel `realtor` project, push runtime envs via PAT, add inline Firebase Admin JSON, clean `.env`/`.env.example`. (No deploy cron — deploys are automatic on push.)
 8. [ ] **WS3** — Schemas, env validation, repositories, Firestore base model.
 9. [ ] **WS4** — User listing preferences contract + rules scaffold.
 10. [ ] **WS5** — RealtyAPI and Google search provider adapters (finalize).
 11. [ ] **WS9** — Toast system (unblocks notification UX).
 12. [ ] **WS10** — Auth chrome + theme density (quick, visible polish).
 13. [ ] **WS11** — Finish UI honesty, regional defaults, lint/type cleanup.
-14. [ ] **WS7** — Multiselect ingest filter + automatic Gmail ingestion (primary flow).
-15. [ ] **WS8** — Daily refresh and persisted alert matches.
+14. [ ] **WS7** — Multiselect ingest filter + email-triggered ingestion (Gmail `watch` → Pub/Sub push pipeline + enrichment fan-out).
+15. [ ] **WS8** — Refresh/alert evaluation + persisted matches; weekly re-watch + business-hours safety-net poll (free public-repo Actions); monthly RealtyAPI quota accounting.
 16. [ ] **WS12** — Compact listing dialog + actions + grid density.
 17. [ ] **WS13** — CMA analytics rebuild (paginated tables + charts).
 18. [ ] **WS14** — Docs layout + content expansion.
 19. [ ] **WS15** — Wire all views/metadata to final Abode Alerts copy and data.
-20. [ ] **WS16** — Harden auth/security rules, OAuth token persistence, and production envs.
-21. [ ] **WS17** — Tests/CI/release gate and complete production smoke.
-22. [ ] Promote lasting rules to durable docs and retire the two superseded roadmaps.
+20. [ ] **WS18** — Account sharing & collaboration (invite + viewer/editor roles).
+21. [ ] **WS16** — Harden auth/security rules, OAuth token persistence, sharing rules, and production envs.
+22. [ ] **WS17** — Tests/CI/release gate and complete production smoke.
+23. [ ] Promote lasting rules to durable docs and retire the two superseded roadmaps.
 
 ## Expansion Track
 
-- [ ] Gmail `watch` + Pub/Sub push instead of polling, once justified.
 - [ ] Provider marketplace adapters for additional real estate APIs if RealtyAPI coverage gaps remain.
 - [ ] Map visualization with Google Maps only after listing coordinates and billing guardrails are verified.
 - [ ] Image cache/proxy with provider-term review and Cloud Storage budget guardrails.
@@ -955,9 +1281,3 @@ Required before marking this plan complete:
 - [ ] Saved-search templates per platform with deep links.
 - [ ] Owner/operator dashboard for provider quota, run health, and failed-enrichment triage.
 - [ ] Formal decision records for Firebase/Firestore, scheduler choice, provider adapter contracts, media caching, and OAuth token persistence.
-
-## Orchestration Checkpoints
-
-| Dispatch | Workstream | Pass | Agent ID | Next action                        |
-| -------- | ---------- | ---- | -------- | ---------------------------------- |
-| —        | —          | —    | —        | Awaiting WS2 (Vercel/env) dispatch |

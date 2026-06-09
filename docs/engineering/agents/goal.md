@@ -1,6 +1,6 @@
 # Goal Prompt
 
-Working from: `C:\Users\james\projects\Realtor\docs\roadmaps\2026-06-08-abode-alerts-end-to-end-production-plan.md`
+Working from: the active roadmap under `docs/roadmaps/` (carries the data contracts, schemas, Firestore collection map, workstreams, and acceptance criteria).
 
 ## Your Role: The Orchestrator
 
@@ -26,11 +26,11 @@ See the active plan's "Implementation Order" and "Cross-Stream Dependency Map" f
 The target is the full Abode Alerts property-monitoring workspace:
 
 - A deployed Next.js app at `abode-alerts.vercel.app` with polished Google sign-in, Google avatar auth chrome, arbitrary accent color picking, and honest loading/empty/error/no-media states.
-- Firebase Auth and Firestore as the baseline auth/storage system, with clear upgrade triggers for Blaze/paid Google Cloud features and no secret values in tracked files.
-- Real provider-backed listing ingestion for all current active listings within 10 miles of `44224`, using RealtyAPI as the primary structured source and permitted public search only for cited enrichment.
+- Firebase Auth and Firestore as the baseline auth/storage system on Blaze (its free quotas + trial credits keep out-of-pocket cost at $0) with no secret values in tracked files.
+- Real provider-backed listing data: email-alert discovery (free) is the primary trigger; RealtyAPI fills authoritative structured detail gatekept from public search (within the ~2,000/month free budget); Gemini/Vertex + permitted public search supply cited enrichment.
 - No mock listings, static property baseline, stock listing images, or prototype copy in shipped paths.
 - Listings, alerts, provider runs, media, and alert matches stored with source provenance, timestamps, confidence/verification metadata, dedupe keys, and auditability.
-- Idempotent daily refresh and alert evaluation behind protected server routes and scheduled by GitHub Actions or Vercel Cron once the production scheduler is verified.
+- Near-real-time email-triggered ingestion (Gmail `watch` → Pub/Sub push) with idempotent alert evaluation behind protected routes, kept alive by a free public-repo GitHub Action (weekly re-watch + business-hours safety-net poll) — no Vercel deploy cron.
 - Google Workspace flows for Gmail alert parsing, Sheets export, Calendar scheduling, and Drive-scoped file creation that are explicit about scopes and failure states.
 - A current docs canon under `docs/`, with durable architecture/operations docs promoted from the roadmap as implementation completes.
 - A local verification ladder backed by `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm run build`, and `npm run verify`.
@@ -118,7 +118,7 @@ Before final response:
 ## Reusable Workstream Prompt
 
 ```text
-Working from: `docs/roadmaps/2026-06-08-abode-alerts-end-to-end-production-plan.md`.
+Working from: the active roadmap under `docs/roadmaps/`.
 The live repository is the source of truth, not roadmap claims.
 
 <APPEND YOUR WORKSTREAM STEERING HERE>
@@ -127,7 +127,7 @@ Please AUDIT/EXECUTE Workstream <N>, aiming for completeness and cohesion, using
 
 Read the relevant repo guidance before editing:
 - `AGENTS.md`
-- `docs/roadmaps/2026-06-08-abode-alerts-end-to-end-production-plan.md`
+- the active roadmap under `docs/roadmaps/`
 - `docs/engineering/standards/*`
 - `docs/engineering/agents/orchestration-reliability.md`
 - Relevant `docs/architecture/*`, `docs/operations/*`, and `docs/decisions/*` as they are created

@@ -25,11 +25,15 @@ The local app runs at `http://localhost:3000`.
 
 Runtime secrets stay in local `.env` files and Vercel environment variables only. Do not commit real values.
 
-Required today:
+Runtime env names (see `.env.example` for the authoritative template):
 
 - `GEMINI_API_KEY` — server-side Gemini extraction calls.
+- `REALTY_API_KEYS` — comma-separated RealtyAPI keys (rotated server-side).
+- `INGEST_JOB_TOKEN` — bearer token gating `/api/ingest/*` routes.
+- Firebase Admin — `FIREBASE_SERVICE_ACCOUNT_JSON` (inline, on Vercel) or `PATH_TO_FIREBASE_ADMIN_SDK` (local file path).
+- Optional: `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_ENGINE_ID`.
 
-Firebase web config currently lives in `firebase-applet-config.json` because Firebase client web config is not a secret. If this app moves to multi-environment Firebase projects, promote those values to `NEXT_PUBLIC_FIREBASE_*` variables and generate the client config from environment.
+Firebase web config lives in `firebase-applet-config.json` because Firebase client web config is not a secret. If this app moves to multi-environment Firebase projects, promote those values to `NEXT_PUBLIC_FIREBASE_*` variables and generate the client config from environment.
 
 ## Quality Gates
 
@@ -45,6 +49,6 @@ Use the narrowest meaningful gate while iterating, then run `npm run verify` bef
 
 ## Active Execution Plan
 
-- Roadmap: `docs/roadmaps/2026-06-08-abode-alerts-end-to-end-production-plan.md`
-- Agent goal prompt: `docs/engineering/agents/goal.md`
+- Roadmap, data contracts, and Firestore collection map: `docs/roadmaps/`
 - Repository agent guide: `AGENTS.md`
+- Docs index: `docs/README.md`

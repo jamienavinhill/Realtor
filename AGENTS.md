@@ -15,9 +15,8 @@ Abode Alerts is a **production-shaped property monitoring workspace**: a Next.js
 
 ## Where To Start
 
-- Active dependency-ordered plan: `docs/roadmaps/2026-06-08-abode-alerts-end-to-end-production-plan.md`.
-- Goal/orchestration prompt: `docs/engineering/agents/goal.md`.
-- Repo-wide standards: `docs/engineering/standards/docs-standards.md`, `docs/engineering/standards/planning-style.md`, `docs/engineering/standards/report-style.md`, `docs/engineering/agents/orchestration-reliability.md`.
+- Active dependency-ordered plan: the roadmap under `docs/roadmaps/`. It carries the data contracts, schemas, Firestore collection map, workstreams, and acceptance criteria — build to it.
+- Repo-wide standards under `docs/engineering/standards/`.
 - Current stack and commands: `README.md` and `package.json`.
 
 ## Source Of Truth
@@ -26,7 +25,7 @@ Abode Alerts is a **production-shaped property monitoring workspace**: a Next.js
 - The roadmap is the active execution guide, not proof of completion. Check files and run verification before marking anything done.
 - Use `rg` first for repository search.
 - Verify drift-prone facts against official sources before locking provider limits, pricing, API behavior, model names, Firebase/Auth rules, Vercel scheduler behavior, or Google OAuth scopes.
-- Current drift hotspots: Firebase pricing/free quota, Firestore rules, Google OAuth scopes and verification, Gemini SDK/API model names, RealtyAPI limits/terms, Vercel cron plan behavior, Google search API limits, and third-party listing media caching rights.
+- Current drift hotspots: Firebase pricing/free quota, Firestore rules, Google OAuth scopes and verification, Gemini SDK/API model names, RealtyAPI limits/terms, Vercel free-tier limits, Google search API limits, and third-party listing media caching rights.
 
 ## Work Boundaries
 
@@ -48,12 +47,11 @@ Abode Alerts is a **production-shaped property monitoring workspace**: a Next.js
 
 - **Workspace root is the repo checkout** (`Realtor/`), not the parent `projects/` folder. Every shell command, script output, screenshot, log, and temp artifact belongs inside this repo or in OS temp — never in `C:\Users\james\projects\` parent paths.
 - When running commands, pass `working_directory` / `cd` to the repo root explicitly if the shell cwd is uncertain.
-- **Ephemeral agent outputs** go to OS temp (e.g. `%TEMP%\grok-goal-*`) or gitignored paths already listed in `.gitignore` (`terminals/`, `agent-tools/`, `.playwright-cli/`). Do not create new top-level folders in the repo for harness files.
+- **Ephemeral agent outputs** go to OS temp (e.g. `%TEMP%\<session-temp>\`) or gitignored paths already listed in `.gitignore` (`terminals/`, `agent-tools/`, `.playwright-cli/`). Do not create new top-level folders in the repo for harness files.
 - User shell profiles may land in `~/projects` for manual work; agents must not rely on that behavior and must stay scoped to the active workspace.
 - Before editing, identify the owning files, contracts, tests, and docs.
 - After editing, run the narrowest meaningful verification first, then broader gates required by the change.
 - If a required gate does not exist yet, say so clearly and name the missing tool or command instead of inventing a substitute.
-- For goal runs that coordinate subagents, follow `docs/engineering/agents/orchestration-reliability.md`: checkpoint dispatches/results in the active roadmap and keep orchestration resumable from repo state.
 
 ## Secrets And Safety
 
@@ -65,6 +63,7 @@ Abode Alerts is a **production-shaped property monitoring workspace**: a Next.js
   - **Operator scope** — credentials the agent/operator uses to deploy, inspect dashboards, run GitHub/Vercel/Firebase tooling, or trigger ingestion.
   - **App runtime secrets** — values the app reads at runtime, such as `GEMINI_API_KEY`, `REALTY_API_KEYS`, `INGEST_JOB_TOKEN`, optional search keys, and future service credentials.
 - Firebase web client config is public configuration, not a secret. Firestore rules and server-side credentials provide security.
+- Vercel: drive the CLI/API with this project's PAT (`VERCEL_PAT` in `.env`) via `--token`/`VERCEL_TOKEN` + `--scope jamie-navin`. Do **not** `vercel login` here — a machine-global login would collide with other Vercel accounts in use. The token is the account; no login is needed (deploys also happen automatically on `git push`).
 - Fail closed when auth, source policy, licensing, terms, or cost boundaries are unclear. Do not evade provider rate limits or terms.
 
 ## Quality Bar
@@ -123,7 +122,3 @@ For provider/protocol/auth changes:
 - If Git exists and a remote exists, stage only intentional changes, commit, and push according to the user's requested flow. Do not open a PR or create a branch unless asked.
 - If staging would include unrelated dirty/untracked files, leave them out and note it.
 - Never use `--no-verify`, never force push, and never amend a pushed commit unless explicitly requested.
-
-## Reusable Workstream Prompt
-
-The orchestrator's reusable subagent prompt lives in `docs/engineering/agents/goal.md` under "Reusable Workstream Prompt". Update both this file and that prompt together when contract rules change.

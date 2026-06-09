@@ -72,19 +72,41 @@ export function useToast(): ToastContextValue {
 }
 
 function ToastCard({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: string) => void }) {
+  // Track remaining time so hovering can pause auto-dismiss without dropping it.
+  const remainingRef = React.useRef(toast.duration);
+  const deadlineRef = React.useRef(0);
+  const timerRef = React.useRef<number | null>(null);
+  const [paused, setPaused] = React.useState(false);
+
   React.useEffect(() => {
-    if (toast.duration <= 0) return;
-    const timer = window.setTimeout(() => onDismiss(toast.id), toast.duration);
-    return () => window.clearTimeout(timer);
-  }, [toast.id, toast.duration, onDismiss]);
+    if (toast.duration <= 0) return; // sticky toast
+    if (paused) return;
+
+    deadlineRef.current = Date.now() + remainingRef.current;
+    timerRef.current = window.setTimeout(() => onDismiss(toast.id), remainingRef.current);
+
+    return () => {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      // Preserve elapsed progress so an unpause resumes rather than restarts.
+      remainingRef.current = Math.max(0, deadlineRef.current - Date.now());
+    };
+  }, [toast.id, toast.duration, onDismiss, paused]);
 
   const styles = VARIANT_STYLES[toast.variant];
+  // `role="alert"`/`role="status"` already imply assertive/polite live regions,
+  // so we don't add a redundant aria-live attribute here (and never on a wrapper).
 
   return (
     <div
       role={styles.role}
-      aria-live={styles.live}
-      className={`pointer-events-auto w-80 max-w-[calc(100vw-2rem)] rounded-xl border bg-white p-3.5 shadow-lg dark:bg-stone-900 ${styles.ring} dark:border-stone-700`}
+      onMouseEnter={toast.duration > 0 ? () => setPaused(true) : undefined}
+      onMouseLeave={toast.duration > 0 ? () => setPaused(false) : undefined}
+      onFocus={toast.duration > 0 ? () => setPaused(true) : undefined}
+      onBlur={toast.duration > 0 ? () => setPaused(false) : undefined}
+      className={`toast-enter pointer-events-auto w-80 max-w-[calc(100vw-2rem)] rounded-xl border bg-white p-3.5 shadow-lg dark:bg-stone-900 ${styles.ring} dark:border-stone-700`}
     >
       <div className="flex items-start gap-3">
         <span className="mt-0.5 shrink-0">{styles.icon}</span>
@@ -124,32 +146,21 @@ function ToastCard({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: s
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  // Single source of truth for visible + queued toasts. The first MAX_VISIBLE
+  // entries are rendered; the rest wait. Keeping everything in one array (rather
+  // than a separate queue ref mutated inside a state updater) means `toast()`
+  // stays a pure append, so React 18 Strict Mode's double-invoked updater can
+  // never duplicate or drop a toast.
   const [toasts, setToasts] = React.useState<ToastRecord[]>([]);
-  const queueRef = React.useRef<ToastRecord[]>([]);
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
 
-  const flush = React.useCallback(() => {
-    setToasts((current) => {
-      if (current.length >= MAX_VISIBLE || queueRef.current.length === 0) return current;
-      const slots = MAX_VISIBLE - current.length;
-      const next = queueRef.current.splice(0, slots);
-      return [...current, ...next];
-    });
+  const dismiss = React.useCallback((id: string) => {
+    setToasts((current) => current.filter((item) => item.id !== id));
   }, []);
-
-  const dismiss = React.useCallback(
-    (id: string) => {
-      queueRef.current = queueRef.current.filter((item) => item.id !== id);
-      setToasts((current) => current.filter((item) => item.id !== id));
-      // A visible slot may have freed up; promote any queued toast.
-      window.setTimeout(flush, 0);
-    },
-    [flush],
-  );
 
   const toast = React.useCallback((options: ToastOptions) => {
     const id = `toast_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -161,13 +172,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       duration: options.duration ?? DEFAULT_DURATION,
       action: options.action,
     };
-    setToasts((current) => {
-      if (current.length < MAX_VISIBLE) {
-        return [...current, record];
-      }
-      queueRef.current.push(record);
-      return current;
-    });
+    // Pure append: de-dupe by id (Strict Mode safety) and let the slice below
+    // decide what is visible vs queued.
+    setToasts((current) =>
+      current.some((item) => item.id === id) ? current : [...current, record],
+    );
     return id;
   }, []);
 
@@ -186,16 +195,22 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const value = React.useMemo(() => ({ toast, dismiss }), [toast, dismiss]);
 
+  // Only the first MAX_VISIBLE toasts mount + run their auto-dismiss timers;
+  // dismissing a visible toast promotes the next queued one automatically on
+  // the next render because the array shifts forward.
+  const visible = toasts.slice(0, MAX_VISIBLE);
+
   return (
     <ToastContext.Provider value={value}>
       {children}
       {mounted
         ? createPortal(
             <div
-              aria-live="polite"
+              role="region"
+              aria-label="Notifications"
               className="pointer-events-none fixed right-4 bottom-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2"
             >
-              {toasts.map((item) => (
+              {visible.map((item) => (
                 <ToastCard key={item.id} toast={item} onDismiss={dismiss} />
               ))}
             </div>,

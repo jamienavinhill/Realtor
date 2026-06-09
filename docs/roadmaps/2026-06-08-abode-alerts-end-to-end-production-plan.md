@@ -931,14 +931,14 @@ Primary areas:
 
 Implementation tasks:
 
-- [x] Implement a toast provider: queue, auto-dismiss (7000ms default, per-toast configurable via `duration`, `0` = sticky), manual close (`X` button), max-visible stack of 3 with overflow queued, and `success`/`info`/`error` variants. (`components/ui/toast.tsx`)
+- [x] Implement a toast provider: queue, auto-dismiss (7000ms default, per-toast configurable via `duration`, `0` = sticky), manual close (`X` button), max-visible stack of 3 with overflow queued, and `success`/`info`/`error` variants. (`components/ui/toast.tsx`) Visible + queued toasts live in a single state array sliced to `MAX_VISIBLE`, so `toast()` is a pure append (no side-effects inside the state updater) and React Strict Mode's double-invoked updater can neither duplicate nor drop a toast on rapid bursts; per-toast auto-dismiss timers run only while a toast is visible and are cleared on dismiss/unmount.
 - [x] Position fixed (`bottom-4 right-4`), `z-50`, rendered via a React portal into `document.body`; container is `pointer-events-none` with each toast `pointer-events-auto`. Zero impact on `main` layout or scrollbar gutter (browser smoke confirms identical header/main boxes and unchanged document width).
 - [x] Remove the `#alert-toast` banner and the `logMessage` strip entirely. (Both deleted from `components/dashboard.tsx`; `recentMatch`/`logMessage` state removed.)
 - [x] Wire the alert-match check (and all workspace action confirmations/errors: Gmail harvest, direct parse, commit, Sheets export, Calendar booking, alert create/delete, property delete, auth) to `toast(...)` instead of the banner/log strip. Alert matches raise a `success` toast with an "Inspect lead" action.
 
 Accessibility & integration notes:
 
-- [x] Each toast renders `role="status"` + `aria-live="polite"` (info/success) or `role="alert"` + `aria-live="assertive"` (error); close button is labelled "Dismiss notification"; the portal container is also an `aria-live="polite"` region.
+- [x] Each toast renders `role="status"` (info/success, implicit `aria-live="polite"`) or `role="alert"` (error, implicit `aria-live="assertive"`); close button is labelled "Dismiss notification". The portal container is a labelled `role="region"` (`aria-label="Notifications"`), not a live region, so toasts are not double-announced by nested live regions. Auto-dismiss pauses on hover/focus and resumes (not restarts) on leave/blur; entry animation is gated behind `prefers-reduced-motion`.
 - [x] `ToastProvider` mounted once in `app/layout.tsx` (wraps all routes). Reuses existing Tailwind/`primary-*` tokens; no one-off styles.
 - [x] Non-React entry point: provider listens for a `window` `abode:toast` CustomEvent (`detail = ToastOptions`) so server/global handlers (and the smoke) can raise toasts without React context. Not a test-only hook.
 
@@ -949,7 +949,7 @@ Exit criteria:
 
 Suggested verification:
 
-- `scripts/browser-toast-noshift-check.ts` (no credentials; runs against `npm run dev` or `SMOKE_URL`). Local run 2026-06-09 — all 5 assertions PASS. `npm run verify` green (lint, typecheck, format:check, 74 tests, build).
+- `scripts/browser-toast-noshift-check.ts` (no credentials; runs against `npm run dev` or `SMOKE_URL`). Local run 2026-06-09 (WS9 pass 2, post-refactor) — all 5 assertions PASS (header/main boxes and document width unchanged, auto-timeout PASS, manual close PASS). `npm run verify` green (lint, typecheck, format:check, 74 tests, build).
 
 ## Workstream 10: Auth Chrome And Theme Density
 

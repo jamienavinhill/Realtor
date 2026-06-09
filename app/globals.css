@@ -34,3 +34,21 @@
 body {
   font-family: var(--font-sans), sans-serif;
 }
+
+/* Toast entry animation (WS9). Respects prefers-reduced-motion. */
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast-enter {
+    animation: toast-enter 180ms ease-out;
+  }
+}

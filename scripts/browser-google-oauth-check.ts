@@ -1,11 +1,11 @@
 import { appendFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getAuth } from "firebase-admin/auth";
 import { chromium, type BrowserContext, type Page } from "playwright";
 import { getFirebaseAdminApp } from "@/lib/firebase-admin";
 
-const IMPLEMENTER_DIR =
-  "C:\\Users\\james\\AppData\\Local\\Temp\\grok-goal-c79db15364ff\\implementer";
+const IMPLEMENTER_DIR = join(tmpdir(), "abode-alerts-oauth-check");
 const LOG_PATH = `${IMPLEMENTER_DIR}\\browser-smoke.log`;
 const PROFILE_DIR = `${IMPLEMENTER_DIR}\\playwright-google-profile`;
 
@@ -99,11 +99,11 @@ async function waitForAuthSettled(page: Page): Promise<string | undefined> {
         if (!header) return false;
         const spinner = header.querySelector(".animate-spin");
         const signIn = Array.from(header.querySelectorAll("button")).some((button) =>
-          /sign in with google/i.test(button.textContent ?? ""),
+          /^sign in$/i.test((button.textContent ?? "").trim()),
         );
         const avatar =
           header.querySelector('img.h-9.w-9.rounded-full[src*="googleusercontent"]') ??
-          header.querySelector("div.h-9.w-9.rounded-full[aria-label]");
+          header.querySelector("div.h-9.w-9.rounded-full");
         return !spinner && (signIn || avatar !== null);
       },
       { timeout: 60_000 },
@@ -123,9 +123,9 @@ async function collectAvatarEvidence(page: Page): Promise<AvatarEvidence> {
     .locator('header img.h-9.w-9.rounded-full[src*="googleusercontent"]')
     .count();
   const anyAvatarImgCount = await page.locator("header img.h-9.w-9.rounded-full").count();
-  const fallbackCount = await page.locator("header div.h-9.w-9.rounded-full[aria-label]").count();
+  const fallbackCount = await page.locator("header div.h-9.w-9.rounded-full").count();
   const signInButtonVisible = await page
-    .getByRole("button", { name: /sign in with google/i })
+    .getByRole("button", { name: /^sign in$/i })
     .isVisible()
     .catch(() => false);
 
@@ -286,7 +286,7 @@ async function runOAuthCheck(
         "Force sign-in requested but Firebase session still present after origin storage clear",
       );
     } else if (avatar.signInButtonVisible) {
-      const signInButton = page.getByRole("button", { name: /sign in with google/i });
+      const signInButton = page.getByRole("button", { name: /^sign in$/i });
       oauthAttempted = true;
 
       const popupPromise = page.waitForEvent("popup", { timeout: 20_000 });
@@ -297,7 +297,7 @@ async function runOAuthCheck(
         popup = await popupPromise;
       } catch {
         blockers.push(
-          "No OAuth popup opened after clicking Sign in with Google (check Firebase authorized domains / popup blockers)",
+          "No OAuth popup opened after clicking Sign in (check Firebase authorized domains / popup blockers)",
         );
       }
 
@@ -327,7 +327,7 @@ async function runOAuthCheck(
             const googlePhoto = header.querySelector(
               'img.h-9.w-9.rounded-full[src*="googleusercontent"]',
             );
-            const fallback = header.querySelector("div.h-9.w-9.rounded-full[aria-label]");
+            const fallback = header.querySelector("div.h-9.w-9.rounded-full");
             return googlePhoto !== null || fallback !== null;
           },
           { timeout: 20_000 },
@@ -336,9 +336,7 @@ async function runOAuthCheck(
 
       avatar = await collectAvatarEvidence(page);
     } else if (!authBlocker) {
-      blockers.push(
-        "Sign in with Google button not visible after auth settled (unexpected header state)",
-      );
+      blockers.push("Sign in button not visible after auth settled (unexpected header state)");
     }
 
     await page.screenshot({ path: target.screenshot, fullPage: true }).catch(() => undefined);

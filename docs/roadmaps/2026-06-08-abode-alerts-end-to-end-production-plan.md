@@ -952,20 +952,26 @@ Implementation tasks:
 
 - [x] Replace display-name/email header block with a standard Google sign-in button and Google avatar (baseline; refined below).
 - [x] Replace the preset accent picker with `<input type="color">` and generated theme shades persisted to local storage (baseline; refined below).
-- [ ] `GoogleSignInButton`: glyph + "Sign in" label only (not "Sign in with Google").
-- [ ] Signed-out: sign-in button only, no avatar. Signed-in: avatar only, no standalone sign-in/sign-out in the header bar. Sign-in and avatar are mutually exclusive.
-- [ ] Profile dropdown on avatar click: user name + Sign out; remove the header logout button.
-- [ ] Remove the "Connect Google" secondary header button (workspace reconnect moves into the profile menu or ingest tab if still needed).
-- [ ] ThemeControls: collapse to an accent-tinted palette icon only; hidden native color input triggered by icon click; remove the duplicate swatch.
+- [x] `GoogleSignInButton`: glyph + "Sign in" label only (not "Sign in with Google"). The component now hardcodes the "Sign in" label (no `label` prop).
+- [x] Signed-out: sign-in button only, no avatar. Signed-in: avatar only, no standalone sign-in/sign-out in the header bar. Sign-in and avatar are mutually exclusive (header renders `ProfileMenu` when `user`, else `GoogleSignInButton`).
+- [x] Profile dropdown on avatar click: user name (+ email when distinct) + Sign out; removed the header logout button. Menu is keyboard-closable (Escape) and click-outside-to-close, with `role="menu"`/`menuitem` and `aria-haspopup`/`aria-expanded`.
+- [x] Remove the "Connect Google" secondary header button. Workspace reconnect already lives in the Ingest tab ("Authorize Google Services" when no `accessToken`); no duplicate header control remains.
+- [x] ThemeControls: collapsed to an accent-tinted palette icon only; the native color input is hidden (`opacity-0`, `pointer-events-none`, `tabIndex=-1`, `aria-hidden`) and triggered by clicking the icon button; the duplicate visible swatch was removed. The `Palette` glyph is tinted with the current accent color and persistence (`localStorage["app-accent-color"]`) is unchanged.
+
+Re-run findings (WS10 re-run, 2026-06-09) — baseline was marked `[x]` but did not meet the User Requirements I spec; brought to full exit criteria:
+
+- [x] `components/dashboard.tsx`: header chrome rebuilt to the mutually-exclusive sign-in/avatar spec. Added a `ProfileMenu` (avatar trigger + dropdown with name/email + Sign out), removed the standalone header logout button and the "Connect Google" header button, and fixed the sign-in label to "Sign in". Avatar `alt`/`aria-label` decoration trimmed (menu button owns the accessible name).
+- [x] `components/theme-controls.tsx`: collapsed to an icon-only accent control — palette icon tinted with the live accent, hidden native color input triggered by the icon click, duplicate swatch removed. Persistence preserved.
+- [x] `scripts/browser-google-oauth-check.ts`: updated assertions to the new chrome (sign-in matched as `/^sign in$/i`, fallback-avatar selector no longer requires `[aria-label]`) and redirected the hardcoded prior-session temp dir to an OS temp path (`os.tmpdir()`), keeping ephemeral artifacts off the repo/parent paths.
 
 Exit criteria:
 
-- [ ] Signed-out shows no avatar; signed-in shows no sign-in/sign-out in the header bar.
-- [ ] Accent control is icon-only, accepts arbitrary color, and persists across refreshes.
+- [x] Signed-out shows no avatar; signed-in shows no sign-in/sign-out in the header bar. (Browser smoke on a clean signed-out load: exactly 1 "Sign in" button, 0 "Sign in with Google", 0 avatars, no console errors.)
+- [x] Accent control is icon-only (1 palette button, exactly 1 hidden color input, no visible swatch; icon tinted `rgb(244,63,94)` = `#f43f5e`), accepts arbitrary color, and persists across refreshes via `localStorage`.
 
 Suggested verification:
 
-- `scripts/browser-google-oauth-check.ts` updated assertions; Playwright auth-chrome smoke.
+- `scripts/browser-google-oauth-check.ts` updated assertions; Playwright auth-chrome smoke (signed-out smoke run 2026-06-09 — pass). `npm run verify` green (lint, typecheck, format:check, 49 tests, build).
 
 ## Workstream 11: UI Honesty, No-Fake-Data, And Regional Defaults
 

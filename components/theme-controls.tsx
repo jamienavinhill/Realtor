@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Moon, Palette, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 
@@ -53,6 +53,7 @@ export function ThemeControls() {
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [accentColor, setAccentColor] = useState(DEFAULT_ACCENT);
+  const colorInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const savedAccent = localStorage.getItem("app-accent-color") || DEFAULT_ACCENT;
@@ -71,20 +72,24 @@ export function ThemeControls() {
 
   return (
     <div className="flex items-center space-x-2">
-      <label
-        className="flex cursor-pointer items-center gap-2 rounded-lg p-2 text-stone-500 transition hover:bg-stone-100 hover:text-stone-900 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+      <button
+        type="button"
+        onClick={() => colorInputRef.current?.click()}
+        className="relative cursor-pointer rounded-lg p-2 transition hover:bg-stone-100 dark:hover:bg-stone-800"
         title="Accent color"
+        aria-label="Choose accent color"
       >
-        <Palette className="h-4 w-4" />
-        <span className="sr-only">Choose accent color</span>
+        <Palette className="h-4 w-4" style={{ color: accentColor }} />
         <input
+          ref={colorInputRef}
           type="color"
           value={accentColor}
           onChange={(event) => changeAccent(event.target.value)}
-          className="h-6 w-6 cursor-pointer rounded-full border-0 bg-transparent p-0"
-          aria-label="Accent color"
+          tabIndex={-1}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-0 w-0 opacity-0"
         />
-      </label>
+      </button>
 
       <button
         onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}

@@ -68,14 +68,15 @@ function GoogleGlyph() {
   );
 }
 
-function GoogleSignInButton({ onClick, label }: { onClick: () => void; label: string }) {
+function GoogleSignInButton({ onClick }: { onClick: () => void }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-semibold text-stone-700 shadow-sm transition hover:bg-stone-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
     >
       <GoogleGlyph />
-      <span>{label}</span>
+      <span>Sign in</span>
     </button>
   );
 }
@@ -87,7 +88,7 @@ function UserAvatar({ user }: { user: User }) {
     return (
       <img
         src={user.photoURL}
-        alt={label}
+        alt=""
         referrerPolicy="no-referrer"
         className="h-9 w-9 rounded-full border border-stone-200 bg-white object-cover shadow-sm dark:border-stone-700"
       />
@@ -95,11 +96,78 @@ function UserAvatar({ user }: { user: User }) {
   }
 
   return (
-    <div
-      className="bg-primary-500 flex h-9 w-9 items-center justify-center rounded-full border border-stone-200 text-xs font-bold text-white shadow-sm dark:border-stone-700"
-      aria-label={label}
-    >
+    <div className="bg-primary-500 flex h-9 w-9 items-center justify-center rounded-full border border-stone-200 text-xs font-bold text-white shadow-sm dark:border-stone-700">
       {label.slice(0, 1).toUpperCase()}
+    </div>
+  );
+}
+
+function ProfileMenu({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const name = user.displayName || user.email || "Google account";
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="focus-visible:ring-primary-500 flex cursor-pointer items-center rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-stone-950"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Open profile menu"
+      >
+        <UserAvatar user={user} />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Profile"
+          className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-lg dark:border-stone-800 dark:bg-stone-900"
+        >
+          <div className="border-b border-stone-100 px-4 py-3 dark:border-stone-800">
+            <p className="truncate text-sm font-semibold text-stone-900 dark:text-stone-100">
+              {name}
+            </p>
+            {user.email && user.displayName ? (
+              <p className="truncate text-xs text-stone-500 dark:text-stone-400">{user.email}</p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onSignOut();
+            }}
+            className="flex w-full cursor-pointer items-center gap-2 px-4 py-2.5 text-left text-sm text-stone-700 transition hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-stone-800"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sign out</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -624,22 +692,9 @@ export default function Dashboard() {
             {authLoading ? (
               <Loader2 className="text-primary-500 h-5 w-5 animate-spin" />
             ) : user ? (
-              <div className="flex items-center space-x-3">
-                <UserAvatar user={user} />
-                {!accessToken ? (
-                  <GoogleSignInButton onClick={handleGoogleAuth} label="Connect Google" />
-                ) : (
-                  <button
-                    onClick={handleLogout}
-                    className="cursor-pointer rounded-full border border-stone-300 bg-white p-2 text-stone-600 shadow-sm transition hover:bg-stone-50 hover:text-stone-950 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-900 dark:hover:text-white"
-                    title="Disconnect Google"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
+              <ProfileMenu user={user} onSignOut={handleLogout} />
             ) : (
-              <GoogleSignInButton onClick={handleGoogleAuth} label="Sign in with Google" />
+              <GoogleSignInButton onClick={handleGoogleAuth} />
             )}
           </div>
         </div>

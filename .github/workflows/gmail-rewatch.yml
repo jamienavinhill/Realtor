@@ -1,0 +1,57 @@
+name: Gmail watch re-registration
+
+# Gmail expires a users.watch registration within ~7 days, so the email -> Pub/Sub
+# push pipeline silently dies unless the watch is renewed. This free public-repo
+# Action re-registers the watch weekly by calling the INGEST_JOB_TOKEN-protected
+# POST /api/gmail/watch route on the live deployment.
+#
+# This is NOT a deploy trigger. Vercel deploys automatically on git push; this
+# workflow only renews the Gmail watch against the already-deployed app.
+#
+# Required repository configuration (never inline secrets):
+#   - secret  INGEST_JOB_TOKEN : the server-side ingest job token (matches Vercel env)
+#   - variable INGEST_BASE_URL : production origin, e.g. https://abode-alerts.vercel.app
+
+on:
+  schedule:
+    # 06:17 UTC every Monday. Weekly is well inside Gmail's ~7-day watch expiry.
+    - cron: "17 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gmail-rewatch
+  cancel-in-progress: false
+
+jobs:
+  rewatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-register Gmail watch
+        env:
+          INGEST_JOB_TOKEN: ${{ secrets.INGEST_JOB_TOKEN }}
+          INGEST_BASE_URL: ${{ vars.INGEST_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${INGEST_JOB_TOKEN:-}" ]; then
+            echo "INGEST_JOB_TOKEN secret is not set." >&2
+            exit 1
+          fi
+          if [ -z "${INGEST_BASE_URL:-}" ]; then
+            echo "INGEST_BASE_URL variable is not set." >&2
+            exit 1
+          fi
+          status=$(curl -sS -o /tmp/rewatch.json -w "%{http_code}" \
+            -X POST "${INGEST_BASE_URL%/}/api/gmail/watch" \
+            -H "Authorization: Bearer ${INGEST_JOB_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{}')
+          echo "HTTP ${status}"
+          cat /tmp/rewatch.json
+          echo
+          if [ "${status}" -lt 200 ] || [ "${status}" -ge 300 ]; then
+            echo "Gmail watch re-registration failed (HTTP ${status})." >&2
+            exit 1
+          fi

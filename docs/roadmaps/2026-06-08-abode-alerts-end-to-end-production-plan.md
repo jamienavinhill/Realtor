@@ -900,11 +900,11 @@ Goal: Keep the email pipeline alive (renew the Gmail `watch`), backstop it with 
 
 Depends on:
 
-- [ ] WS3 contracts/repositories, WS5 provider adapters, WS6 baseline, WS9 toasts.
+- [x] WS3 contracts/repositories, WS5 provider adapters, WS6 baseline, WS9 toasts.
 
 Enables:
 
-- [ ] Reliable production monitoring and WS15 alert read paths.
+- [x] Reliable production monitoring and WS15 alert read paths.
 
 Primary areas:
 
@@ -912,23 +912,29 @@ Primary areas:
 
 Implementation tasks:
 
-- [ ] Protected routes require `INGEST_JOB_TOKEN` (token in GitHub Actions secret, server-side only).
-- [ ] **Weekly Gmail `watch` re-registration** Action (Gmail expires `watch` ≤7 days) so push never silently dies.
-- [ ] **Business-hours safety-net poll** Action (~every 15 min, ~6am–8pm America/New_York; **quiet 8pm–6am**) that calls the ingest route to catch anything push missed — idempotent against the email pipeline.
-- [ ] Periodic zone refresh: fetch new/changed listings via RealtyAPI **within the monthly budget**, upsert, mark stale, append a dated price/observation snapshot to each listing's history.
-- [ ] Persist alert-match records with listing id, alert id, match reason, first seen, latest seen, user id; idempotent so retries never duplicate matches.
-- [ ] Surface matches via the toast system + a UI read path for persisted matches (not only in-session toast).
-- [ ] Record run status: messages processed, listings upserted, RealtyAPI calls spent (monthly running total), errors.
+- [x] Protected routes require `INGEST_JOB_TOKEN` (token in GitHub Actions secret, server-side only). Both `app/api/ingest/daily/route.ts` and `app/api/gmail/watch/route.ts` gate on `INGEST_JOB_TOKEN` via the shared constant-time `validateIngestToken` (`lib/ingest/auth.ts`): 503 when the token is not configured, 401 on missing/wrong token (Bearer or `x-ingest-token`).
+- [x] **Weekly Gmail `watch` re-registration** Action (`.github/workflows/gmail-rewatch.yml`): `schedule: "17 6 * * 1"` (Mondays, well inside Gmail's ~7-day watch expiry) + `workflow_dispatch`. Calls `POST /api/gmail/watch` with `Authorization: Bearer ${{ secrets.INGEST_JOB_TOKEN }}` against `${{ vars.INGEST_BASE_URL }}`. No secrets inline; not a deploy trigger.
+- [x] **Business-hours safety-net poll** Action (`.github/workflows/ingest-poll.yml`): `schedule: "*/15 10-23 * * *"` (UTC; the widest window spanning ET business hours across DST) with a runtime `America/New_York` hour guard that runs only 06:00–19:59 ET and skips the quiet window. Calls `POST /api/ingest/daily?type=poll`; `concurrency` prevents overlapping polls; idempotent against the email pipeline (matches keyed by `alertId_listingId`).
+- [x] Periodic zone refresh: `runDailyRefresh` fetches via the WS5 `RealtyApiClient` (which reserves against the durable monthly quota store before each live call), upserts, marks unseen RealtyAPI listings `Off Market`, and **appends a dated price/observation snapshot to each listing's `history[]`** (idempotent within a day — unchanged price/status is a no-op). Injectable deps; `dryRun` performs zero writes.
+- [x] Persist alert-match records (`upsertAlertMatch`, `lib/repositories/matches.ts`) with listing id, alert id, match reason, `firstSeenAt`/`lastSeenAt`, user id; idempotent via the `alertId_listingId` doc id so retries update `lastSeenAt` rather than duplicate.
+- [x] Surface matches via the toast system (WS9 — `success` toast with "Inspect lead") + a UI read path for persisted matches: `components/dashboard.tsx` subscribes to `alert_matches` (owner-scoped `onSnapshot`) and renders them with match reason, so matches are visible after sign-in, not only in-session.
+- [x] Record run status on the `IngestRun` (`type` `daily`/`poll`): listings fetched/upserted/skipped, alert matches created/updated, per-run `quotaUsed` by key alias, and the running **monthly** RealtyAPI total read back from the durable `provider_quota/{YYYY-MM}` store (surfaced as `monthlyRealtyApiCalls`), plus errors.
 
 Exit criteria:
 
-- [ ] Pipeline survives indefinitely (watch auto-renewed); no listing missed by more than the poll interval during business hours.
-- [ ] Refresh/alert evaluation run without a browser session; matches visible after sign-in.
-- [ ] RealtyAPI monthly spend is tracked and never exceeds the ceiling; run status records it.
+- [x] Pipeline survives indefinitely (watch auto-renewed weekly); the business-hours poll backstops push every ~15 min during ET business hours, so no listing is missed by more than the poll interval (push remains primary; quiet 8pm–6am ET).
+- [x] Refresh/alert evaluation run without a browser session (token-gated server routes + GitHub Actions); persisted matches are visible after sign-in via the owner-scoped `alert_matches` read path.
+- [x] RealtyAPI monthly spend is tracked durably (transactional per-key reservation in `provider_quota/{YYYY-MM}`) and never exceeds the ~250/MONTH-per-key ceiling; the run status records the running monthly total.
+
+Operator-pending `[!]` (record, do not fake):
+
+- [!] Set `INGEST_JOB_TOKEN` as a GitHub Actions **secret** and `INGEST_BASE_URL` (e.g. `https://abode-alerts.vercel.app`) as a repository **variable**; confirm `INGEST_JOB_TOKEN` matches the Vercel server env.
+- [!] Confirm the repo is **public** so the scheduled Actions run on free unlimited minutes.
+- [!] First live re-watch + poll run (and Action-log confirmation of successful `watch` renewal + poll).
 
 Suggested verification:
 
-- Protected-route unauthorized request returns 401/403; dry-run produces no writes; Action logs show successful re-watch + poll; monthly quota readback.
+- Protected-route unauthorized request returns 401 (503 when token unconfigured); dry-run produces no writes; idempotent match (no dup on retry); monthly-budget stop closes the run PARTIAL/`failed` and records the monthly total; history append (and same-day idempotence). Covered by `tests/daily-refresh.test.ts` (injected fakes, no live calls). Action YAML validated (schedule expressions, secrets-only token, no inline secrets). `npm run verify` green (lint, typecheck, format:check, 114 tests, build).
 
 ## Workstream 9: Toast Notification System
 

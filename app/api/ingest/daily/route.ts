@@ -30,7 +30,12 @@ export async function POST(req: NextRequest) {
     }
 
     const dryRun = req.nextUrl.searchParams.get("dryRun") === "true";
-    const result = await runDailyRefresh({ dryRun });
+    // The business-hours safety-net poll Action calls this same route with `?type=poll`
+    // so its runs are recorded distinctly (IngestRun.type) while sharing the idempotent
+    // refresh + alert-evaluation pipeline. Any other value defaults to the scheduled
+    // `daily` zone refresh.
+    const runType = req.nextUrl.searchParams.get("type") === "poll" ? "poll" : "daily";
+    const result = await runDailyRefresh({ dryRun, runType });
 
     return NextResponse.json({
       ok: true,

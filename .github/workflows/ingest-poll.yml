@@ -1,0 +1,78 @@
+name: Ingest safety-net poll
+
+# Business-hours safety-net poll. Gmail -> Pub/Sub push is the primary, near-real-time
+# flow; this poll backstops it so nothing is missed if a push is dropped. It calls the
+# INGEST_JOB_TOKEN-protected POST /api/ingest/daily?type=poll route, which runs the same
+# idempotent refresh + alert-evaluation pipeline (alert matches are keyed by
+# alertId_listingId, so a poll immediately after a push never duplicates a match).
+#
+# Cadence: ~every 15 min during ~6am-8pm America/New_York; quiet 8pm-6am (push only).
+# GitHub cron is UTC-only, so the schedule covers the widest UTC window that maps to
+# ET business hours across DST, and a runtime America/New_York hour guard enforces the
+# exact 6am-8pm window (and skips overnight) regardless of EST/EDT.
+#
+# This is NOT a deploy trigger.
+#
+# Required repository configuration (never inline secrets):
+#   - secret  INGEST_JOB_TOKEN : the server-side ingest job token (matches Vercel env)
+#   - variable INGEST_BASE_URL : production origin, e.g. https://abode-alerts.vercel.app
+
+on:
+  schedule:
+    # Every 15 minutes during UTC 10:00-23:59. This spans 6am-8pm EDT (UTC-4) and
+    # 5am-7pm EST (UTC-5); the runtime guard below trims it to exactly 6am-8pm ET.
+    - cron: "*/15 10-23 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never overlap polls; a long-running refresh should not be stacked on by the next tick.
+  group: ingest-poll
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Business-hours guard (America/New_York)
+        id: guard
+        run: |
+          set -euo pipefail
+          hour=$(TZ="America/New_York" date +%H)
+          # Active window: 06:00-19:59 ET (i.e. hours 6 through 19 inclusive; quiet 20:00-05:59).
+          if [ "$((10#$hour))" -ge 6 ] && [ "$((10#$hour))" -le 19 ]; then
+            echo "active=true" >> "$GITHUB_OUTPUT"
+            echo "Within business hours (ET hour ${hour}); polling."
+          else
+            echo "active=false" >> "$GITHUB_OUTPUT"
+            echo "Outside business hours (ET hour ${hour}); skipping poll (quiet window)."
+          fi
+
+      - name: Safety-net ingest poll
+        if: steps.guard.outputs.active == 'true'
+        env:
+          INGEST_JOB_TOKEN: ${{ secrets.INGEST_JOB_TOKEN }}
+          INGEST_BASE_URL: ${{ vars.INGEST_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${INGEST_JOB_TOKEN:-}" ]; then
+            echo "INGEST_JOB_TOKEN secret is not set." >&2
+            exit 1
+          fi
+          if [ -z "${INGEST_BASE_URL:-}" ]; then
+            echo "INGEST_BASE_URL variable is not set." >&2
+            exit 1
+          fi
+          status=$(curl -sS -o /tmp/poll.json -w "%{http_code}" \
+            -X POST "${INGEST_BASE_URL%/}/api/ingest/daily?type=poll" \
+            -H "Authorization: Bearer ${INGEST_JOB_TOKEN}" \
+            -H "Content-Type: application/json")
+          echo "HTTP ${status}"
+          cat /tmp/poll.json
+          echo
+          if [ "${status}" -lt 200 ] || [ "${status}" -ge 300 ]; then
+            echo "Safety-net poll failed (HTTP ${status})." >&2
+            exit 1
+          fi

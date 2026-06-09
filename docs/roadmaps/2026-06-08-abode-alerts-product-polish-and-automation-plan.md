@@ -33,93 +33,93 @@ Ship a remarkably clean, smooth, powerful Abode Alerts workspace on the correct 
 
 ### B. Ingest query filter UX (Gmail / email sources)
 
-8. Replace raw Gmail query text field with a **multiselect dropdown** of major listing-email platforms.
-9. Multiselect must support an **optional free-text input** for advanced/custom query fragments.
-10. Baseline platform options (user uses all): **Zillow**, **Trulia**, **Homes.com**, **Redfin**, **realtor.com**.
-11. Include other major platforms in the multiselect set (e.g. MLS digests, Realtor.com variants, regional portals where email subjects are known).
-12. Composed query must feed the existing Gmail search path (`parse_gmail` in `app/api/properties/route.ts`) without inventing listings.
+1. Replace raw Gmail query text field with a **multiselect dropdown** of major listing-email platforms.
+2. Multiselect must support an **optional free-text input** for advanced/custom query fragments.
+3. Baseline platform options (user uses all): **Zillow**, **Trulia**, **Homes.com**, **Redfin**, **realtor.com**.
+4. Include other major platforms in the multiselect set (e.g. MLS digests, Realtor.com variants, regional portals where email subjects are known).
+5. Composed query must feed the existing Gmail search path (`parse_gmail` in `app/api/properties/route.ts`) without inventing listings.
 
 ### C. Automatic email ingestion (primary flow)
 
-13. **Main flow is automatic**: when a new listing alert email arrives, Gemini is invoked and the listing is ingested — user should not need to click scan.
-14. Manual “Scan Gmail” remains **optional**, not primary.
-15. Hassle-free operation: sign in once, subscribe to platform emails, Abode Alerts handles the rest.
-16. Automatic path must preserve provenance, dedupe, and validation before Firestore writes.
-17. New-ingest events must surface through the toast system (see §D), not layout-shifting banners.
+1. **Main flow is automatic**: when a new listing alert email arrives, Gemini is invoked and the listing is ingested — user should not need to click scan.
+2. Manual “Scan Gmail” remains **optional**, not primary.
+3. Hassle-free operation: sign in once, subscribe to platform emails, Abode Alerts handles the rest.
+4. Automatic path must preserve provenance, dedupe, and validation before Firestore writes.
+5. New-ingest events must surface through the toast system (see §D), not layout-shifting banners.
 
 ### D. Notifications (toasts)
 
-18. Remove the current full-width animated alert banner (`#alert-toast` in `components/dashboard.tsx`) that shifts page layout.
-19. Replace with **uniform toast notifications**: fixed position overlay, consistent styling.
-20. Toasts must have **auto-timeout** and a **manual close** control.
-21. Toasts must **never cause layout shift** (no reflow, no scrollbar appearance/disappearance side effects).
-22. Toast use cases: new alert match, new email-ingested listing, ingest errors worth surfacing, workspace action confirmations.
+1. Remove the current full-width animated alert banner (`#alert-toast` in `components/dashboard.tsx`) that shifts page layout.
+2. Replace with **uniform toast notifications**: fixed position overlay, consistent styling.
+3. Toasts must have **auto-timeout** and a **manual close** control.
+4. Toasts must **never cause layout shift** (no reflow, no scrollbar appearance/disappearance side effects).
+5. Toast use cases: new alert match, new email-ingested listing, ingest errors worth surfacing, workspace action confirmations.
 
 ### E. CMA page
 
-23. Fix chart + massive table sitting awkwardly side-by-side; rebalance layout for scanability.
-24. **All tables** get pagination, column sort, default page size **10**, page-size options **20 / 30 / 100**.
-25. Add more charts (distribution, price/sqft, property type mix, status breakdown — grounded in real Firestore inventory only).
-26. Add comparison and granular detail affordances (drill-down, filters, row actions linking to listing dialog).
-27. Remove oversized metric summary strips that waste vertical space; keep metrics compact and actionable.
+1. Fix chart + massive table sitting awkwardly side-by-side; rebalance layout for scanability.
+2. **All tables** get pagination, column sort, default page size **10**, page-size options **20 / 30 / 100**.
+3. Add more charts (distribution, price/sqft, property type mix, status breakdown — grounded in real Firestore inventory only).
+4. Add comparison and granular detail affordances (drill-down, filters, row actions linking to listing dialog).
+5. Remove oversized metric summary strips that waste vertical space; keep metrics compact and actionable.
 
 ### F. Docs page
 
-28. **Pin the TOC panel**: TOC does not scroll with main content jumps when clicking Intro, Quickstart, etc.
-29. Only the **main content column** scrolls; TOC stays fixed in place within the docs view.
-30. Expand docs content — current guide is sparse; add sections for automatic email flow, env setup, listing actions, CMA, alerts, and operator ingest.
-31. Preserve honest claims (no MLS completeness, no guaranteed real-time unless sourced).
+1. **Pin the TOC panel**: TOC does not scroll with main content jumps when clicking Intro, Quickstart, etc.
+2. Only the **main content column** scrolls; TOC stays fixed in place within the docs view.
+3. Expand docs content — current guide is sparse; add sections for automatic email flow, env setup, listing actions, CMA, alerts, and operator ingest.
+4. Preserve honest claims (no MLS completeness, no guaranteed real-time unless sourced).
 
 ### G. Listing detail and card UX
 
-32. Remove large inline “breakout” listing views that waste space; **detail opens in a floating dialog** only.
-33. Dialog must be compact, clipped appropriately, not a full-page takeover unless necessary for media.
-34. Eliminate big blocky fonts and childish typography; use professional, dense, readable hierarchy.
-35. Do not waste pixels on heavy summary strips or decorative giant numbers.
-36. Focus UI on **actions**, not decoration.
+1. Remove large inline “breakout” listing views that waste space; **detail opens in a floating dialog** only.
+2. Dialog must be compact, clipped appropriately, not a full-page takeover unless necessary for media.
+3. Eliminate big blocky fonts and childish typography; use professional, dense, readable hierarchy.
+4. Do not waste pixels on heavy summary strips or decorative giant numbers.
+5. Focus UI on **actions**, not decoration.
 
 ### H. Listing actions (new product capabilities)
 
-37. **Mark interested** / **not interested** per listing (per user).
-38. **Favorite** / **unfavorite** per listing (per user).
-39. **Hide listing** (per user; excluded from default views, recoverable).
-40. **Compare** listings (select 2+ for side-by-side or tabular comparison).
-41. **Run analysis** on a listing (Gemini-backed, cited/qualified output; no invented facts).
-42. Retain/export/schedule workspace actions where already implemented, but fit the compact dialog pattern.
+1. **Mark interested** / **not interested** per listing (per user).
+2. **Favorite** / **unfavorite** per listing (per user).
+3. **Hide listing** (per user; excluded from default views, recoverable).
+4. **Compare** listings (select 2+ for side-by-side or tabular comparison).
+5. **Run analysis** on a listing (Gemini-backed, cited/qualified output; no invented facts).
+6. Retain/export/schedule workspace actions where already implemented, but fit the compact dialog pattern.
 
 ### I. Auth chrome and header density
 
-43. **Color picker**: remove separate swatch next to palette icon; **icon only**, filled/stroked with current accent color.
-44. **Sign-in button** (signed out): Google icon + label **“Sign in”** only — not “Sign in with Google”, not “Connect with Google”.
-45. **Signed out state**: show sign-in control only; **no avatar**.
-46. **Signed in state**: show **profile avatar only**; no standalone sign-in or sign-out buttons in the header.
-47. **Profile menu** on avatar click: small clean dropdown with **user name** and **Sign out**.
-48. Sign-in and profile avatar are **mutually exclusive** — never shown together.
+1. **Color picker**: remove separate swatch next to palette icon; **icon only**, filled/stroked with current accent color.
+2. **Sign-in button** (signed out): Google icon + label **“Sign in”** only — not “Sign in with Google”, not “Connect with Google”.
+3. **Signed out state**: show sign-in control only; **no avatar**.
+4. **Signed in state**: show **profile avatar only**; no standalone sign-in or sign-out buttons in the header.
+5. **Profile menu** on avatar click: small clean dropdown with **user name** and **Sign out**.
+6. Sign-in and profile avatar are **mutually exclusive** — never shown together.
 
 ### J. Explicit non-goals for this plan
 
-49. Do not reintroduce mock listings, stock media, or prototype-only data paths.
-50. Do not change unrelated dirty/untracked local artifacts (`.playwright-cli/`, `agent-tools/`, etc.).
-51. Do not expand scope beyond items A–I unless required as a direct dependency (e.g. Firestore rules for user listing preferences).
+1. Do not reintroduce mock listings, stock media, or prototype-only data paths.
+2. Do not change unrelated dirty/untracked local artifacts (`.playwright-cli/`, `agent-tools/`, etc.).
+3. Do not expand scope beyond items A–I unless required as a direct dependency (e.g. Firestore rules for user listing preferences).
 
 ---
 
 ## Source Findings (Audit)
 
-| Area | Current state | Gap |
-|------|---------------|-----|
-| Vercel | App deploys; user moved to `jamienavinhill`; no `vercel.json` cron | Env wiring via CLI unverified; Firebase admin uses **file path** only (`lib/firebase-admin.ts`) — incompatible with Vercel unless JSON-in-env support is added |
-| RealtyAPI keys | `lib/env.ts` accepts `REALTY_API_KEYS` comma-list or any `rt_` env aliases; `QuotaTracker` rotates keys at 250 req/key/day | 44224 backfill (~88 listings) used minimal quota; **not all 8 keys were exhausted** — rotation is for resilience |
-| Gmail ingest | `POST /api/properties` `parse_gmail` works with client bearer token; manual button in `dashboard.tsx` | **No automatic trigger** — no Gmail watch, no polling cron, no server-stored refresh token |
-| Notifications | Full-width `recentMatch` banner with `animate-bounce` shifts layout | Must become fixed toasts |
-| Ingest filter | Raw string `gmailQuery` default `subject:"Redfin" OR subject:"Zillow"...` | Needs multiselect + optional custom input |
-| Alerts wizard | Zillow/Redfin links only; Gemini generates setup guide | Needs five baseline platforms in multiselect UX |
-| CMA | One bar chart + unpaginated full inventory table + 3 large metric cards | Layout imbalance; no pagination/sort |
-| Docs | TOC `sticky` but shares scroll container behavior with anchor jumps; 2 nav sections, thin content | TOC/main scroll not isolated; content sparse |
-| Listing modal | `PropertyProfileModal` is large `max-w-5xl` split layout | Must shrink to compact floating dialog; add user actions |
-| User listing state | No `interested` / `favorite` / `hidden` on `ListingProperty` | Needs user-scoped Firestore subcollection or preferences doc + rules |
-| Auth chrome | Avatar + separate Connect/Logout buttons; sign-in says “Sign in with Google” | Does not match compact profile-menu spec |
-| Theme | Palette icon + separate color input swatch | Duplicate chrome |
+| Area               | Current state                                                                                                              | Gap                                                                                                                                                            |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vercel             | App deploys; user moved to `jamienavinhill`; no `vercel.json` cron                                                         | Env wiring via CLI unverified; Firebase admin uses **file path** only (`lib/firebase-admin.ts`) — incompatible with Vercel unless JSON-in-env support is added |
+| RealtyAPI keys     | `lib/env.ts` accepts `REALTY_API_KEYS` comma-list or any `rt_` env aliases; `QuotaTracker` rotates keys at 250 req/key/day | 44224 backfill (~88 listings) used minimal quota; **not all 8 keys were exhausted** — rotation is for resilience                                               |
+| Gmail ingest       | `POST /api/properties` `parse_gmail` works with client bearer token; manual button in `dashboard.tsx`                      | **No automatic trigger** — no Gmail watch, no polling cron, no server-stored refresh token                                                                     |
+| Notifications      | Full-width `recentMatch` banner with `animate-bounce` shifts layout                                                        | Must become fixed toasts                                                                                                                                       |
+| Ingest filter      | Raw string `gmailQuery` default `subject:"Redfin" OR subject:"Zillow"...`                                                  | Needs multiselect + optional custom input                                                                                                                      |
+| Alerts wizard      | Zillow/Redfin links only; Gemini generates setup guide                                                                     | Needs five baseline platforms in multiselect UX                                                                                                                |
+| CMA                | One bar chart + unpaginated full inventory table + 3 large metric cards                                                    | Layout imbalance; no pagination/sort                                                                                                                           |
+| Docs               | TOC `sticky` but shares scroll container behavior with anchor jumps; 2 nav sections, thin content                          | TOC/main scroll not isolated; content sparse                                                                                                                   |
+| Listing modal      | `PropertyProfileModal` is large `max-w-5xl` split layout                                                                   | Must shrink to compact floating dialog; add user actions                                                                                                       |
+| User listing state | No `interested` / `favorite` / `hidden` on `ListingProperty`                                                               | Needs user-scoped Firestore subcollection or preferences doc + rules                                                                                           |
+| Auth chrome        | Avatar + separate Connect/Logout buttons; sign-in says “Sign in with Google”                                               | Does not match compact profile-menu spec                                                                                                                       |
+| Theme              | Palette icon + separate color input swatch                                                                                 | Duplicate chrome                                                                                                                                               |
 
 ---
 
@@ -515,6 +515,6 @@ Exit criteria:
 
 ## Orchestration Checkpoints
 
-| Dispatch | Workstream | Pass | Agent ID | Next action |
-|----------|------------|------|----------|-------------|
-| — | — | — | — | Awaiting first WS1 dispatch |
+| Dispatch | Workstream | Pass | Agent ID | Next action                 |
+| -------- | ---------- | ---- | -------- | --------------------------- |
+| —        | —          | —    | —        | Awaiting first WS1 dispatch |

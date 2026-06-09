@@ -993,6 +993,14 @@ Implementation tasks:
 - [x] Replace Austin defaults with the `44224` Stow/Akron-area defaults. (`lib/ingest/constants.ts`: `DEFAULT_ALERT_CITY="Stow"`, `DEFAULT_ALERT_STATE="OH"`, `BASELINE_ZIP="44224"`, `BASELINE_CENTER` Stow coords; consumed by `dashboard.tsx`.)
 - [x] Add empty-state copy that guides baseline backfill and ingestion rather than implying filters are wrong. (`ListingsGrid.tsx` empty state distinguishes empty-inventory vs filtered, points to the 44224 backfill / Gmail ingestion.)
 
+Pass 2 audit (WS11 re-run, 2026-06-09) — independent fresh-context re-audit of the full WS11 surface:
+
+- [x] Fixed a remaining stale AI-Studio brand string in a SHIPPED path: `app/api/properties/route.ts` set the `GoogleGenAI` client `User-Agent` to `"aistudio-build"` (AI-Studio export boilerplate) on every server-side Gemini call. Changed to `"abode-alerts"`. No behavior change; `npm run verify` stays green (49 tests, build).
+- [x] Re-ran the `rg -i unsplash|pexels|picsum|placeholder|austin|texas|\bTX\b|realty monitor|aistudio|ai studio|lorem|mock|seed|sample` sweep across `app/`, `components/`, `lib/`: after the fix, every remaining hit is legitimate — HTML `placeholder` attributes, honest CMA "no simulated/placeholder data" copy, "Stow" example placeholders, and `RealtyApiClient` adapter references. No fake data, stock media, Austin/TX default, or AI-Studio/Realty-Monitor brand string remains in a shipped path.
+- [x] Confirmed `lib/static_properties.ts` absent; no shipped component builds a hardcoded `ListingProperty[]` array — listings come only from Firestore `onSnapshot`, Gmail-parsed email, or the RealtyAPI adapter.
+- [x] Confirmed the extraction prompt returns an empty `imageUrl` for no media ("If no real listing media URL is present, return an empty string. Never invent or substitute stock photos.") and the no-media render is honest (`NoListingMedia` icon+label in both card and modal; `images` filters falsy URLs).
+- [x] Confirmed 44224/Stow/OH regional defaults are consistent (`lib/ingest/constants.ts` → `dashboard.tsx`, `layout.tsx` metadata, footer, docs) and shipped user-facing brand is "Abode Alerts" everywhere.
+
 Exit criteria:
 
 - [x] Fresh Firestore with zero listings shows a truthful empty state. (`ListingsGrid` renders "No listings loaded yet" + 44224 backfill guidance when `totalPropertyCount === 0`; verified by code path.)

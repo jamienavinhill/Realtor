@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       apiKey: key,
       httpOptions: {
         headers: {
-          "User-Agent": "aistudio-build",
+          "User-Agent": "abode-alerts",
         },
       },
     });

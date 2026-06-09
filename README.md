@@ -45,6 +45,6 @@ Use the narrowest meaningful gate while iterating, then run `npm run verify` bef
 
 ## Active Execution Plan
 
-- Roadmap: `docs/roadmaps/2026-06-08-abode-alerts-production-shape-plan.md`
+- Roadmap: `docs/roadmaps/2026-06-08-abode-alerts-end-to-end-production-plan.md`
 - Agent goal prompt: `docs/engineering/agents/goal.md`
 - Repository agent guide: `AGENTS.md`

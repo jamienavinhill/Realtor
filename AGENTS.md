@@ -15,7 +15,7 @@ Abode Alerts is a **production-shaped property monitoring workspace**: a Next.js
 
 ## Where To Start
 
-- Active dependency-ordered plan: `docs/roadmaps/2026-06-08-abode-alerts-production-shape-plan.md`.
+- Active dependency-ordered plan: `docs/roadmaps/2026-06-08-abode-alerts-end-to-end-production-plan.md`.
 - Goal/orchestration prompt: `docs/engineering/agents/goal.md`.
 - Repo-wide standards: `docs/engineering/standards/docs-standards.md`, `docs/engineering/standards/planning-style.md`, `docs/engineering/standards/report-style.md`, `docs/engineering/agents/orchestration-reliability.md`.
 - Current stack and commands: `README.md` and `package.json`.

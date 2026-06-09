@@ -1,6 +1,6 @@
 # Goal Prompt
 
-Working from: `C:\Users\james\projects\Realtor\docs\roadmaps\2026-06-08-abode-alerts-production-shape-plan.md`
+Working from: `C:\Users\james\projects\Realtor\docs\roadmaps\2026-06-08-abode-alerts-end-to-end-production-plan.md`
 
 ## Your Role: The Orchestrator
 
@@ -118,7 +118,7 @@ Before final response:
 ## Reusable Workstream Prompt
 
 ```text
-Working from: `docs/roadmaps/2026-06-08-abode-alerts-product-polish-and-automation-plan.md`.
+Working from: `docs/roadmaps/2026-06-08-abode-alerts-end-to-end-production-plan.md`.
 The live repository is the source of truth, not roadmap claims.
 
 <APPEND YOUR WORKSTREAM STEERING HERE>
@@ -127,7 +127,7 @@ Please AUDIT/EXECUTE Workstream <N>, aiming for completeness and cohesion, using
 
 Read the relevant repo guidance before editing:
 - `AGENTS.md`
-- `docs/roadmaps/2026-06-08-abode-alerts-product-polish-and-automation-plan.md`
+- `docs/roadmaps/2026-06-08-abode-alerts-end-to-end-production-plan.md`
 - `docs/engineering/standards/*`
 - `docs/engineering/agents/orchestration-reliability.md`
 - Relevant `docs/architecture/*`, `docs/operations/*`, and `docs/decisions/*` as they are created

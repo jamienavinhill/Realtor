@@ -10,7 +10,10 @@ export interface ServerEnv {
   geminiApiKey: string;
   realtyApiKeys: RealtyApiKeyEntry[];
   ingestJobToken: string;
-  firebaseAdminCredentialsPath: string;
+  /** Local file path to the Firebase admin service account (Windows/local dev). */
+  firebaseAdminCredentialsPath?: string;
+  /** Inline Firebase admin service account JSON (Vercel/serverless). */
+  firebaseServiceAccountJson?: string;
   googleSearchApiKey?: string;
   googleSearchEngineId?: string;
 }
@@ -118,17 +121,36 @@ export function getServerEnv(options?: { envFilePath?: string }): ServerEnv {
 
   const ingestJobToken = requireNonEmpty("INGEST_JOB_TOKEN", process.env.INGEST_JOB_TOKEN);
 
-  const firebaseAdminCredentialsPath = normalizeCredentialsPath(
-    requireNonEmpty(
-      "PATH_TO_FIREBASE_ADMIN_SDK or GOOGLE_APPLICATION_CREDENTIALS",
-      process.env.PATH_TO_FIREBASE_ADMIN_SDK ?? process.env.GOOGLE_APPLICATION_CREDENTIALS,
-    ),
-  );
+  // Firebase admin credentials: prefer inline JSON (Vercel/serverless),
+  // fall back to a local file path (Windows/local dev).
+  const inlineServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
+  let firebaseAdminCredentialsPath: string | undefined;
+  let firebaseServiceAccountJson: string | undefined;
 
-  if (!existsSync(firebaseAdminCredentialsPath)) {
-    throw new Error(
-      `Firebase admin credentials file not found at: ${firebaseAdminCredentialsPath}`,
+  if (inlineServiceAccount) {
+    try {
+      JSON.parse(inlineServiceAccount);
+    } catch (error) {
+      throw new Error(
+        `FIREBASE_SERVICE_ACCOUNT_JSON is set but is not valid JSON: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+    firebaseServiceAccountJson = inlineServiceAccount;
+  } else {
+    firebaseAdminCredentialsPath = normalizeCredentialsPath(
+      requireNonEmpty(
+        "FIREBASE_SERVICE_ACCOUNT_JSON, PATH_TO_FIREBASE_ADMIN_SDK, or GOOGLE_APPLICATION_CREDENTIALS",
+        process.env.PATH_TO_FIREBASE_ADMIN_SDK ?? process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      ),
     );
+
+    if (!existsSync(firebaseAdminCredentialsPath)) {
+      throw new Error(
+        `Firebase admin credentials file not found at: ${firebaseAdminCredentialsPath}`,
+      );
+    }
   }
 
   return {
@@ -136,6 +158,7 @@ export function getServerEnv(options?: { envFilePath?: string }): ServerEnv {
     realtyApiKeys,
     ingestJobToken,
     firebaseAdminCredentialsPath,
+    firebaseServiceAccountJson,
     googleSearchApiKey: process.env.GOOGLE_SEARCH_API_KEY?.trim() || undefined,
     googleSearchEngineId: process.env.GOOGLE_SEARCH_ENGINE_ID?.trim() || undefined,
   };

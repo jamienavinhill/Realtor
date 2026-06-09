@@ -1,6 +1,6 @@
 # Documentation Index
 
-- `docs/roadmaps/2026-06-08-abode-alerts-production-shape-plan.md` — active implementation roadmap.
+- `docs/roadmaps/2026-06-08-abode-alerts-end-to-end-production-plan.md` — active implementation roadmap.
 - `docs/engineering/agents/goal.md` — orchestrator prompt and reusable workstream prompt.
 - `docs/engineering/agents/orchestration-reliability.md` — resilient agent coordination rules.
 - `docs/engineering/standards/planning-style.md` — roadmap format and retirement rules.

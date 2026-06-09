@@ -1,5 +1,7 @@
 # AGENTS.md
 
+Today is June 2026. Do not rely on outdated training knowledge. There have been significant security, patterns, and best-practice updates that must be adopted. ALWAYS use official UP-TO-DATE sources.
+
 This is the development-agent entrypoint for the `Realtor` / Abode Alerts repository. Read it before doing anything; then read the active roadmap and any surface-specific docs below.
 
 Abode Alerts is a **production-shaped property monitoring workspace**: a Next.js app on Vercel using Firebase Auth/Firestore, Gemini extraction, Google Workspace OAuth, and provider-backed listing ingestion. The app owns user experience, listing workflows, alert configuration, provider ingestion orchestration, and docs. External providers own source data; Abode Alerts must preserve provenance and never invent listings, media, or market facts.

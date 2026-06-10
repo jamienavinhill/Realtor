@@ -1,10 +1,21 @@
-# Changelog: Realty Monitor Work History
+# Changelog: Abode Alerts Work History
 
-All notable changes of the Realty Monitor application development are logged here.
+All notable changes of the Abode Alerts application development are logged here.
 
 ---
 
-## 2026-06-08: Workspace Integrations & Real-World Inbox Parsing [Current Version]
+## 2026-06-10: Roadmap Status Reconciliation [Current]
+
+A status-tracking refresh, not a feature change. The authoritative tracker is the active roadmap under `docs/roadmaps/`.
+
+### Status
+
+- **Complete (committed, two passes each):** WS1–WS14 — tooling/docs, Vercel/env/Firebase-admin, contracts/schemas/rules base, listing preferences, provider adapters, 44224 backfill, email-triggered ingestion + multiselect, refresh/alert evaluation, toast system, auth chrome, UI honesty, compact listing dialog + actions, CMA analytics, and docs layout — plus WS19 repository/root hygiene (pulled forward).
+- **Partial:** WS15 product-flow/metadata wiring — pass 1 only (`db669711`); pass-2/closeout not yet run.
+- **Remaining:** account sharing + auth/rules hardening (WS18 + WS16, built together on the shared `firestore.rules`), the WS15 closeout, and the WS17 release gate.
+- **Operator-pending (not code):** live Gmail `watch`/Pub-Sub registration and OAuth verification (required to make the built-in automatic ingestion live and to onboard invited users), GCP/Firebase budget alert, live 44224 re-backfill + Firestore readback, and Vercel env/authorized-domain confirmation.
+
+## 2026-06-08: Workspace Integrations & Real-World Inbox Parsing
 
 ### Added
 

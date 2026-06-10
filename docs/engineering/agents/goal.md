@@ -14,8 +14,8 @@ The repo's owned surfaces:
 
 - `app/` - Next.js App Router routes, layout, global Tailwind theme tokens, API routes, and server-side Gemini/provider orchestration.
 - `components/` - dashboard shell, Google auth chrome, theme controls, listing cards/modals, alert setup, ingestion views, CMA, and in-app docs.
-- `lib/` - Firebase client adapter now; env validation, provider adapters, repositories, schemas, and ingestion modules as the roadmap executes.
-- `types/` - listing, alert, provider run, and shared TypeScript contracts.
+- `lib/` - Firebase client/admin adapters, env validation, provider adapters (RealtyAPI + Google search), repositories, schemas, Gmail sync, monthly provider-quota accounting, and ingestion/backfill modules.
+- `types/` - listing, alert, provider run, provider-quota, gmail-sync, and shared TypeScript contracts (account-sharing contracts still pending in WS18).
 - `config/firebase/client-config.json` and `config/firebase/firestore.rules` - Firebase client app config and Firestore access policy.
 - `docs/` - active roadmap, engineering standards, architecture/operations docs, research, and orchestration logs.
 

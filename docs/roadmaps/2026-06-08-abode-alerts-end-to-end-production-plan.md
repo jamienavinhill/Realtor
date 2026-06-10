@@ -1417,20 +1417,20 @@ Required before marking this plan complete:
 6. [x] Define `44224` radius backfill and ingest ~88 real listings with provenance (WS6).
 7. [x] **WS2** — Confirm the single Vercel `realtor` project, push runtime envs via PAT, add inline Firebase Admin JSON, clean `.env`/`.env.example`. (No deploy cron — deploys are automatic on push.)
 8. [x] **WS3** — Schemas, env validation, repositories, Firestore base model.
-9. [ ] **WS4** — User listing preferences contract + rules scaffold.
-10. [ ] **WS5** — RealtyAPI and Google search provider adapters (finalize).
-11. [ ] **WS9** — Toast system (unblocks notification UX).
-12. [ ] **WS10** — Auth chrome + theme density (quick, visible polish).
+9. [x] **WS4** — User listing preferences contract + rules scaffold.
+10. [x] **WS5** — RealtyAPI and Google search provider adapters (finalize).
+11. [x] **WS9** — Toast system (unblocks notification UX).
+12. [x] **WS10** — Auth chrome + theme density (quick, visible polish).
 13. [x] **WS11** — Finish UI honesty, regional defaults, lint/type cleanup. (Re-run 2026-06-09: brand/regional/no-fake-data exit criteria met; verify GREEN 49/49.)
-14. [ ] **WS7** — Multiselect ingest filter + email-triggered ingestion (Gmail `watch` → Pub/Sub push pipeline + enrichment fan-out).
-15. [ ] **WS8** — Refresh/alert evaluation + persisted matches; weekly re-watch + business-hours safety-net poll (free public-repo Actions); monthly RealtyAPI quota accounting.
-16. [ ] **WS12** — Compact listing dialog + actions + grid density.
-17. [ ] **WS13** — CMA analytics rebuild (paginated tables + charts).
+14. [x] **WS7** — Multiselect ingest filter + email-triggered ingestion (Gmail `watch` → Pub/Sub push pipeline + enrichment fan-out). _Built in code; live Gmail `watch`/Pub-Sub registration + OAuth verification remain operator-pending._
+15. [x] **WS8** — Refresh/alert evaluation + persisted matches; weekly re-watch + business-hours safety-net poll (free public-repo Actions); monthly RealtyAPI quota accounting.
+16. [x] **WS12** — Compact listing dialog + actions + grid density.
+17. [x] **WS13** — CMA analytics rebuild (paginated tables + charts).
 18. [x] **WS14** — Docs layout + content expansion.
-19. [ ] **WS15** — Wire all views/metadata to final Abode Alerts copy and data.
+19. [~] **WS15** — Wire all views/metadata to final Abode Alerts copy and data. _Pass 1 landed (`db669711`); pass-2/closeout audit not yet run._
 20. [ ] **WS18** — Account sharing & collaboration (invite + viewer/editor roles).
 21. [ ] **WS16** — Harden auth/security rules, OAuth token persistence, sharing rules, and production envs.
-22. [ ] **WS19** — Repository structure & root hygiene (relocate Firebase/config files; root keeps only tooling-required files). Runs after rules content settles (WS16/WS18), before the final release gate.
+22. [x] **WS19** — Repository structure & root hygiene (relocate Firebase/config files; root keeps only tooling-required files). _Completed early (config/firebase relocation + deprecated-tool removal) ahead of WS16/WS18; re-confirm references after the sharing-rules churn settles._
 23. [ ] **WS17** — Tests/CI/release gate and complete production smoke.
 24. [ ] Promote lasting rules to durable docs and retire the two superseded roadmaps.
 
@@ -1461,13 +1461,27 @@ Directive: drive the ENTIRE roadmap to completion -- exhausted, verified, polish
 | WS12 compact listing dialog + actions                                     | CLOSED `295a1af2`,`79e8a05` (compact dialog shell, action bar, prefs hook, analyze route, compare, density; 123 tests)            |
 | WS13 CMA analytics rebuild                                                | CLOSED `8c1beebf`,`16cff95f` (DataTable 10/20/30/100+sort, 5 charts, chips, compare col, drill-down; 155 tests, browser-verified) |
 | WS14 docs layout + content                                                | CLOSED `651ac9e7`,`c1698b9b` (pinned TOC, isolated main scroll, expanded grounded content; browser-proved no window-scroll)       |
-| WS15 product flows / metadata / page wiring                               | dispatching pass 1                                                                                                                |
-| WS18 account sharing                                                      | pending (needs WS16 rules)                                                                                                        |
-| WS16 auth/rules/secret hardening                                          | pending (needs WS18)                                                                                                              |
-| WS19 repository structure & root hygiene (relocate Firebase/config files) | pending (after WS16/WS18 rules settle)                                                                                            |
-| WS17 tests/CI/release gate + production smoke                             | pending (last)                                                                                                                    |
+| WS15 product flows / metadata / page wiring                               | pass 1 landed (`db669711`); pass-2/closeout pending                                                                               |
+| WS18 account sharing                                                      | NEXT UP — build with WS16 on the shared firestore.rules; full viewer + editor invite/accept/revoke (operator decision 2026-06-10) |
+| WS16 auth/rules/secret hardening                                          | paired with WS18 on the same firestore.rules; hardening + sharing rules land together                                             |
+| WS19 repository structure & root hygiene (relocate Firebase/config files) | DONE — config/firebase relocated + deprecated tools removed (pulled forward); re-confirm refs after sharing-rules churn           |
+| WS17 tests/CI/release gate + production smoke                             | pending — final gate after WS18/WS16 + WS15 closeout                                                                              |
 
 Operator-pending (account/dashboard, cannot be done in code): run `add-auth-domains.ts` + `vercel-listings-check.ts` against prod; GCP budget alert; live 44224 re-backfill + Firestore readback; Gmail `watch`/Pub/Sub registration; OAuth consent-screen scopes/verification.
+
+### Current Pickup State (reconciled 2026-06-10)
+
+Reconciled against the live repo (files + git history + `config/firebase/firestore.rules`), not roadmap checkboxes. Earlier status surfaces in this file had drifted; they are corrected above.
+
+- **Done and committed:** WS1–WS14 (two fresh-context passes each) and **WS19** (config/firebase relocation + deprecated-tool removal, pulled forward out of order).
+- **Partial:** **WS15** — pass 1 landed (`db669711`); the pass-2/closeout audit has not run.
+- **Not started — remaining queue:**
+  1. **WS18 + WS16, built together.** They share one file (`config/firebase/firestore.rules`), so they are a single coupled effort, not sequential (this resolves the former circular "needs WS16 / needs WS18" note). WS18 introduces the `accounts/{ownerUid}/members/{memberUid}` + `invites/{token}` model and rewrites the currently owner-only `users/{uid}/*` gates (`isOwner` at `firestore.rules`) to honor membership; WS16 finalizes/hardens those rules plus OAuth token persistence and production envs. Operator decision 2026-06-10: build the **full** flow — invite/accept/revoke with **viewer and editor** roles (editor does everything except delete the account / remove the owner). The first concrete user is the operator inviting their mother as a viewer.
+  2. **WS15 pass-2 closeout** — product-flow/metadata final audit.
+  3. **WS17** — tests/CI/release gate + full production smoke (final gate).
+- **Operator-pending (cannot be done in code), independent of the build queue:** live Gmail `watch`→Pub/Sub registration and OAuth consent-screen verification — these make the already-built automatic ingestion actually live, and are also prerequisites for any invited/shared user's account to function; plus the GCP/Firebase budget alert, a live 44224 re-backfill + Firestore readback, and `vercel env ls` + authorized-domain confirmation.
+
+No feature code was written in this reconciliation pass — only stale status language was refreshed so the run is ready to continue.
 
 ## Expansion Track
 

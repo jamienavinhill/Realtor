@@ -57,6 +57,38 @@ Two optional fields extend `ListingProperty` without breaking existing documents
 - `idempotencyKey`, `startedAt`, `finishedAt`
 - `keyAliasesUsed`, `quotaUsed`, result counts, `errors[]`
 
+### Account sharing & collaboration (WS18)
+
+A workspace is owned by a single owner `uid` — the owner's existing data IS the shared
+workspace. The owner invites others by email and picks a role; a **viewer** is read-only
+across the owner's workspace data and an **editor** can do everything the owner can on
+that data EXCEPT delete the account or remove/demote the owner.
+
+| Path                                      | Contract        | Read                                       | Write                                                            | Repository                            |
+| ----------------------------------------- | --------------- | ------------------------------------------ | --------------------------------------------------------------- | ------------------------------------- |
+| `accounts/{ownerUid}/members/{memberUid}` | `AccountMember` | owner + any member                         | owner/editor add/remove ≤ editor; never the owner; Admin SDK     | `lib/repositories/account-members.ts` |
+| `invites/{token}`                         | `AccountInvite` | owner + the invited-email user (by token)  | client-denied; minted/accepted/revoked via Admin SDK + routes    | `lib/repositories/account-members.ts` |
+
+- **Membership-aware rules.** `config/firebase/firestore.rules` gains `canReadWorkspace`
+  / `canEditWorkspace` helpers that resolve the caller's role from
+  `accounts/{ownerUid}/members/{auth.uid}`. The owner-scoped paths
+  (`users/{userId}/profile`, `listingPreferences`, `compareQueue`) and the top-level
+  `alerts` / `alert_matches` now allow a viewer to read and an editor to write into the
+  owner's workspace. Owner-only delete of the account/profile is preserved;
+  `gmailSync` and `provider_quota` stay server-only.
+- **Owner-pinned validators.** Member writes by an editor carry the workspace owner's uid
+  (not the writer's), so the rules use `*ForOwner` validator variants
+  (`isValidListingPreferenceForOwner`, `isValidCompareQueueForOwner`,
+  `isValidAlertForOwner`) that pin `userId` to the path owner.
+- **Invite tokens** are 32 random bytes (base64url, ~256 bits), unguessable and never
+  logged. Invites are minted, accepted (transactional, with a verified-email match), and
+  revoked exclusively via the Admin SDK behind the authenticated `/api/account/*` routes;
+  clients can only READ an invite (owner, or the invited-email user) to render the accept
+  screen.
+- **Optional invite email** is sent best-effort via the owner's connected Gmail (reusing
+  the WS7 send path + stored encrypted refresh token); a send failure never fails the
+  invite and the token-bearing accept URL is never logged.
+
 ## Planned Collections (not yet implemented)
 
 These paths are defined in the active roadmap and must follow the same `types/` → `lib/schemas/` → `lib/repositories/` → `config/firebase/firestore.rules` pattern when their workstreams land:
@@ -68,8 +100,6 @@ These paths are defined in the active roadmap and must follow the same `types/` 
 | `users/{uid}/compareQueue/main`              | `CompareQueue`       | WS4                |
 | `users/{uid}/gmailSync/main`                 | `GmailSync`          | WS7                |
 | `provider_quota/{YYYY-MM}`                   | `ProviderQuotaMonth` | WS5                |
-| `accounts/{ownerUid}/members/{memberUid}`    | `AccountMember`      | WS18               |
-| `invites/{token}`                            | `AccountInvite`      | WS18               |
 
 ## Validation Boundaries
 
@@ -107,7 +137,10 @@ Names only — values live in `.env` (local) or Vercel/GitHub encrypted secrets.
 - `tests/ingest-schema.test.ts` — ingest run validator (status, quota, run types)
 - `tests/env.test.ts` — env validation error surfaces (no secrets required)
 - `tests/ingest-auth.test.ts` — ingest token auth helper
-- `tests/firestore-rules-structure.test.ts` — base access model + WS4 preference/compare paths
+- `tests/firestore-rules-structure.test.ts` — base access model + WS4 preference/compare paths + WS18 sharing helpers/paths
 - `tests/listing-preferences.test.ts` — WS4 preference/compare validators
+- `tests/sharing-schema.test.ts` — WS18 `AccountMember` / `AccountInvite` validators + role/status guards
+- `tests/account-members-repo.test.ts` — WS18 role-hierarchy helper (`roleAtOrBelow`)
+- `tests/emulator/sharing-rules-emulator.test.ts` — WS18 owner/editor/viewer/non-member rule proof (emulator)
 
 Run `npm run test` after schema, env, or repository changes. Firestore-rules emulator coverage runs separately under `npm run test:rules`.

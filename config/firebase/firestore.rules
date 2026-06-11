@@ -89,6 +89,21 @@ service cloud.firestore {
         && data.createdAt is string;
     }
 
+    // Workspace-owner variant (WS18): an editor may create/update alerts in the owner's
+    // workspace, so the stored `userId` is pinned to the workspace owner rather than the
+    // writer. The owner writing their own alerts also satisfies this.
+    function isValidAlertForOwner(data, ownerUid) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'criteria', 'isActive', 'createdAt'])
+        && data.keys().size() <= 10
+        && data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.userId == ownerUid
+        && data.name is string && data.name.size() <= 100
+        && data.criteria is map
+        && data.isActive is bool
+        && data.createdAt is string;
+    }
+
     function isValidAlertMatch(data) {
       return data.keys().hasAll(['id', 'alertId', 'listingId', 'userId', 'matchReason', 'firstSeenAt', 'lastSeenAt'])
         && data.keys().size() <= 12
@@ -126,8 +141,77 @@ service cloud.firestore {
         && data.updatedAt is string && data.updatedAt.size() <= 64;
     }
 
+    // Workspace-owner variants (WS18): the stored `userId` is the WORKSPACE owner's uid,
+    // not the writer's. Used on owner-scoped paths so an editor (whose auth.uid differs
+    // from the owner) can write into the owner's workspace while the stored owner id stays
+    // pinned to the path. The owner writing their own data also satisfies these (their
+    // uid == the path owner).
+    function isValidListingPreferenceForOwner(data, ownerUid) {
+      return data.keys().hasAll(['listingId', 'userId', 'state', 'createdAt', 'updatedAt'])
+        && data.keys().size() <= 8
+        && data.listingId is string && data.listingId.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.userId == ownerUid
+        && isValidListingUserState(data.state)
+        && optionalString(data, 'note', 2000)
+        && data.createdAt is string && data.createdAt.size() <= 64
+        && data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    function isValidCompareQueueForOwner(data, ownerUid) {
+      return data.keys().hasAll(['userId', 'listingIds', 'updatedAt'])
+        && data.keys().size() <= 6
+        && data.userId is string && data.userId.size() <= 128
+        && data.userId == ownerUid
+        && data.listingIds is list && data.listingIds.size() <= 4
+        && data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- Account sharing helpers (WS18) ---
+    // Membership of an owner's workspace lives at
+    // `accounts/{ownerUid}/members/{memberUid}`. These helpers resolve the signed-in
+    // caller's role in `ownerUid`'s workspace. `get()` returns null when the member doc
+    // is absent, so `memberRole()` is null for non-members and `exists()` short-circuits
+    // the read.
+
+    function memberPath(ownerUid) {
+      return /databases/$(database)/documents/accounts/$(ownerUid)/members/$(request.auth.uid);
+    }
+
+    function isMember(ownerUid) {
+      return isSignedIn() && exists(memberPath(ownerUid));
+    }
+
+    function memberRole(ownerUid) {
+      return get(memberPath(ownerUid)).data.role;
+    }
+
+    // A viewer (or above) may READ the owner's workspace data.
+    function canReadWorkspace(ownerUid) {
+      return isOwner(ownerUid) || isMember(ownerUid);
+    }
+
+    // An editor (or the owner) may WRITE the owner's workspace data.
+    function canEditWorkspace(ownerUid) {
+      return isOwner(ownerUid) || (isMember(ownerUid) && memberRole(ownerUid) == 'editor');
+    }
+
+    function isValidMemberRole(role) {
+      return role in ['viewer', 'editor'];
+    }
+
+    function isValidAccountMember(data) {
+      return data.keys().hasAll(['memberUid', 'email', 'role', 'invitedAt'])
+        && data.keys().size() <= 6
+        && data.memberUid is string && data.memberUid.size() <= 128
+        && data.email is string && data.email.size() <= 320
+        && isValidMemberRole(data.role)
+        && data.invitedAt is string && data.invitedAt.size() <= 64
+        && optionalString(data, 'acceptedAt', 64);
     }
 
     // --- Path Rules ---
@@ -141,14 +225,28 @@ service cloud.firestore {
     }
 
     match /alerts/{alertId} {
-      allow list, get: if isSignedIn() && existing().userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(alertId) && isValidAlert(incoming());
-      allow update: if isSignedIn() && isValidId(alertId) && isValidAlert(incoming()) && incoming().userId == existing().userId;
-      allow delete: if isSignedIn() && isValidId(alertId) && existing().userId == request.auth.uid;
+      // Owner OR any workspace member (viewer+) may read the owner's alerts. The `userId`
+      // field on the alert is the workspace owner's uid.
+      allow list, get: if isSignedIn()
+        && (existing().userId == request.auth.uid || canReadWorkspace(existing().userId));
+      // The owner, or an editor of the owner's workspace, may create alerts. The stored
+      // `userId` names the workspace owner (so an editor's writes stay owner-scoped).
+      allow create: if isSignedIn() && isValidId(alertId)
+        && isValidAlertForOwner(incoming(), incoming().userId)
+        && canEditWorkspace(incoming().userId);
+      // Updates may not move an alert to a different owner, and require edit rights.
+      allow update: if isSignedIn() && isValidId(alertId)
+        && isValidAlertForOwner(incoming(), existing().userId)
+        && incoming().userId == existing().userId
+        && canEditWorkspace(existing().userId);
+      allow delete: if isSignedIn() && isValidId(alertId)
+        && canEditWorkspace(existing().userId);
     }
 
     match /alert_matches/{matchId} {
-      allow list, get: if isSignedIn() && existing().userId == request.auth.uid;
+      // Owner OR any workspace member (viewer+) may read the owner's alert matches.
+      allow list, get: if isSignedIn()
+        && (existing().userId == request.auth.uid || canReadWorkspace(existing().userId));
       // Server-side ingestion writes via Firebase Admin SDK bypass.
       allow create, update, delete: if false;
     }
@@ -163,19 +261,69 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // The owner's profile (WS6/WS15). Readable by viewers+; writable by editors+.
+    // Stored fields are open-ended preference data, so we validate ownership/shape
+    // loosely (userId pinned to the path owner) and rely on the membership gate.
+    match /users/{userId}/profile/{profileId} {
+      allow list, get: if canReadWorkspace(userId);
+      allow create, update: if canEditWorkspace(userId) && isValidId(profileId);
+      // Only the owner can delete their own profile.
+      allow delete: if isOwner(userId) && isValidId(profileId);
+    }
+
     match /users/{userId}/listingPreferences/{listingId} {
-      allow list, get: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidId(listingId) && isValidListingPreference(incoming())
+      // Viewers (and above) may read; editors (and the owner) may write. The stored
+      // `userId` field is the WORKSPACE owner's uid, so it is validated against the path
+      // owner (not request.auth.uid) — an editor writes preferences into the owner's
+      // workspace under the owner's id.
+      allow list, get: if canReadWorkspace(userId);
+      allow create: if canEditWorkspace(userId) && isValidId(listingId)
+        && isValidListingPreferenceForOwner(incoming(), userId)
         && incoming().listingId == listingId;
-      allow update: if isOwner(userId) && isValidId(listingId) && isValidListingPreference(incoming())
+      allow update: if canEditWorkspace(userId) && isValidId(listingId)
+        && isValidListingPreferenceForOwner(incoming(), userId)
         && incoming().listingId == listingId;
-      allow delete: if isOwner(userId) && isValidId(listingId);
+      // Only the owner may delete a preference outright; editors clear via state writes.
+      allow delete: if (canEditWorkspace(userId)) && isValidId(listingId);
     }
 
     match /users/{userId}/compareQueue/{queueId} {
-      allow list, get: if isOwner(userId);
-      allow create, update: if isOwner(userId) && isValidId(queueId) && isValidCompareQueue(incoming());
-      allow delete: if isOwner(userId) && isValidId(queueId);
+      allow list, get: if canReadWorkspace(userId);
+      allow create, update: if canEditWorkspace(userId) && isValidId(queueId)
+        && isValidCompareQueueForOwner(incoming(), userId);
+      allow delete: if canEditWorkspace(userId) && isValidId(queueId);
+    }
+
+    // --- Account sharing collections (WS18) ---
+
+    // Members of an owner's workspace. Readable by the owner and any member. The owner
+    // may add/remove/change any member; an editor may add/remove members AT OR BELOW
+    // editor but may never create, demote, or remove the owner (the owner has no member
+    // doc, and editors are capped at editor). Trust-critical accept writes go through the
+    // Admin SDK (which bypasses rules); these client rules are the additional floor.
+    match /accounts/{ownerUid}/members/{memberUid} {
+      allow list, get: if canReadWorkspace(ownerUid);
+      // Editors and the owner may write members at/below editor. The owner is never a
+      // member doc, so there is no path to remove/demote the owner here.
+      allow create, update: if canEditWorkspace(ownerUid)
+        && isValidAccountMember(incoming())
+        && incoming().memberUid == memberUid
+        && isValidMemberRole(incoming().role);
+      allow delete: if canEditWorkspace(ownerUid);
+    }
+
+    // Pending email invites, keyed by an unguessable token. Invites are minted, accepted,
+    // and revoked SERVER-SIDE via the Admin SDK (which bypasses these rules) after the
+    // `/api/account/*` routes verify the caller's Firebase ID token and (for acceptance)
+    // match the verified email. The only client capability is READ: the owner reads their
+    // own invites, and an invitee reads an invite addressed to their verified email so the
+    // app can render the pending-invite acceptance screen. All client writes are denied.
+    match /invites/{token} {
+      allow get: if isSignedIn()
+        && (existing().ownerUid == request.auth.uid
+          || existing().email == request.auth.token.email);
+      allow list: if false;
+      allow create, update, delete: if false;
     }
 
     match /users/{userId}/gmailSync/{docId} {

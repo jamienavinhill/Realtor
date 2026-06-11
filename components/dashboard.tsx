@@ -16,6 +16,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Trash2,
+  Users,
 } from "lucide-react";
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from "firebase/firestore";
 import {
@@ -49,6 +50,8 @@ import { CMAView } from "./views/CMAView";
 import { ThemeControls } from "./theme-controls";
 import { useToast } from "./ui/toast";
 import { useListingPreferences } from "@/lib/hooks/useListingPreferences";
+import { useWorkspaces } from "@/lib/hooks/useWorkspaces";
+import { ShareWorkspaceDialog } from "./sharing/ShareWorkspaceDialog";
 import { filterListings } from "@/lib/listings/filter";
 import { Eye, EyeOff, GitCompareArrows, Heart } from "lucide-react";
 
@@ -143,7 +146,15 @@ function FilterToggle({
   );
 }
 
-function ProfileMenu({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+function ProfileMenu({
+  user,
+  onSignOut,
+  onShareWorkspace,
+}: {
+  user: User;
+  onSignOut: () => void;
+  onShareWorkspace: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const name = user.displayName || user.email || "Google account";
@@ -200,9 +211,21 @@ function ProfileMenu({ user, onSignOut }: { user: User; onSignOut: () => void })
             role="menuitem"
             onClick={() => {
               setOpen(false);
-              onSignOut();
+              onShareWorkspace();
             }}
             className="flex w-full cursor-pointer items-center gap-2 px-4 py-2.5 text-left text-sm text-stone-700 transition hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-stone-800"
+          >
+            <Users className="h-4 w-4" />
+            <span>Share workspace</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onSignOut();
+            }}
+            className="flex w-full cursor-pointer items-center gap-2 border-t border-stone-100 px-4 py-2.5 text-left text-sm text-stone-700 transition hover:bg-stone-100 dark:border-stone-800 dark:text-stone-200 dark:hover:bg-stone-800"
           >
             <LogOut className="h-4 w-4" />
             <span>Sign out</span>
@@ -263,6 +286,10 @@ export default function Dashboard() {
 
   // Per-user listing preferences + compare queue (WS4 contract, owner-scoped client SDK).
   const prefs = useListingPreferences(user);
+
+  // Account sharing (WS18): which workspaces this user can act in + the share dialog.
+  const workspacesApi = useWorkspaces(user);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Wrap the prefs API with toast feedback (and the compare-cap toast) for the grid/dialog.
   // Filtering reads `prefs` directly; only user-initiated writes route through here.
@@ -893,19 +920,53 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* Workspace switcher — only when the user belongs to >1 workspace (WS18). */}
+            {user && workspacesApi.workspaces.length > 1 ? (
+              <label className="hidden items-center gap-1.5 sm:flex">
+                <span className="sr-only">Active workspace</span>
+                <select
+                  value={workspacesApi.activeOwnerUid}
+                  onChange={(e) => workspacesApi.setActiveOwnerUid(e.target.value)}
+                  className="max-w-[12rem] truncate rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-xs font-semibold text-stone-700 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
+                  aria-label="Active workspace"
+                >
+                  {workspacesApi.workspaces.map((w) => (
+                    <option key={w.ownerUid} value={w.ownerUid}>
+                      {w.label}
+                      {w.isOwn ? "" : ` (${w.role})`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
             {/* Status panel */}
             <ThemeControls />
 
             {authLoading ? (
               <Loader2 className="text-primary-500 h-5 w-5 animate-spin" />
             ) : user ? (
-              <ProfileMenu user={user} onSignOut={handleLogout} />
+              <ProfileMenu
+                user={user}
+                onSignOut={handleLogout}
+                onShareWorkspace={() => setShareOpen(true)}
+              />
             ) : (
               <GoogleSignInButton onClick={handleGoogleAuth} />
             )}
           </div>
         </div>
       </header>
+
+      {/* Share-workspace management dialog (WS18). Targets the active workspace. */}
+      {user ? (
+        <ShareWorkspaceDialog
+          user={user}
+          ownerUid={workspacesApi.activeOwnerUid || user.uid}
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+        />
+      ) : null}
 
       {/* Alert matches and workspace events surface through the toast system (components/ui/toast.tsx). */}
       <main className="mx-auto w-full max-w-7xl grow px-4 py-8 sm:px-6 lg:px-8">

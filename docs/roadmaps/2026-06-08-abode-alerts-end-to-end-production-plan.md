@@ -1311,21 +1311,23 @@ Model (keep it simple):
 
 Implementation tasks:
 
-- [ ] Define `AccountMember` / `AccountInvite` schemas and a repository with create-invite, accept-invite, list-members, change-role, revoke.
-- [ ] Invite flow: owner enters an email + role → invite record + (optional) email via the owner's Gmail with an accept link. Accepting (signed-in Google user) writes the membership.
-- [ ] Profile-menu UI: "Share workspace" → list members + roles, invite form, revoke control. Visible to owner and editors.
-- [ ] `config/firebase/firestore.rules`: reads/writes on owner-scoped collections allow the owner and any `members` entry per role; **only the owner can delete the account**; editors cannot delete the account or demote/remove the owner.
-- [ ] Read paths resolve "which workspace am I viewing" (own vs. one I'm a member of) and a simple workspace switcher if the user belongs to more than one.
+- [x] Define `AccountMember` / `AccountInvite` schemas and a repository with create-invite, accept-invite, list-members, change-role, revoke. (`types/sharing.ts`, `lib/schemas/sharing.ts`, `lib/repositories/account-members.ts`)
+- [x] Invite flow: owner enters an email + role → invite record + (optional) email via the owner's Gmail with an accept link. Accepting (signed-in Google user) writes the membership. (`app/api/account/{invite,accept,revoke,members}/route.ts`, `lib/account/route-helpers.ts`; accept is a verified-email transaction)
+- [x] Profile-menu UI: "Share workspace" → list members + roles, invite form, revoke control. Visible to owner and editors. (`components/sharing/ShareWorkspaceDialog.tsx`, ProfileMenu entry in `components/dashboard.tsx`; pending-invite acceptance at `app/invite/[token]/`)
+- [x] `config/firebase/firestore.rules`: reads/writes on owner-scoped collections allow the owner and any `members` entry per role; **only the owner can delete the account**; editors cannot delete the account or demote/remove the owner. (`canReadWorkspace`/`canEditWorkspace` helpers; owner-only profile delete; invites client-write-denied)
+- [x] Read paths resolve "which workspace am I viewing" (own vs. one I'm a member of) and a simple workspace switcher if the user belongs to more than one. (`lib/hooks/useWorkspaces.ts`; header switcher shown only when >1 workspace)
 
 Exit criteria:
 
-- [ ] Owner can invite by email, choose viewer/editor, and the invitee gains exactly that access after accepting.
-- [ ] Editor can perform all workspace actions except deleting the account; viewer is strictly read-only.
-- [ ] Rules tests prove a non-member has no access and a viewer cannot write.
+- [x] Owner can invite by email, choose viewer/editor, and the invitee gains exactly that access after accepting. (routes + transactional accept; rules grant viewer-read / editor-write proven in emulator)
+- [x] Editor can perform all workspace actions except deleting the account; viewer is strictly read-only. (emulator: editor writes prefs/compare/alerts + members ≤ editor; viewer denied all writes; owner-only profile delete)
+- [x] Rules tests prove a non-member has no access and a viewer cannot write. (`tests/emulator/sharing-rules-emulator.test.ts`, 16 cases; `npm run test:rules` 24/24)
 
 Suggested verification:
 
 - Firebase rules tests for owner/editor/viewer/non-member; two-account browser flow (invite → accept → edit/view); revoke removes access.
+
+_Status 2026-06-10: built end-to-end; `npm run verify` GREEN (175 unit tests + lint/type/format/build), `npm run test:rules` GREEN (24/24 incl. 16 WS18). Two-account live browser flow is operator-pending (needs the Gmail watch/Pub-Sub + OAuth consent that also gate any shared user's account being live)._
 
 ## Workstream 19: Repository Structure & Root Hygiene
 
@@ -1428,7 +1430,7 @@ Required before marking this plan complete:
 17. [x] **WS13** — CMA analytics rebuild (paginated tables + charts).
 18. [x] **WS14** — Docs layout + content expansion.
 19. [~] **WS15** — Wire all views/metadata to final Abode Alerts copy and data. _Pass 1 landed (`db669711`); pass-2/closeout audit not yet run._
-20. [ ] **WS18** — Account sharing & collaboration (invite + viewer/editor roles).
+20. [x] **WS18** — Account sharing & collaboration (invite + viewer/editor roles). _Built end-to-end: types/schemas/repository, `/api/account/*` routes, member-aware Firestore rules, ProfileMenu share UI + workspace switcher + invite-accept page; verify GREEN, rules 24/24. Live two-account browser flow operator-pending (Gmail watch/OAuth)._
 21. [ ] **WS16** — Harden auth/security rules, OAuth token persistence, sharing rules, and production envs.
 22. [x] **WS19** — Repository structure & root hygiene (relocate Firebase/config files; root keeps only tooling-required files). _Completed early (config/firebase relocation + deprecated-tool removal) ahead of WS16/WS18; re-confirm references after the sharing-rules churn settles._
 23. [ ] **WS17** — Tests/CI/release gate and complete production smoke.
@@ -1462,7 +1464,7 @@ Directive: drive the ENTIRE roadmap to completion -- exhausted, verified, polish
 | WS13 CMA analytics rebuild                                                | CLOSED `8c1beebf`,`16cff95f` (DataTable 10/20/30/100+sort, 5 charts, chips, compare col, drill-down; 155 tests, browser-verified) |
 | WS14 docs layout + content                                                | CLOSED `651ac9e7`,`c1698b9b` (pinned TOC, isolated main scroll, expanded grounded content; browser-proved no window-scroll)       |
 | WS15 product flows / metadata / page wiring                               | pass 1 landed (`db669711`); pass-2/closeout pending                                                                               |
-| WS18 account sharing                                                      | NEXT UP — build with WS16 on the shared firestore.rules; full viewer + editor invite/accept/revoke (operator decision 2026-06-10) |
+| WS18 account sharing                                                      | CLOSED `__WS18_SHA__` (types/schemas/repo; `/api/account/{invite,accept,revoke,members}`; member-aware rules + `canRead/EditWorkspace`; ShareWorkspaceDialog + workspace switcher + `/invite/[token]`; 175 unit + 24 rules tests). Live two-account flow operator-pending (Gmail watch/Pub-Sub + OAuth consent). |
 | WS16 auth/rules/secret hardening                                          | paired with WS18 on the same firestore.rules; hardening + sharing rules land together                                             |
 | WS19 repository structure & root hygiene (relocate Firebase/config files) | DONE — config/firebase relocated + deprecated tools removed (pulled forward); re-confirm refs after sharing-rules churn           |
 | WS17 tests/CI/release gate + production smoke                             | pending — final gate after WS18/WS16 + WS15 closeout                                                                              |

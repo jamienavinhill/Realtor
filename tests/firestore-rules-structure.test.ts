@@ -48,4 +48,50 @@ describe("firestore rules structure", () => {
   it("requires preference userId to match auth uid", () => {
     assert.match(rules, /data\.userId == request\.auth\.uid/);
   });
+
+  // --- WS18: account sharing ---
+
+  it("defines the account members and invites collections", () => {
+    assert.match(rules, /match \/accounts\/\{ownerUid\}\/members\/\{memberUid\}/);
+    assert.match(rules, /match \/invites\/\{token\}/);
+  });
+
+  it("defines membership helpers (read/edit workspace gates)", () => {
+    assert.match(rules, /function canReadWorkspace\(ownerUid\)/);
+    assert.match(rules, /function canEditWorkspace\(ownerUid\)/);
+    assert.match(rules, /function memberRole\(ownerUid\)/);
+    assert.match(rules, /memberRole\(ownerUid\) == 'editor'/);
+  });
+
+  it("keeps invite client-writes denied (server/Admin SDK mints/accepts/revokes)", () => {
+    assert.match(
+      rules,
+      /match \/invites\/\{token\} \{[\s\S]*?allow create, update, delete: if false;/,
+    );
+  });
+
+  it("gates the owner profile, preferences, and compare queue on workspace membership", () => {
+    assert.match(rules, /match \/users\/\{userId\}\/profile\/\{profileId\}/);
+    assert.match(rules, /allow list, get: if canReadWorkspace\(userId\);/);
+    assert.match(rules, /allow create, update: if canEditWorkspace\(userId\)/);
+  });
+
+  it("lets only the owner delete the profile", () => {
+    assert.match(
+      rules,
+      /match \/users\/\{userId\}\/profile\/\{profileId\} \{[\s\S]*?allow delete: if isOwner\(userId\)/,
+    );
+  });
+
+  it("opens alert/alert_matches reads to workspace members", () => {
+    assert.match(rules, /canReadWorkspace\(existing\(\)\.userId\)/);
+  });
+
+  it("keeps gmailSync and provider_quota server-only after the sharing rewrite", () => {
+    assert.match(
+      rules,
+      /match \/users\/\{userId\}\/gmailSync\/\{docId\} \{[\s\S]*?allow read, write: if false;/,
+    );
+    assert.match(rules, /match \/provider_quota\/\{month\} \{[\s\S]*?allow read, write: if false;/);
+  });
 });

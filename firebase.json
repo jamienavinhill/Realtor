@@ -2,7 +2,8 @@
   "firestore": [
     {
       "database": "abode-alerts",
-      "rules": "config/firebase/firestore.rules"
+      "rules": "config/firebase/firestore.rules",
+      "indexes": "config/firebase/firestore.indexes.json"
     }
   ],
   "emulators": {

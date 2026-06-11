@@ -369,9 +369,13 @@ function PropertyProfileModal({
 
   const pricePerSqft = property.sqft > 0 ? Math.round(property.price / property.sqft) : null;
 
+  // Viewers of a shared workspace (WS18) are read-only: the mutating preference chips are
+  // hidden and replaced with an honest read-only note. Owners/editors get full controls.
+  const canWrite = prefs?.canWrite ?? true;
+
   const footer = (
     <div className="space-y-2">
-      {isSignedIn && prefs ? (
+      {isSignedIn && prefs && canWrite ? (
         <div className="flex flex-wrap gap-1.5">
           <ActionChip
             active={state === "interested"}
@@ -407,6 +411,11 @@ function PropertyProfileModal({
             onClick={() => prefs.addToCompare(property.id)}
           />
         </div>
+      ) : isSignedIn && prefs && !canWrite ? (
+        <p className="text-xs text-stone-500">
+          You have view-only access to this workspace. Saved states above reflect the owner&apos;s
+          preferences.
+        </p>
       ) : (
         <p className="text-xs text-stone-500">Sign in to save preferences, compare, and analyze.</p>
       )}

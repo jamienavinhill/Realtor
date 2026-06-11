@@ -248,4 +248,60 @@ describe("firestore rules emulator — WS18 account sharing", () => {
       dbFor(VIEWER).doc(`accounts/${OWNER}/members/${VIEWER}`).set(memberDoc(VIEWER, "editor")),
     );
   });
+
+  // --- Adversarial holes probed in WS18 pass 2 ---
+
+  it("editor cannot mint an owner member doc (memberUid == ownerUid) to pollute the owner record", async () => {
+    // Even the owner cannot create a member doc keyed by their own uid — the owner is
+    // never a member record. This blocks any attempt to fabricate an owner-as-member.
+    await assertFails(
+      dbFor(EDITOR).doc(`accounts/${OWNER}/members/${OWNER}`).set(memberDoc(OWNER, "viewer")),
+    );
+    await assertFails(
+      dbFor(OWNER).doc(`accounts/${OWNER}/members/${OWNER}`).set(memberDoc(OWNER, "editor")),
+    );
+  });
+
+  it("editor cannot delete the owner's (non-existent) member record path", async () => {
+    await assertFails(dbFor(EDITOR).doc(`accounts/${OWNER}/members/${OWNER}`).delete());
+  });
+
+  it("editor can promote a viewer to editor and remove a member (at/below editor)", async () => {
+    await assertSucceeds(
+      dbFor(EDITOR).doc(`accounts/${OWNER}/members/${VIEWER}`).set(memberDoc(VIEWER, "editor")),
+    );
+    await assertSucceeds(dbFor(EDITOR).doc(`accounts/${OWNER}/members/${VIEWER}`).delete());
+  });
+
+  it("a non-member (stranger) cannot create an alert in the owner's workspace", async () => {
+    await assertFails(dbFor(STRANGER).doc(`alerts/alert-x`).set(alertDoc("alert-x", OWNER)));
+  });
+
+  it("a viewer cannot create, update, or delete the owner's alerts", async () => {
+    await assertFails(dbFor(VIEWER).doc(`alerts/alert-9`).set(alertDoc("alert-9", OWNER)));
+    await assertFails(dbFor(VIEWER).doc(`alerts/alert-1`).delete());
+  });
+
+  it("a viewer cannot delete an owner listing preference; an editor can", async () => {
+    await assertFails(dbFor(VIEWER).doc(`users/${OWNER}/listingPreferences/listing-1`).delete());
+    await assertSucceeds(dbFor(EDITOR).doc(`users/${OWNER}/listingPreferences/listing-1`).delete());
+  });
+
+  it("a stranger cannot write into the owner's compareQueue", async () => {
+    await assertFails(
+      dbFor(STRANGER)
+        .doc(`users/${OWNER}/compareQueue/main`)
+        .set({ userId: OWNER, listingIds: ["a"], updatedAt: now() }),
+    );
+  });
+
+  it("an editor cannot forge a preference pinned to a different owner's uid", async () => {
+    // The owner-pinned validator requires the stored userId to equal the PATH owner. An
+    // editor of OWNER cannot write a preference whose userId names someone else.
+    await assertFails(
+      dbFor(EDITOR)
+        .doc(`users/${OWNER}/listingPreferences/listing-7`)
+        .set(preferenceDoc("listing-7", "someone-else")),
+    );
+  });
 });

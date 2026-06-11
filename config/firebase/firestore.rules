@@ -283,8 +283,8 @@ service cloud.firestore {
       allow update: if canEditWorkspace(userId) && isValidId(listingId)
         && isValidListingPreferenceForOwner(incoming(), userId)
         && incoming().listingId == listingId;
-      // Only the owner may delete a preference outright; editors clear via state writes.
-      allow delete: if (canEditWorkspace(userId)) && isValidId(listingId);
+      // Editors (and the owner) may delete a preference (e.g. clearing a saved state).
+      allow delete: if canEditWorkspace(userId) && isValidId(listingId);
     }
 
     match /users/{userId}/compareQueue/{queueId} {
@@ -304,12 +304,16 @@ service cloud.firestore {
     match /accounts/{ownerUid}/members/{memberUid} {
       allow list, get: if canReadWorkspace(ownerUid);
       // Editors and the owner may write members at/below editor. The owner is never a
-      // member doc, so there is no path to remove/demote the owner here.
+      // member doc — `memberUid != ownerUid` forbids minting an owner member record (which
+      // would pollute the member list and the switcher), so there is no path to add,
+      // remove, or demote the owner here.
       allow create, update: if canEditWorkspace(ownerUid)
+        && memberUid != ownerUid
         && isValidAccountMember(incoming())
         && incoming().memberUid == memberUid
         && isValidMemberRole(incoming().role);
-      allow delete: if canEditWorkspace(ownerUid);
+      // Editors/owner may remove any member, but never the owner's (non-existent) record.
+      allow delete: if canEditWorkspace(ownerUid) && memberUid != ownerUid;
     }
 
     // Pending email invites, keyed by an unguessable token. Invites are minted, accepted,

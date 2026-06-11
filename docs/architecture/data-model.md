@@ -64,10 +64,10 @@ workspace. The owner invites others by email and picks a role; a **viewer** is r
 across the owner's workspace data and an **editor** can do everything the owner can on
 that data EXCEPT delete the account or remove/demote the owner.
 
-| Path                                      | Contract        | Read                                       | Write                                                            | Repository                            |
-| ----------------------------------------- | --------------- | ------------------------------------------ | --------------------------------------------------------------- | ------------------------------------- |
-| `accounts/{ownerUid}/members/{memberUid}` | `AccountMember` | owner + any member                         | owner/editor add/remove ≤ editor; never the owner; Admin SDK     | `lib/repositories/account-members.ts` |
-| `invites/{token}`                         | `AccountInvite` | owner + the invited-email user (by token)  | client-denied; minted/accepted/revoked via Admin SDK + routes    | `lib/repositories/account-members.ts` |
+| Path                                      | Contract        | Read                                      | Write                                                         | Repository                            |
+| ----------------------------------------- | --------------- | ----------------------------------------- | ------------------------------------------------------------- | ------------------------------------- |
+| `accounts/{ownerUid}/members/{memberUid}` | `AccountMember` | owner + any member                        | owner/editor add/remove ≤ editor; never the owner; Admin SDK  | `lib/repositories/account-members.ts` |
+| `invites/{token}`                         | `AccountInvite` | owner + the invited-email user (by token) | client-denied; minted/accepted/revoked via Admin SDK + routes | `lib/repositories/account-members.ts` |
 
 - **Membership-aware rules.** `config/firebase/firestore.rules` gains `canReadWorkspace`
   / `canEditWorkspace` helpers that resolve the caller's role from
@@ -75,7 +75,18 @@ that data EXCEPT delete the account or remove/demote the owner.
   (`users/{userId}/profile`, `listingPreferences`, `compareQueue`) and the top-level
   `alerts` / `alert_matches` now allow a viewer to read and an editor to write into the
   owner's workspace. Owner-only delete of the account/profile is preserved;
-  `gmailSync` and `provider_quota` stay server-only.
+  `gmailSync` and `provider_quota` stay server-only. The members subcollection write rule
+  also forbids `memberUid == ownerUid`, so no client can mint an owner-as-member record.
+- **Active-workspace client targeting (WS18 pass 2).** The dashboard resolves an active
+  workspace owner uid (`lib/account/active-workspace.ts` → `resolveActiveOwnerUid`,
+  default = own uid; or a workspace the user is a member of, via `useWorkspaces`). Every
+  per-user listener and write — `alerts` / `alert_matches` (`where userId == activeOwnerUid`),
+  and `useListingPreferences({ ownerUid, canWrite })` for `listingPreferences` /
+  `compareQueue` — targets that owner's data, so a member viewing an owner's workspace
+  truly sees (and, as editor, edits) the owner's data. Writes are owner-pinned (`userId`
+  = the workspace owner). A viewer is read-only client-side (`canWrite` false: mutating
+  controls hidden) and denied by the rules regardless; `properties` remains a public,
+  workspace-independent catalog.
 - **Owner-pinned validators.** Member writes by an editor carry the workspace owner's uid
   (not the writer's), so the rules use `*ForOwner` validator variants
   (`isValidListingPreferenceForOwner`, `isValidCompareQueueForOwner`,
@@ -141,6 +152,7 @@ Names only — values live in `.env` (local) or Vercel/GitHub encrypted secrets.
 - `tests/listing-preferences.test.ts` — WS4 preference/compare validators
 - `tests/sharing-schema.test.ts` — WS18 `AccountMember` / `AccountInvite` validators + role/status guards
 - `tests/account-members-repo.test.ts` — WS18 role-hierarchy helper (`roleAtOrBelow`)
-- `tests/emulator/sharing-rules-emulator.test.ts` — WS18 owner/editor/viewer/non-member rule proof (emulator)
+- `tests/active-workspace.test.ts` — WS18 active-workspace owner-uid resolution + viewer write-gating (client targeting)
+- `tests/emulator/sharing-rules-emulator.test.ts` — WS18 owner/editor/viewer/non-member rule proof + pass-2 adversarial cases (emulator)
 
 Run `npm run test` after schema, env, or repository changes. Firestore-rules emulator coverage runs separately under `npm run test:rules`.

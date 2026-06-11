@@ -87,7 +87,9 @@ export function CMAView({
 
   const columns = useMemo<DataTableColumn<ListingProperty>[]>(() => {
     const cols: DataTableColumn<ListingProperty>[] = [];
-    if (prefs && isSignedIn) {
+    // The compare column writes to the workspace compare queue, so it is shown only when
+    // the active role may write (owner/editor); viewers (WS18) get a read-only table.
+    if (prefs && isSignedIn && (prefs.canWrite ?? true)) {
       cols.push({
         id: "compare",
         header: "Compare",
@@ -599,9 +601,11 @@ function CmaListingDialog({
   const ppsf = pricePerSqft(listing);
   const state = prefs?.states[listing.id];
   const inCompare = prefs?.compareIds.includes(listing.id) ?? false;
+  // Viewers of a shared workspace (WS18) are read-only.
+  const canWrite = prefs?.canWrite ?? true;
 
   const footer =
-    isSignedIn && prefs ? (
+    isSignedIn && prefs && canWrite ? (
       <div className="flex flex-wrap gap-1.5">
         <ActionChip
           active={state === "interested"}
@@ -634,6 +638,8 @@ function CmaListingDialog({
           }}
         />
       </div>
+    ) : isSignedIn && prefs && !canWrite ? (
+      <p className="text-xs text-stone-500">You have view-only access to this workspace.</p>
     ) : (
       <p className="text-xs text-stone-500">Sign in to save preferences and compare listings.</p>
     );

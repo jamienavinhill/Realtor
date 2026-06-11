@@ -13,6 +13,7 @@ import {
   PlusCircle,
   Search,
   Send,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Trash2,
@@ -51,6 +52,7 @@ import { ThemeControls } from "./theme-controls";
 import { useToast } from "./ui/toast";
 import { useListingPreferences } from "@/lib/hooks/useListingPreferences";
 import { useWorkspaces } from "@/lib/hooks/useWorkspaces";
+import { resolveActiveOwnerUid, canWriteWorkspace } from "@/lib/account/active-workspace";
 import { ShareWorkspaceDialog } from "./sharing/ShareWorkspaceDialog";
 import { filterListings } from "@/lib/listings/filter";
 import { Eye, EyeOff, GitCompareArrows, Heart } from "lucide-react";
@@ -284,12 +286,20 @@ export default function Dashboard() {
 
   const { toast } = useToast();
 
-  // Per-user listing preferences + compare queue (WS4 contract, owner-scoped client SDK).
-  const prefs = useListingPreferences(user);
-
   // Account sharing (WS18): which workspaces this user can act in + the share dialog.
   const workspacesApi = useWorkspaces(user);
   const [shareOpen, setShareOpen] = useState(false);
+
+  // The workspace the dashboard is currently reading/writing. Defaults to the user's own
+  // uid; when the user switches to a workspace they're a member of, every per-user listener
+  // and write below re-targets THAT owner's subcollections (WS18 pass 2). A viewer is
+  // read-only (canWrite false): mutating controls are hidden and the rules deny the write.
+  const activeOwnerUid = resolveActiveOwnerUid(user?.uid, workspacesApi.activeOwnerUid);
+  const canWrite = canWriteWorkspace(workspacesApi.activeRole);
+
+  // Per-user listing preferences + compare queue (WS4 contract), scoped to the active
+  // workspace owner and gated by the active role (WS18).
+  const prefs = useListingPreferences(user, { ownerUid: activeOwnerUid, canWrite });
 
   // Wrap the prefs API with toast feedback (and the compare-cap toast) for the grid/dialog.
   // Filtering reads `prefs` directly; only user-initiated writes route through here.
@@ -420,10 +430,11 @@ export default function Dashboard() {
       setProperties([]);
     }
 
-    // 2. Alerts snapshot listener
-    if (user) {
+    // 2. Alerts snapshot listener — scoped to the ACTIVE workspace owner (WS18), so a
+    //    member viewing the owner's workspace sees the owner's alerts/matches, not their own.
+    if (user && activeOwnerUid) {
       try {
-        const qAlerts = query(collection(db, "alerts"), where("userId", "==", user.uid));
+        const qAlerts = query(collection(db, "alerts"), where("userId", "==", activeOwnerUid));
         unsubAlerts = onSnapshot(
           qAlerts,
           (snapshot) => {
@@ -443,7 +454,7 @@ export default function Dashboard() {
       try {
         const qAlertMatches = query(
           collection(db, "alert_matches"),
-          where("userId", "==", user.uid),
+          where("userId", "==", activeOwnerUid),
         );
         unsubAlertMatches = onSnapshot(
           qAlertMatches,
@@ -475,7 +486,7 @@ export default function Dashboard() {
       unsubAlerts();
       unsubAlertMatches();
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, activeOwnerUid]);
 
   // Authenticate user & capture Google Access Token in-memory
   const handleGoogleAuth = async () => {
@@ -769,15 +780,21 @@ export default function Dashboard() {
   // Create real-time search match alert criterion
   const handleCreateAlert = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !activeOwnerUid) return;
     if (!newAlertName) return;
+    if (!canWrite) {
+      toast({ variant: "error", description: "You have view-only access to this workspace." });
+      return;
+    }
 
     const alertId = `alert_${Date.now()}`;
     const path = `alerts/${alertId}`;
 
+    // The stored `userId` is the ACTIVE WORKSPACE owner's uid (owner-pinned), so an editor
+    // creating an alert writes it into the owner's workspace, not their own (WS18).
     const alertData: PropertyAlert = {
       id: alertId,
-      userId: user.uid,
+      userId: activeOwnerUid,
       name: newAlertName,
       criteria: {
         city: newAlertCity,
@@ -804,6 +821,10 @@ export default function Dashboard() {
   // Delete an active alert query
   const handleDeleteAlert = async (alertId: string) => {
     if (!user) return;
+    if (!canWrite) {
+      toast({ variant: "error", description: "You have view-only access to this workspace." });
+      return;
+    }
     const path = `alerts/${alertId}`;
     try {
       await deleteDoc(doc(db, "alerts", alertId));
@@ -1331,7 +1352,18 @@ export default function Dashboard() {
                 </h2>
               </div>
 
-              {!user ? (
+              {user && !canWrite ? (
+                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-center dark:border-stone-800 dark:bg-stone-950">
+                  <ShieldCheck className="mx-auto mb-2 h-7 w-7 text-stone-400" />
+                  <span className="mb-1 block text-xs font-bold text-stone-700 dark:text-stone-200">
+                    View-only access
+                  </span>
+                  <p className="text-[11px] leading-relaxed text-stone-500">
+                    You can view this workspace&apos;s alerts and matches, but only the owner or an
+                    editor can create or mute monitors.
+                  </p>
+                </div>
+              ) : !user ? (
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-center text-amber-300">
                   <span className="mb-1 block text-xs font-bold">Authorization Required</span>
                   <p className="mb-3 text-[11px] leading-relaxed text-stone-400">
@@ -1477,13 +1509,15 @@ export default function Dashboard() {
                         </div>
                         <div className="mt-4 flex items-center justify-between border-t border-stone-200 pt-3 dark:border-stone-900">
                           <span className="font-mono text-[9px] text-stone-500">UUID: {a.id}</span>
-                          <button
-                            onClick={() => handleDeleteAlert(a.id)}
-                            className="flex cursor-pointer items-center space-x-1 font-mono text-[11px] text-red-400 transition hover:text-red-300"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span>Mute Monitor</span>
-                          </button>
+                          {canWrite ? (
+                            <button
+                              onClick={() => handleDeleteAlert(a.id)}
+                              className="flex cursor-pointer items-center space-x-1 font-mono text-[11px] text-red-400 transition hover:text-red-300"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span>Mute Monitor</span>
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     ))}

@@ -22,7 +22,7 @@ the full Firestore access table).
   with the Admin SDK (`getAdminAuth().verifyIdToken`) and derive the uid server-side. A
   client-supplied uid is never trusted. Pattern: `extractBearerToken` →
   `verifyIdToken` (see `lib/account/route-helpers.ts`, `app/api/gmail/connect/route.ts`,
-  `app/api/properties/route.ts`).
+  `lib/api/properties-handler.ts`).
 
 ## Two secret lanes
 
@@ -84,10 +84,14 @@ collection opens explicitly. Roles come from `accounts/{ownerUid}/members/{membe
 | `accounts/{owner}/members/{m}`                              | owner or member                 | owner/editor at/below editor; never the owner record (`memberUid != ownerUid`) |
 | `invites/{token}`                                           | owner or the invited-email user | server-only (mint/accept/revoke via Admin SDK)                                 |
 
-Invariants enforced and tested (`tests/emulator/*`, 38 cases): a non-member reads/writes
+Invariants enforced and tested (`tests/emulator/*`, 42 cases): a non-member reads/writes
 nothing; a viewer cannot write; an editor cannot remove/demote the owner or delete the
-account; `gmailSync`/`provider_quota` are never client-readable; the shared catalog cannot
-be mutated from the browser.
+account; `gmailSync`/`provider_quota`/`ingest_runs` are never client-readable or
+client-writable; `alert_matches` reject all client writes (signed-in and anon); the shared
+catalog cannot be mutated from the browser. The WS16-pass-2 adversarial re-audit
+re-derived every invariant with fresh eyes and found no hole; the four server-only
+collections (`alert_matches`, `ingest_runs`, `provider_quota`, plus the existing
+`properties`/`gmailSync` cases) now have explicit deny proofs.
 
 ### Shared-catalog hardening (WS16 — the key change)
 
@@ -102,8 +106,25 @@ browser write arbitrary shared listing state. WS16 closes this:
   `sourceProvider`, `dedupeKey`, `rawHash`, `ingestedAt`/`updatedAt`; never invents geo or
   media), and writes via the Admin SDK repository (`upsertListing`). A `delete_listing`
   action mirrors this for the listing delete button.
+- **Extraction actions gated (WS16 pass 2):** the upstream Gemini-extraction actions on the
+  same route — `parse_gmail` and `parse_raw_text` — now also require a verified Firebase ID
+  token (defense-in-depth / cost protection: Gemini is a billable surface that previously
+  accepted an unauthenticated `parse_raw_text` call, and only a Google access token on
+  `parse_gmail`). `parse_raw_text` carries the ID token as the `Authorization: Bearer`
+  value; `parse_gmail` carries the Google OAuth **access** token in `Authorization` (used
+  for the Gmail REST calls) and the Firebase **ID** token in a separate
+  `X-Firebase-Id-Token` header — the two token types never share a header. An
+  unauthenticated caller now gets an honest 401 before any Gemini client is constructed.
+- **Testable seam:** the route logic lives in `lib/api/properties-handler.ts`
+  (`handlePropertiesPost(req, deps)`) with injected dependencies (ID-token verification +
+  the listing repository), mirroring the `runDailyRefresh({ deps })` pattern. The thin
+  `app/api/properties/route.ts` wires the real Admin-SDK deps; `tests/properties-route.test.ts`
+  drives the handler with in-memory fakes — covering 401-without-token, 401-on-invalid-token,
+  the normalize→upsert happy path, delete, and the extraction-action gates — inside the
+  standard `npm run test` suite (no live Firebase).
 - **Result:** the manual UX is unchanged end-to-end, but the browser can no longer write
-  shared catalog state, and every committed listing carries audited provenance identical in
+  shared catalog state, the billable extraction surface is no longer reachable
+  unauthenticated, and every committed listing carries audited provenance identical in
   shape to the email/RealtyAPI lanes.
 
 ## Server-job auth (`INGEST_JOB_TOKEN`)

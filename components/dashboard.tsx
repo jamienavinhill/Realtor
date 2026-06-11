@@ -535,11 +535,16 @@ export default function Dashboard() {
     setHarvestedPreviews([]);
 
     try {
+      // The Gmail scan needs BOTH tokens: the Google OAuth access token (Authorization,
+      // for the Gmail REST API) AND a Firebase ID token (X-Firebase-Id-Token) so the
+      // server verifies the caller before driving billable Gemini extraction (WS16).
+      const idToken = await user.getIdToken();
       const response = await fetch("/api/properties", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
+          "X-Firebase-Id-Token": idToken,
         },
         body: JSON.stringify({
           action: "parse_gmail",
@@ -607,12 +612,23 @@ export default function Dashboard() {
       toast({ variant: "info", description: "Please paste listing details first." });
       return;
     }
+    // WS16: raw-text parsing drives billable Gemini extraction, so it now requires a
+    // verified Firebase ID token. Honest signed-out state instead of an unauthenticated
+    // call that the server would reject with a 401.
+    if (!user) {
+      toast({ variant: "error", description: "Sign in to parse listing text." });
+      return;
+    }
     setIsParsingDirect(true);
 
     try {
+      const idToken = await user.getIdToken();
       const response = await fetch("/api/properties", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
         body: JSON.stringify({
           action: "parse_raw_text",
           text: directPastedText,

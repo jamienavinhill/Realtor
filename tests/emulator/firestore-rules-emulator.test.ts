@@ -301,3 +301,74 @@ describe("firestore rules emulator — listing preferences own-only", () => {
     );
   });
 });
+
+describe("firestore rules emulator — server-only collections reject all client writes (WS16)", () => {
+  // Adversarial re-audit (WS16 pass 2): `alert_matches`, `ingest_runs`, and
+  // `provider_quota` are written ONLY by the Admin SDK (which bypasses rules). Prove that
+  // a signed-in client and an anonymous client are both denied create/update/delete on
+  // each — the catalog/ingest/quota state can never be forged from the browser.
+  before(async () => {
+    testEnv = await initializeTestEnvironment({
+      projectId: PROJECT_ID,
+      firestore: { rules: RULES, host: "127.0.0.1", port: 8080 },
+    });
+  });
+
+  after(async () => {
+    await testEnv.cleanup();
+  });
+
+  it("denies a signed-in client creating an alert_match (server-only write)", async () => {
+    const user = testEnv.authenticatedContext("forger-uid");
+    await assertFails(
+      user.firestore().collection("alert_matches").doc("alert-1_listing-1").set({
+        id: "alert-1_listing-1",
+        alertId: "alert-1",
+        listingId: "listing-1",
+        userId: "forger-uid",
+        matchReason: "price",
+        firstSeenAt: new Date().toISOString(),
+        lastSeenAt: new Date().toISOString(),
+      }),
+    );
+  });
+
+  it("denies an anonymous client creating an alert_match", async () => {
+    const anon = testEnv.unauthenticatedContext();
+    await assertFails(
+      anon.firestore().collection("alert_matches").doc("alert-anon").set({
+        id: "alert-anon",
+        alertId: "a",
+        listingId: "l",
+        userId: "x",
+        matchReason: "r",
+        firstSeenAt: new Date().toISOString(),
+        lastSeenAt: new Date().toISOString(),
+      }),
+    );
+  });
+
+  it("denies a signed-in client reading or writing ingest_runs (operator/server-only)", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("ingest_runs")
+        .doc("run-1")
+        .set({ id: "run-1", type: "daily", status: "completed" });
+    });
+    const user = testEnv.authenticatedContext("nosy-uid");
+    await assertFails(user.firestore().collection("ingest_runs").doc("run-1").get());
+    await assertFails(user.firestore().collection("ingest_runs").doc("run-2").set({ id: "run-2" }));
+  });
+
+  it("denies a signed-in client reading or writing provider_quota (never client-readable)", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection("provider_quota").doc("2026-06").set({ realty_key_1: 42 });
+    });
+    const user = testEnv.authenticatedContext("nosy-uid");
+    await assertFails(user.firestore().collection("provider_quota").doc("2026-06").get());
+    await assertFails(
+      user.firestore().collection("provider_quota").doc("2026-07").set({ realty_key_1: 1 }),
+    );
+  });
+});

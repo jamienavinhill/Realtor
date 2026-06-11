@@ -37,7 +37,7 @@ Server ingestion (RealtyAPI backfill/daily refresh) requires these provenance an
 - `provenance` (`providerRunId`, `keyAlias`, `fetchPage` when applicable)
 - `radiusCenter`, `distanceMiles` for geo-scoped sweeps
 
-The manual Gmail-scan / paste-commit flow produces leaner Gemini-extracted drafts; WS16 routes these through server validation: `POST /api/properties` (`action: commit`, Firebase ID-token verified) re-validates and re-provenances each draft via `lib/ingest/manual-normalize.ts` (synthesizing `source`, `sourceProvider`, `dedupeKey`, `rawHash`, timestamps) and writes via the Admin SDK. Client writes to `properties/*` are denied by the rules. See `auth-and-secrets.md`.
+The manual Gmail-scan / paste-commit flow produces leaner Gemini-extracted drafts; WS16 routes these through server validation: `POST /api/properties` (`action: commit`, Firebase ID-token verified) re-validates and re-provenances each draft via `lib/ingest/manual-normalize.ts` (synthesizing `source`, `sourceProvider`, `dedupeKey`, `rawHash`, timestamps) and writes via the Admin SDK. The upstream Gemini-extraction actions on the same route (`parse_gmail`, `parse_raw_text`) are also Firebase ID-token gated (WS16 pass 2) so the billable extraction surface is unreachable unauthenticated. Client writes to `properties/*` are denied by the rules. See `auth-and-secrets.md`.
 
 ### Free-lane enrichment and history (additive, optional)
 

@@ -95,6 +95,10 @@ export function ListingsGrid({
     );
   }
 
+  const selectedIndex = selectedProperty
+    ? properties.findIndex((p) => p.id === selectedProperty.id)
+    : -1;
+
   return (
     <>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -123,6 +127,14 @@ export function ListingsGrid({
         prefs={prefs}
         isSignedIn={isSignedIn}
         onAnalyze={onAnalyze}
+        onPrev={
+          selectedIndex > 0 ? () => setSelectedProperty(properties[selectedIndex - 1]) : undefined
+        }
+        onNext={
+          selectedIndex >= 0 && selectedIndex < properties.length - 1
+            ? () => setSelectedProperty(properties[selectedIndex + 1])
+            : undefined
+        }
       />
     </>
   );
@@ -310,6 +322,9 @@ interface PropertyProfileModalProps {
   prefs?: ListingPreferencesApi;
   isSignedIn?: boolean;
   onAnalyze?: (property: ListingProperty) => Promise<string>;
+  /** Navigate to the previous/next listing in the current list (undefined at the ends). */
+  onPrev?: () => void;
+  onNext?: () => void;
 }
 
 function PropertyProfileModal({
@@ -326,6 +341,8 @@ function PropertyProfileModal({
   prefs,
   isSignedIn = false,
   onAnalyze,
+  onPrev,
+  onNext,
 }: PropertyProfileModalProps) {
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [showWorkspace, setShowWorkspace] = useState(false);
@@ -470,188 +487,212 @@ function PropertyProfileModal({
   );
 
   return (
-    <Dialog
-      open={Boolean(property)}
-      onClose={onClose}
-      size="2xl"
-      title={property.title}
-      subtitle={`${property.address}, ${property.city}, ${property.state} ${property.zipCode}`}
-      footer={footer}
-    >
-      {/* Two columns so the listing fits one screen: media left, facts/details right;
-          analysis + workspace actions span full width below. */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Media */}
-        <div className="relative aspect-[4/3] w-full self-stretch overflow-hidden rounded-xl bg-stone-950 md:aspect-auto">
-          {images.length > 0 ? (
-            <img
-              src={images[currentImageIdx]}
-              alt={`${property.title} — photo ${currentImageIdx + 1} of ${images.length}`}
-              className="h-full w-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <NoListingMedia />
-          )}
-          {images.length > 1 && (
-            <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-between px-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentImageIdx((prev) => (prev - 1 + images.length) % images.length)
-                }
-                className="rounded-full bg-black/40 p-2 text-white backdrop-blur-md transition hover:bg-black/60"
-                aria-label="Previous image"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentImageIdx((prev) => (prev + 1) % images.length)}
-                className="rounded-full bg-black/40 p-2 text-white backdrop-blur-md transition hover:bg-black/60"
-                aria-label="Next image"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          )}
+    <>
+      {/* Floating prev/next LISTING arrows — to the sides of the dialog, not on it. */}
+      {(onPrev || onNext) && (
+        <div className="pointer-events-none fixed inset-0 z-[60] hidden items-center justify-between px-3 sm:px-5 md:flex">
+          <button
+            type="button"
+            onClick={onPrev}
+            disabled={!onPrev}
+            aria-label="Previous listing"
+            className="hover:text-primary-600 dark:hover:text-primary-400 pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-stone-200 bg-white/90 text-stone-700 shadow-lg backdrop-blur transition disabled:cursor-not-allowed disabled:opacity-30 dark:border-stone-700 dark:bg-stone-900/90 dark:text-stone-200"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!onNext}
+            aria-label="Next listing"
+            className="hover:text-primary-600 dark:hover:text-primary-400 pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-stone-200 bg-white/90 text-stone-700 shadow-lg backdrop-blur transition disabled:cursor-not-allowed disabled:opacity-30 dark:border-stone-700 dark:bg-stone-900/90 dark:text-stone-200"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
         </div>
-
-        {/* RIGHT column — price, facts, details */}
-        <div className="flex flex-col gap-3">
-          {/* Price + key facts: compact chips, no giant decorative numbers. */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-primary-600 dark:text-primary-400 font-mono text-xl font-semibold">
-              ${property.price.toLocaleString()}
-            </span>
-            <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600 dark:bg-stone-800 dark:text-stone-300">
-              {property.status} · {property.propertyType}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 text-sm">
-            <Fact label="Beds" value={property.beds} />
-            <Fact label="Baths" value={property.baths} />
-            <Fact label="Sq ft" value={property.sqft.toLocaleString()} />
-            <Fact label="Year" value={property.yearBuilt ?? "—"} />
-            {pricePerSqft !== null && <Fact label="$/sqft" value={`$${pricePerSqft}`} />}
-            {typeof property.distanceMiles === "number" && (
-              <Fact label="Distance" value={`${property.distanceMiles.toFixed(1)} mi`} />
-            )}
-          </div>
-
-          {property.description ? (
-            <div className="min-h-0">
-              <h3 className="mb-1 text-xs font-semibold tracking-wider text-stone-500 uppercase">
-                Details
-              </h3>
-              <p className="line-clamp-4 text-sm leading-relaxed text-stone-600 dark:text-stone-400">
-                {property.description}
-              </p>
-            </div>
-          ) : null}
-
-          {property.sourceUrl ? (
-            <a
-              href={property.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary-600 dark:text-primary-400 inline-block text-xs font-medium hover:underline"
-            >
-              View source listing ↗
-            </a>
-          ) : null}
-        </div>
-
-        {/* Analysis output (Gemini-backed, cited/qualified, honest no-data). */}
-        {(analyzing || analysis) && (
-          <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 md:col-span-2 dark:border-stone-800 dark:bg-stone-950/40">
-            <h3 className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wider text-stone-500 uppercase">
-              <Star className="h-3.5 w-3.5" /> AI analysis
-            </h3>
-            {analyzing ? (
-              <p className="flex items-center gap-2 text-sm text-stone-500">
-                <Loader2 className="h-4 w-4 animate-spin" /> Analyzing listing data…
-              </p>
+      )}
+      <Dialog
+        open={Boolean(property)}
+        onClose={onClose}
+        size="3xl"
+        title={property.title}
+        subtitle={`${property.address}, ${property.city}, ${property.state} ${property.zipCode}`}
+        footer={footer}
+      >
+        {/* Media left, all listing info right; analysis + workspace span full width below. */}
+        <div className="grid gap-5 md:grid-cols-2">
+          {/* Media */}
+          <div className="relative aspect-[4/3] w-full self-start overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-950">
+            {images.length > 0 ? (
+              <img
+                src={images[currentImageIdx]}
+                alt={`${property.title} — photo ${currentImageIdx + 1} of ${images.length}`}
+                className="h-full w-full object-cover"
+                referrerPolicy="no-referrer"
+              />
             ) : (
-              <p className="text-sm leading-relaxed whitespace-pre-line text-stone-700 dark:text-stone-300">
-                {analysis}
-              </p>
+              <NoListingMedia />
             )}
-            <p className="mt-2 text-[10px] text-stone-400">
-              AI-generated from listing fields only. Verify independently; not provider-verified
-              fact or investment advice.
-            </p>
-          </div>
-        )}
-
-        {/* Workspace actions (Sheets / Calendar / delete) folded into the compact pattern. */}
-        {showWorkspace && (
-          <div className="space-y-3 rounded-xl border border-stone-200 bg-stone-50 p-3 md:col-span-2 dark:border-stone-800 dark:bg-stone-950/40">
-            {hasWorkspaceAccess && onExportToSheet && (
-              <button
-                type="button"
-                onClick={() => onExportToSheet(property)}
-                disabled={isExporting}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
-              >
-                {isExporting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sheet className="h-4 w-4" />
-                )}
-                Export to Google Sheets
-              </button>
-            )}
-
-            {hasWorkspaceAccess && onScheduleViewing && onCalendarEventTimeChange && (
-              <div className="space-y-2">
-                <label
-                  htmlFor={`viewing-time-${property.id}`}
-                  className="block text-xs font-semibold tracking-wider text-stone-500 uppercase"
-                >
-                  Viewing date &amp; time
-                </label>
-                <input
-                  id={`viewing-time-${property.id}`}
-                  type="datetime-local"
-                  value={calendarEventTime}
-                  onChange={(e) => onCalendarEventTimeChange(e.target.value)}
-                  className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100"
-                />
+            {images.length > 1 && (
+              <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-between px-3">
                 <button
                   type="button"
-                  onClick={() => onScheduleViewing(property)}
-                  disabled={isScheduling || !calendarEventTime}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
+                  onClick={() =>
+                    setCurrentImageIdx((prev) => (prev - 1 + images.length) % images.length)
+                  }
+                  className="rounded-full bg-black/40 p-2 text-white backdrop-blur-md transition hover:bg-black/60"
+                  aria-label="Previous image"
                 >
-                  {isScheduling ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Calendar className="h-4 w-4" />
-                  )}
-                  Schedule calendar viewing
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentImageIdx((prev) => (prev + 1) % images.length)}
+                  className="rounded-full bg-black/40 p-2 text-white backdrop-blur-md transition hover:bg-black/60"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
             )}
-
-            {onDeleteProperty && (
-              <button
-                type="button"
-                onClick={() => {
-                  onDeleteProperty(property.id);
-                  onClose();
-                }}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50"
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete listing
-              </button>
-            )}
           </div>
-        )}
-      </div>
-    </Dialog>
+
+          {/* RIGHT column — price, facts, details */}
+          <div className="flex flex-col gap-3">
+            {/* Price + key facts: compact chips, no giant decorative numbers. */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-primary-600 dark:text-primary-400 font-mono text-xl font-semibold">
+                ${property.price.toLocaleString()}
+              </span>
+              <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+                {property.status} · {property.propertyType}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <Fact label="Beds" value={property.beds} />
+              <Fact label="Baths" value={property.baths} />
+              <Fact label="Sq ft" value={property.sqft.toLocaleString()} />
+              <Fact label="Year" value={property.yearBuilt ?? "—"} />
+              {pricePerSqft !== null && <Fact label="$/sqft" value={`$${pricePerSqft}`} />}
+              {typeof property.distanceMiles === "number" && (
+                <Fact label="Distance" value={`${property.distanceMiles.toFixed(1)} mi`} />
+              )}
+            </div>
+
+            {property.description ? (
+              <div className="min-h-0">
+                <h3 className="mb-1 text-xs font-semibold tracking-wider text-stone-500 uppercase">
+                  Details
+                </h3>
+                <p className="text-sm leading-relaxed text-stone-600 dark:text-stone-400">
+                  {property.description}
+                </p>
+              </div>
+            ) : null}
+
+            {property.sourceUrl ? (
+              <a
+                href={property.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 dark:text-primary-400 inline-block text-xs font-medium hover:underline"
+              >
+                View source listing ↗
+              </a>
+            ) : null}
+          </div>
+
+          {/* Analysis output (Gemini-backed, cited/qualified, honest no-data). */}
+          {(analyzing || analysis) && (
+            <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 md:col-span-2 dark:border-stone-800 dark:bg-stone-950/40">
+              <h3 className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wider text-stone-500 uppercase">
+                <Star className="h-3.5 w-3.5" /> AI analysis
+              </h3>
+              {analyzing ? (
+                <p className="flex items-center gap-2 text-sm text-stone-500">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Analyzing listing data…
+                </p>
+              ) : (
+                <p className="text-sm leading-relaxed whitespace-pre-line text-stone-700 dark:text-stone-300">
+                  {analysis}
+                </p>
+              )}
+              <p className="mt-2 text-[10px] text-stone-400">
+                AI-generated from listing fields only. Verify independently; not provider-verified
+                fact or investment advice.
+              </p>
+            </div>
+          )}
+
+          {/* Workspace actions (Sheets / Calendar / delete) folded into the compact pattern. */}
+          {showWorkspace && (
+            <div className="space-y-3 rounded-xl border border-stone-200 bg-stone-50 p-3 md:col-span-2 dark:border-stone-800 dark:bg-stone-950/40">
+              {hasWorkspaceAccess && onExportToSheet && (
+                <button
+                  type="button"
+                  onClick={() => onExportToSheet(property)}
+                  disabled={isExporting}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sheet className="h-4 w-4" />
+                  )}
+                  Export to Google Sheets
+                </button>
+              )}
+
+              {hasWorkspaceAccess && onScheduleViewing && onCalendarEventTimeChange && (
+                <div className="space-y-2">
+                  <label
+                    htmlFor={`viewing-time-${property.id}`}
+                    className="block text-xs font-semibold tracking-wider text-stone-500 uppercase"
+                  >
+                    Viewing date &amp; time
+                  </label>
+                  <input
+                    id={`viewing-time-${property.id}`}
+                    type="datetime-local"
+                    value={calendarEventTime}
+                    onChange={(e) => onCalendarEventTimeChange(e.target.value)}
+                    className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onScheduleViewing(property)}
+                    disabled={isScheduling || !calendarEventTime}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
+                  >
+                    {isScheduling ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Calendar className="h-4 w-4" />
+                    )}
+                    Schedule calendar viewing
+                  </button>
+                </div>
+              )}
+
+              {onDeleteProperty && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeleteProperty(property.id);
+                    onClose();
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete listing
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </Dialog>
+    </>
   );
 }
 

@@ -65,6 +65,31 @@ function normalizeToken(value: string | undefined): string {
   return value.toLowerCase().replace(/[.,#]/g, " ").replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Street address reduced for dedupe: lowercased, unit/suite/apt markers and punctuation
+ * stripped, whitespace collapsed — so "763 Valley View Ct #763" and "763 Valley View Ct"
+ * collapse to the same physical home and merge into a single catalog doc.
+ */
+function cleanStreetForDedupe(address: string): string {
+  return address
+    .toLowerCase()
+    .replace(/\b(unit|apt|apartment|ste|suite)\b\s*\S+/g, " ")
+    .replace(/#\s*\S+/g, " ")
+    .replace(/[.,#]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Uniform, deterministic listing title derived from the structured address, so every email
+ * source for the same home renders identically instead of each provider's subject line
+ * ("New Listing at ...", "Charming Cape Cod ..."). E.g. "763 Valley View Ct, Kent, OH".
+ */
+function buildUniformTitle(address: string, city: string, state: string): string {
+  const street = address.replace(/#.*$/, "").replace(/\s+/g, " ").trim() || address.trim();
+  return `${street}, ${city}, ${state}`.slice(0, 200);
+}
+
 function asTrimmedString(value: unknown, maxLen: number): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -99,7 +124,7 @@ function buildManualDedupeKey(
   listing: { address: string; city: string; state: string; zipCode: string },
   fallbackId: string,
 ): string {
-  const addr = normalizeToken(listing.address);
+  const addr = cleanStreetForDedupe(listing.address);
   const locality = normalizeToken(`${listing.city} ${listing.state} ${listing.zipCode}`);
   if (addr) {
     return `manual:addr=${addr} ${locality}`.trim();
@@ -119,8 +144,6 @@ export function normalizeManualListing(
 ): ManualNormalizeResult | ManualNormalizeError {
   const errors: string[] = [];
 
-  const title = asTrimmedString(input.title, 200);
-  if (!title) errors.push("title must be a non-empty string");
   const address = asTrimmedString(input.address, 200);
   if (!address) errors.push("address must be a non-empty string");
   const city = asTrimmedString(input.city, 100);
@@ -178,7 +201,7 @@ export function normalizeManualListing(
   }
 
   const base = {
-    title: title as string,
+    title: buildUniformTitle(address as string, city as string, state as string),
     address: address as string,
     city: city as string,
     state: state as string,

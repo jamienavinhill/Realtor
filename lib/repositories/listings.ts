@@ -1,4 +1,4 @@
-import type { ListingProperty, ProviderListingProperty } from "@/types/listings";
+import type { ListingMedia, ListingProperty, ProviderListingProperty } from "@/types/listings";
 import { validateListingProperty } from "@/lib/schemas/listing";
 import { getAdminFirestore } from "@/lib/firebase-admin";
 
@@ -26,6 +26,20 @@ export async function findListingByDedupeKey(dedupeKey: string): Promise<Listing
   return { id: doc.id, ...doc.data() } as ListingProperty;
 }
 
+/**
+ * Union listing media across sources by URL so a later duplicate that carried no photo never
+ * blanks an earlier source's image. Existing media first, then any new URLs.
+ */
+function mergeListingMedia(
+  existing: ListingMedia[] | undefined,
+  incoming: ListingMedia[] | undefined,
+): ListingMedia[] {
+  const byUrl = new Map<string, ListingMedia>();
+  for (const m of existing ?? []) if (m?.url) byUrl.set(m.url, m);
+  for (const m of incoming ?? []) if (m?.url) byUrl.set(m.url, m);
+  return Array.from(byUrl.values());
+}
+
 export async function upsertListing(
   listing: ListingProperty | ProviderListingProperty,
   options?: { dryRun?: boolean; skipDedupeLookup?: boolean },
@@ -49,9 +63,17 @@ export async function upsertListing(
     existing = await findListingByDedupeKey(validated.dedupeKey);
   }
 
+  // Merge media across sources so a later no-photo duplicate never blanks an earlier photo,
+  // and always keep a non-empty primary image when one is available from any source.
+  const mergedMedia = mergeListingMedia(existing?.media, validated.media);
+  const mergedImageUrl = validated.imageUrl || existing?.imageUrl || mergedMedia[0]?.url || "";
+
   const payload: ListingProperty = {
     ...validated,
     id: existing?.id ?? docId,
+    media: mergedMedia,
+    imageUrl: mergedImageUrl,
+    imageUrls: mergedMedia.map((m) => m.url),
     createdAt: existing?.createdAt ?? validated.createdAt ?? now,
     updatedAt: now,
     ingestedAt: validated.ingestedAt ?? now,

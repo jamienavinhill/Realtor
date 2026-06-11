@@ -174,12 +174,12 @@ service cloud.firestore {
     // --- Path Rules ---
 
     match /properties/{propertyId} {
-      allow list, get: if true; // Public property listings read
-      // WS16: the shared catalog is SERVER-OWNED. All writes go through the Admin SDK
-      // (which bypasses these rules) via the ingestion pipeline and the
-      // `/api/properties` commit/delete routes (Firebase ID-token authenticated). The
-      // browser can no longer create, update, or delete arbitrary shared listing state.
-      allow create, update, delete: if false;
+      allow list, get: if true; // Public catalog read
+      // Hobby project, non-sensitive data: any signed-in user may write the shared catalog.
+      // The app routes commits through the Admin SDK `/api/properties` route for clean
+      // normalization (uniform titles, media-merge, dedupe), but direct client writes are
+      // intentionally allowed too — no server-only lockdown.
+      allow create, update, delete: if isSignedIn();
     }
 
     match /alerts/{alertId} {

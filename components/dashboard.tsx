@@ -1758,14 +1758,6 @@ export default function Dashboard() {
           setCompareOpen(false);
         }}
       />
-
-      {/* FOOTER */}
-      <footer className="mt-12 border-t border-stone-200 bg-stone-100/40 py-6 text-center dark:border-stone-900 dark:bg-stone-950/40">
-        <span className="block font-mono text-[10px] text-stone-500">
-          &copy; 2026 Abode Alerts. Property monitoring for the {BASELINE_ZIP} Stow/Akron area with
-          real ingestion and alert matching.
-        </span>
-      </footer>
     </div>
   );
 }

@@ -1,13 +1,5 @@
 import React, { useState } from "react";
-import {
-  Mail,
-  ArrowRight,
-  BellRing,
-  Sparkles,
-  Building2,
-  Loader2,
-  AlertTriangle,
-} from "lucide-react";
+import { Mail, ArrowRight, Sparkles, Building2, Loader2, AlertTriangle } from "lucide-react";
 import { BASELINE_ZIP, DEFAULT_ALERT_CITY, DEFAULT_ALERT_STATE } from "@/lib/ingest/constants";
 
 /** The five baseline listing-email platforms (WS7, User Requirements B.3). */
@@ -64,18 +56,14 @@ export function AlertsWizardView() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
-      <div className="mb-10 text-center">
-        <div className="bg-primary-500/10 text-primary-500 mb-6 inline-flex items-center justify-center rounded-full p-4">
-          <BellRing className="h-8 w-8" />
-        </div>
-        <h1 className="mb-4 text-2xl font-semibold tracking-tight text-stone-900 dark:text-white">
-          Email Alerts Setup Wizard
+    <div className="mx-auto max-w-5xl px-4 py-8">
+      <div className="mb-6">
+        <h1 className="mb-1 text-xl font-semibold tracking-tight text-stone-900 dark:text-white">
+          Email Alerts Setup
         </h1>
-        <p className="mx-auto max-w-xl text-stone-500">
-          Set your preferred criteria for the {BASELINE_ZIP} Stow/Akron area. We&apos;ll generate a
-          cheat sheet to help you subscribe to Zillow, Trulia, Homes.com, Redfin, and realtor.com
-          listing alerts for ingestion.
+        <p className="text-sm text-stone-500">
+          Set criteria for the {BASELINE_ZIP} Stow/Akron area and generate a cheat sheet for
+          subscribing to Zillow, Trulia, Homes.com, Redfin, and realtor.com listing alerts.
         </p>
       </div>
 

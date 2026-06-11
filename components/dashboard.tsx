@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   Bell,
@@ -232,6 +233,21 @@ function ProfileMenu({
             <LogOut className="h-4 w-4" />
             <span>Sign out</span>
           </button>
+          <div className="flex items-center gap-2 border-t border-stone-100 px-4 py-2 text-xs text-stone-400 dark:border-stone-800 dark:text-stone-500">
+            <Link
+              href="/privacy"
+              className="transition hover:text-stone-600 hover:underline dark:hover:text-stone-300"
+            >
+              Privacy
+            </Link>
+            <span aria-hidden="true">·</span>
+            <Link
+              href="/terms"
+              className="transition hover:text-stone-600 hover:underline dark:hover:text-stone-300"
+            >
+              Terms
+            </Link>
+          </div>
         </div>
       )}
     </div>

@@ -55,129 +55,121 @@ export function AlertsWizardView() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      {/* Two uniform, equal-height cards. The page title is folded into the left
-          (criteria) card; the Generate action lives inside the right card's display. */}
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:items-stretch">
-        {/* LEFT — title + criteria */}
-        <div className="flex flex-col rounded-2xl border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900">
-          <div className="mb-6">
-            <h1 className="text-xl font-semibold tracking-tight text-stone-900 dark:text-white">
-              Email Alerts Setup
-            </h1>
-            <p className="mt-1 text-sm text-stone-500">
-              Set criteria for the {BASELINE_ZIP} Stow/Akron area, then generate a cheat sheet for
-              subscribing to Zillow, Trulia, Homes.com, Redfin, and realtor.com alerts.
-            </p>
+    <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:items-stretch">
+      {/* LEFT — title + criteria */}
+      <div className="flex flex-col rounded-2xl border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900">
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold tracking-tight text-stone-900 dark:text-white">
+            Email Alerts Setup
+          </h1>
+          <p className="mt-1 text-sm text-stone-500">
+            Set criteria for the {BASELINE_ZIP} Stow/Akron area, then generate a cheat sheet for
+            subscribing to Zillow, Trulia, Homes.com, Redfin, and realtor.com alerts.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold tracking-widest text-stone-500 uppercase">
+              City
+            </label>
+            <input
+              value={criteria.city}
+              onChange={(e) => setCriteria({ ...criteria, city: e.target.value })}
+              placeholder="e.g. Stow"
+              title="City"
+              className="focus:border-primary-500 focus:ring-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none focus:ring-1 dark:border-stone-800 dark:bg-stone-950"
+            />
           </div>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="mb-1.5 block text-xs font-semibold tracking-widest text-stone-500 uppercase">
-                City
+                Max Price
               </label>
               <input
-                value={criteria.city}
-                onChange={(e) => setCriteria({ ...criteria, city: e.target.value })}
-                placeholder="e.g. Stow"
-                title="City"
-                className="focus:border-primary-500 focus:ring-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none focus:ring-1 dark:border-stone-800 dark:bg-stone-950"
+                type="number"
+                value={criteria.maxPrice}
+                onChange={(e) => setCriteria({ ...criteria, maxPrice: e.target.value })}
+                title="Max Price"
+                className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
               />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold tracking-widest text-stone-500 uppercase">
-                  Max Price
-                </label>
-                <input
-                  type="number"
-                  value={criteria.maxPrice}
-                  onChange={(e) => setCriteria({ ...criteria, maxPrice: e.target.value })}
-                  title="Max Price"
-                  className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold tracking-widest text-stone-500 uppercase">
-                  Min Beds
-                </label>
-                <input
-                  type="number"
-                  value={criteria.beds}
-                  onChange={(e) => setCriteria({ ...criteria, beds: e.target.value })}
-                  title="Min Beds"
-                  className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
-                />
-              </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold tracking-widest text-stone-500 uppercase">
+                Min Beds
+              </label>
+              <input
+                type="number"
+                value={criteria.beds}
+                onChange={(e) => setCriteria({ ...criteria, beds: e.target.value })}
+                title="Min Beds"
+                className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
+              />
             </div>
           </div>
         </div>
+      </div>
 
-        {/* RIGHT — cheat sheet; the Generate action lives in the display window. */}
-        <div className="flex flex-col rounded-2xl border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900">
-          <h2 className="mb-6 text-lg font-semibold">Setup Cheat Sheet</h2>
+      {/* RIGHT — cheat sheet; the Generate action lives in the display window. */}
+      <div className="flex flex-col rounded-2xl border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900">
+        <h2 className="mb-6 text-lg font-semibold">Setup Cheat Sheet</h2>
 
-          <div className="flex-1 overflow-y-auto rounded-xl border border-stone-200 bg-stone-50 p-5 dark:border-stone-800 dark:bg-stone-950">
-            {isGenerating ? (
-              <div className="flex h-full min-h-48 flex-col items-center justify-center space-y-3 text-center text-stone-400">
-                <Loader2 className="h-8 w-8 animate-spin" />
-                <p className="text-sm">Generating your setup guide…</p>
+        <div className="flex-1 overflow-y-auto rounded-xl border border-stone-200 bg-stone-50 p-5 dark:border-stone-800 dark:bg-stone-950">
+          {isGenerating ? (
+            <div className="flex h-full min-h-48 flex-col items-center justify-center space-y-3 text-center text-stone-400">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <p className="text-sm">Generating your setup guide…</p>
+            </div>
+          ) : genError ? (
+            <div className="flex h-full min-h-48 flex-col items-center justify-center space-y-4 text-center">
+              <AlertTriangle className="h-8 w-8 text-amber-500" />
+              <p className="text-sm text-amber-600 dark:text-amber-400">{genError}</p>
+              <GenerateButton onClick={handleGenerate} disabled={isGenerating} label="Try again" />
+            </div>
+          ) : guideText ? (
+            <div>
+              <div className="prose prose-sm dark:prose-invert prose-stone max-w-none">
+                <div dangerouslySetInnerHTML={{ __html: guideText.replace(/\n/g, "<br/>") }} />
               </div>
-            ) : genError ? (
-              <div className="flex h-full min-h-48 flex-col items-center justify-center space-y-4 text-center">
-                <AlertTriangle className="h-8 w-8 text-amber-500" />
-                <p className="text-sm text-amber-600 dark:text-amber-400">{genError}</p>
-                <GenerateButton
-                  onClick={handleGenerate}
-                  disabled={isGenerating}
-                  label="Try again"
-                />
-              </div>
-            ) : guideText ? (
-              <div>
-                <div className="prose prose-sm dark:prose-invert prose-stone max-w-none">
-                  <div dangerouslySetInnerHTML={{ __html: guideText.replace(/\n/g, "<br/>") }} />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleGenerate}
-                  className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-stone-500 transition hover:text-stone-800 dark:hover:text-stone-200"
-                >
-                  <RotateCw className="h-3.5 w-3.5" />
-                  Regenerate
-                </button>
-              </div>
-            ) : (
-              <div className="flex h-full min-h-48 flex-col items-center justify-center space-y-4 text-center">
-                <Mail className="h-8 w-8 text-stone-300 dark:text-stone-600" />
-                <p className="max-w-xs text-sm text-stone-500">
-                  Generate a step-by-step guide for subscribing to Zillow, Trulia, Homes.com,
-                  Redfin, and realtor.com email alerts using your criteria.
-                </p>
-                <GenerateButton
-                  onClick={handleGenerate}
-                  disabled={isGenerating}
-                  label="Generate AI Setup Guide"
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {BASELINE_PLATFORM_LINKS.map((platform) => (
-              <a
-                key={platform.label}
-                href={platform.href}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="hover:border-primary-500 group block rounded-lg border border-stone-200 bg-stone-50 p-3 text-center transition dark:border-stone-800 dark:bg-stone-950"
+              <button
+                type="button"
+                onClick={handleGenerate}
+                className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-stone-500 transition hover:text-stone-800 dark:hover:text-stone-200"
               >
-                <Building2 className="text-primary-500 mx-auto mb-2 h-5 w-5 transition group-hover:scale-110" />
-                <span className="text-xs font-semibold">{platform.label}</span>
-              </a>
-            ))}
-          </div>
+                <RotateCw className="h-3.5 w-3.5" />
+                Regenerate
+              </button>
+            </div>
+          ) : (
+            <div className="flex h-full min-h-48 flex-col items-center justify-center space-y-4 text-center">
+              <Mail className="h-8 w-8 text-stone-300 dark:text-stone-600" />
+              <p className="max-w-xs text-sm text-stone-500">
+                Generate a step-by-step guide for subscribing to Zillow, Trulia, Homes.com, Redfin,
+                and realtor.com email alerts using your criteria.
+              </p>
+              <GenerateButton
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                label="Generate AI Setup Guide"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {BASELINE_PLATFORM_LINKS.map((platform) => (
+            <a
+              key={platform.label}
+              href={platform.href}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="hover:border-primary-500 group block rounded-lg border border-stone-200 bg-stone-50 p-3 text-center transition dark:border-stone-800 dark:bg-stone-950"
+            >
+              <Building2 className="text-primary-500 mx-auto mb-2 h-5 w-5 transition group-hover:scale-110" />
+              <span className="text-xs font-semibold">{platform.label}</span>
+            </a>
+          ))}
         </div>
       </div>
     </div>

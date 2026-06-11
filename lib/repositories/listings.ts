@@ -162,3 +162,13 @@ export async function listActiveListings(): Promise<ListingProperty[]> {
 
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as ListingProperty);
 }
+
+/**
+ * Delete a single catalog listing by document id (server/Admin SDK only). Idempotent:
+ * deleting a missing doc is a no-op. Used by the WS16 server delete path now that client
+ * writes to `properties/*` are denied by Firestore rules.
+ */
+export async function deleteListing(listingId: string): Promise<void> {
+  const db = getAdminFirestore();
+  await db.collection(COLLECTION).doc(listingId).delete();
+}

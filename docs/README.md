@@ -7,7 +7,7 @@ Durable docs point to directories, not transient dated files — open the direct
 - `docs/engineering/agents/` — agent operating docs and run logs.
 - `docs/research/` — research notes (e.g. Gmail/listing parsing in `INBOX_PARSING.md`).
 - `docs/operations/` — durable operations docs. `development-workflow.md` covers local setup, the quality gates, and the verify release gate; `env-and-deploy.md` covers the env canon and deploy model; `provider-ingestion.md` covers the 44224 baseline backfill (provenance, idempotency, dry-run, cost posture).
-- `docs/architecture/`, `docs/decisions/` — durable architecture and decision records, added as the roadmap executes.
+- `docs/architecture/` — durable architecture records: `data-model.md` (Firestore contracts + access table) and `auth-and-secrets.md` (auth, secret lanes, encrypted refresh token, rules posture, App Check path). `docs/decisions/` holds decision records, added as the roadmap executes.
 
 Repository-owned configuration that is not tool-discovery-fixed lives under `config/`:
 Firebase client config and Firestore rules are in `config/firebase/`; app metadata

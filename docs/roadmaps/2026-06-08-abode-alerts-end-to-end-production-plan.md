@@ -503,19 +503,19 @@ interface GmailSync {
 
 ### Firestore Collection Map (paths, owner, writer, rules intent)
 
-| Path                                         | Holds                         | Read                          | Write                                                                    |
-| -------------------------------------------- | ----------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
-| `properties/{listingId}`                     | `ListingProperty` catalog     | public (`list,get` true)      | server/Admin SDK (ingestion); client write paths to be tightened in WS16 |
-| `alerts/{alertId}`                           | `PropertyAlert`               | owner (`userId == auth.uid`)  | owner only                                                               |
-| `alert_matches/{matchId}`                    | `AlertMatch`                  | owner                         | server/Admin SDK only                                                    |
-| `ingest_runs/{runId}`                        | `IngestRun`                   | server only                   | server/Admin SDK only                                                    |
-| `provider_quota/{YYYY-MM}`                   | `ProviderQuotaMonth`          | server only                   | server/Admin SDK only                                                    |
-| `users/{uid}/profile/main`                   | `UserProfile`                 | owner + workspace members     | owner + editors                                                          |
-| `users/{uid}/listingPreferences/{listingId}` | `ListingUserState`            | owner + workspace members     | owner + editors                                                          |
-| `users/{uid}/compareQueue/main`              | `CompareQueue`                | owner + workspace members     | owner + editors                                                          |
-| `users/{uid}/gmailSync/main`                 | `GmailSync` (token encrypted) | server only (never to client) | server/Admin SDK only                                                    |
-| `accounts/{ownerUid}/members/{memberUid}`    | `AccountMember`               | owner + members               | owner; editors may add/remove ≤ editor; only owner removes owner         |
-| `invites/{token}`                            | `AccountInvite`               | invitee-by-token + owner      | owner creates/revokes; invitee accepts                                   |
+| Path                                         | Holds                         | Read                          | Write                                                                                            |
+| -------------------------------------------- | ----------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| `properties/{listingId}`                     | `ListingProperty` catalog     | public (`list,get` true)      | server/Admin SDK only (ingestion + `/api/properties` commit/delete; client writes denied — WS16) |
+| `alerts/{alertId}`                           | `PropertyAlert`               | owner (`userId == auth.uid`)  | owner only                                                                                       |
+| `alert_matches/{matchId}`                    | `AlertMatch`                  | owner                         | server/Admin SDK only                                                                            |
+| `ingest_runs/{runId}`                        | `IngestRun`                   | server only                   | server/Admin SDK only                                                                            |
+| `provider_quota/{YYYY-MM}`                   | `ProviderQuotaMonth`          | server only                   | server/Admin SDK only                                                                            |
+| `users/{uid}/profile/main`                   | `UserProfile`                 | owner + workspace members     | owner + editors                                                                                  |
+| `users/{uid}/listingPreferences/{listingId}` | `ListingUserState`            | owner + workspace members     | owner + editors                                                                                  |
+| `users/{uid}/compareQueue/main`              | `CompareQueue`                | owner + workspace members     | owner + editors                                                                                  |
+| `users/{uid}/gmailSync/main`                 | `GmailSync` (token encrypted) | server only (never to client) | server/Admin SDK only                                                                            |
+| `accounts/{ownerUid}/members/{memberUid}`    | `AccountMember`               | owner + members               | owner; editors may add/remove ≤ editor; only owner removes owner                                 |
+| `invites/{token}`                            | `AccountInvite`               | invitee-by-token + owner      | owner creates/revokes; invitee accepts                                                           |
 
 Rules invariants (WS16/WS18): global deny-by-default stays; `properties` read stays public; **only the workspace owner can delete the account/owner record**; an **editor** may do everything an owner can on the workspace data **except delete the account or remove/demote the owner**; a **viewer** is read-only across the owner's `profile`, `listingPreferences`, `compareQueue`, `alerts`, `alert_matches`; non-members get nothing; `gmailSync` (refresh token) and `provider_quota` are never client-readable.
 
@@ -1229,20 +1229,20 @@ Primary areas:
 
 Implementation tasks:
 
-- [ ] Audit `config/firebase/firestore.rules` for listings read access, user alert ownership, alert-match ownership, listing-preference own-only access, and admin/operator writes.
-- [ ] Move provider writes through server/admin paths if client writes are too permissive for shared collections.
-- [ ] Add App Check or a documented mitigation path if abuse risk rises.
-- [ ] Finalize the OAuth/refresh-token persistence decision: encrypted, user-scoped, server-side, rules-hardened; document it.
-- [ ] Verify Firebase authorized domains include the production Vercel URL and the local development domain.
-- [ ] Confirm Vercel envs: `GEMINI_API_KEY`, `REALTY_API_KEYS`, `INGEST_JOB_TOKEN`, `FIREBASE_SERVICE_ACCOUNT_JSON`, optional search envs, and scheduler secrets.
-- [ ] Add budget alerts if Blaze or paid Google Cloud is enabled.
+- [x] Audit `config/firebase/firestore.rules` for listings read access, user alert ownership, alert-match ownership, listing-preference own-only access, and admin/operator writes. Full first-principles audit done (incl. WS18 member rules); every invariant re-derived and backed by 38 emulator cases. No hole found beyond the documented `properties` client-write gap (closed below).
+- [x] Move provider writes through server/admin paths if client writes are too permissive for shared collections. `properties` client create/update/delete are now denied; the manual scan/paste→commit flow routes through `POST /api/properties` (`action: commit`, Firebase ID-token verified) which re-validates/re-provenances via `lib/ingest/manual-normalize.ts` and writes via the Admin SDK (`upsertListing`). A `delete_listing` action mirrors this for the listing delete button.
+- [x] Add App Check or a documented mitigation path if abuse risk rises. Documented path in `docs/architecture/auth-and-secrets.md` (ReCaptchaEnterpriseProvider code shape verified vs Firebase SDK; enforcement is a console toggle, recorded operator-pending). Interim mitigations (deny-by-default rules, server-side ID-token verification, `INGEST_JOB_TOKEN`) already in force.
+- [x] Finalize the OAuth/refresh-token persistence decision: encrypted, user-scoped, server-side, rules-hardened; document it. Re-confirmed WS7 design meets the bar (AES-256-GCM, `users/{uid}/gmailSync`, client read/write denied) and documented authoritatively in `auth-and-secrets.md`. No weakness found.
+- [ ] Verify Firebase authorized domains include the production Vercel URL and the local development domain. _Operator-pending (console / `add-auth-domains.ts`); steps recorded in `auth-and-secrets.md`._
+- [ ] Confirm Vercel envs: `GEMINI_API_KEY`, `REALTY_API_KEYS`, `INGEST_JOB_TOKEN`, `FIREBASE_SERVICE_ACCOUNT_JSON`, optional search envs, and scheduler secrets. _Operator-pending (Vercel REST key readback); steps recorded in `auth-and-secrets.md` + `env-and-deploy.md`._
+- [ ] Add budget alerts if Blaze or paid Google Cloud is enabled. _Operator-pending (GCP console); recorded in `auth-and-secrets.md`._
 
 Exit criteria:
 
-- [ ] Users cannot write arbitrary shared listing state from the browser unless explicitly allowed.
-- [ ] Users can read/write only their own alert, alert-match, and preference docs.
-- [ ] Scheduled endpoints cannot be triggered without the job token.
-- [ ] Auth domains and production envs are documented and verified.
+- [x] Users cannot write arbitrary shared listing state from the browser unless explicitly allowed. `properties` writes are `if false` for clients; all catalog writes go through the Admin SDK. Proven by 6 new emulator cases (signed-in/anon create/update/delete denied; public read allowed).
+- [x] Users can read/write only their own (or their workspace's, per WS18 role) alert, alert-match, and preference docs. Re-audited; viewer read-only, editor cannot re-owner/remove-owner; alert_matches server-only. 32 WS18 cases stay green.
+- [x] Scheduled endpoints cannot be triggered without the job token. `POST /api/ingest/*` gate on `INGEST_JOB_TOKEN` (constant-time compare); covered by `tests/ingest-auth.test.ts`. Re-confirmed in this pass.
+- [ ] Auth domains and production envs are documented and verified. _Documented (`auth-and-secrets.md`); live verification is operator-pending._
 
 Suggested verification:
 
@@ -1431,7 +1431,7 @@ Required before marking this plan complete:
 18. [x] **WS14** — Docs layout + content expansion.
 19. [~] **WS15** — Wire all views/metadata to final Abode Alerts copy and data. _Pass 1 landed (`db669711`); pass-2/closeout audit not yet run._
 20. [x] **WS18** — Account sharing & collaboration (invite + viewer/editor roles). _Built end-to-end: types/schemas/repository, `/api/account/*` routes, member-aware Firestore rules, ProfileMenu share UI + workspace switcher + invite-accept page. Pass 2 wired active-workspace data-read targeting (member sees + editor edits the owner's listings/alerts/CMA/prefs; viewer read-only) + adversarial rules hardening; verify GREEN (180 unit), rules 32/32. Live two-account browser flow operator-pending (Gmail watch/OAuth)._
-21. [ ] **WS16** — Harden auth/security rules, OAuth token persistence, sharing rules, and production envs.
+21. [~] **WS16** — Harden auth/security rules, OAuth token persistence, sharing rules, and production envs. _Code/docs landed: full rules audit, `properties` server-only writes + server commit/delete routes, OAuth-token-persistence confirmation, `auth-and-secrets.md`, App Check documented path. Remaining items (authorized-domain confirmation, Vercel env readback, budget alert) are operator-pending account actions._
 22. [x] **WS19** — Repository structure & root hygiene (relocate Firebase/config files; root keeps only tooling-required files). _Completed early (config/firebase relocation + deprecated-tool removal) ahead of WS16/WS18; re-confirm references after the sharing-rules churn settles._
 23. [ ] **WS17** — Tests/CI/release gate and complete production smoke.
 24. [ ] Promote lasting rules to durable docs and retire the two superseded roadmaps.
@@ -1465,7 +1465,7 @@ Directive: drive the ENTIRE roadmap to completion -- exhausted, verified, polish
 | WS14 docs layout + content                                                | CLOSED `651ac9e7`,`c1698b9b` (pinned TOC, isolated main scroll, expanded grounded content; browser-proved no window-scroll)                                                                                                                                                                                                                                                                                                          |
 | WS15 product flows / metadata / page wiring                               | pass 1 landed (`db669711`); pass-2/closeout pending                                                                                                                                                                                                                                                                                                                                                                                  |
 | WS18 account sharing                                                      | CLOSED `829ed301`; pass 2 `24d740c0` wired member data-read targeting (active-workspace owner uid threads through `alerts`/`alert_matches` + `listingPreferences`/`compareQueue`; member sees + editor edits the owner's data; viewer read-only) + adversarial rules audit (`memberUid != ownerUid`; 32 rules cases). 180 unit + 32 rules tests GREEN. Live two-account flow operator-pending (Gmail watch/Pub-Sub + OAuth consent). |
-| WS16 auth/rules/secret hardening                                          | ACTIVE (WS18 closed + orchestrator-verified: `npm run verify` + `test:rules` 32/32 GREEN). WS16 now audits/hardens the full `firestore.rules` surface incl. WS18 member rules, tightens `properties` client-write paths, finalizes OAuth/refresh-token persistence doc, and writes `auth-and-secrets.md`. Env/authorized-domain/budget-alert items are operator-pending.                                                                |
+| WS16 auth/rules/secret hardening                                          | ACTIVE (WS18 closed + orchestrator-verified: `npm run verify` + `test:rules` 32/32 GREEN). WS16 now audits/hardens the full `firestore.rules` surface incl. WS18 member rules, tightens `properties` client-write paths, finalizes OAuth/refresh-token persistence doc, and writes `auth-and-secrets.md`. Env/authorized-domain/budget-alert items are operator-pending.                                                             |
 | WS19 repository structure & root hygiene (relocate Firebase/config files) | DONE — config/firebase relocated + deprecated tools removed (pulled forward); re-confirm refs after sharing-rules churn                                                                                                                                                                                                                                                                                                              |
 | WS17 tests/CI/release gate + production smoke                             | pending — final gate after WS18/WS16 + WS15 closeout                                                                                                                                                                                                                                                                                                                                                                                 |
 

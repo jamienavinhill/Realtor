@@ -644,28 +644,53 @@ export default function Dashboard() {
     }
   };
 
-  // Commit Harvested/Parsed Listings to Firestore DB
+  // Commit Harvested/Parsed Listings to the shared catalog (WS16).
+  //
+  // The browser no longer writes `properties/*` directly — Firestore rules deny client
+  // writes to the shared catalog. Instead the reviewed listings POST to /api/properties
+  // (action `commit`) with the user's Firebase ID token; the server re-validates,
+  // provenances, and writes them via the Admin SDK. The local alert evaluation still runs
+  // against the server-normalized listings the route returns.
   const commitListingsToFirestore = async () => {
     if (!user || harvestedPreviews.length === 0) return;
 
-    let successCount = 0;
     try {
-      for (const prop of harvestedPreviews) {
-        const path = `properties/${prop.id}`;
-        try {
-          // Lock to database
-          await setDoc(doc(db, "properties", prop.id), prop);
-          successCount++;
+      const idToken = await user.getIdToken();
+      // Listings carrying an emailSource came from the Gmail scan lane; everything else is
+      // a pasted/structured listing. This only sets provenance — the server re-validates.
+      const origin = harvestedPreviews.some((p) => "emailSource" in p)
+        ? "manual_gmail"
+        : "manual_paste";
 
-          // Sync with alerts trigger notification
-          checkForAlertMatch(prop);
-        } catch (err: unknown) {
-          handleFirestoreError(err, OperationType.CREATE, path);
-        }
+      const response = await fetch("/api/properties", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          action: "commit",
+          origin,
+          listings: harvestedPreviews,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to commit listings.");
       }
+
+      const committed: ListingProperty[] = data.properties || [];
+      // Evaluate alerts against the server-normalized listings (with stored provenance).
+      committed.forEach((prop) => checkForAlertMatch(prop));
+
+      const rejectedCount: number = data.rejectedCount || 0;
       toast({
-        variant: "success",
-        description: `Saved ${successCount} listing(s). Alert pipelines evaluated.`,
+        variant: rejectedCount > 0 ? "info" : "success",
+        description:
+          rejectedCount > 0
+            ? `Saved ${data.committedCount} listing(s); ${rejectedCount} were rejected as invalid.`
+            : `Saved ${data.committedCount} listing(s). Alert pipelines evaluated.`,
       });
       setHarvestedPreviews([]);
       setActiveTab("listings");
@@ -834,15 +859,28 @@ export default function Dashboard() {
     }
   };
 
-  // Delete user-backfilled or scanned listings
+  // Delete a shared-catalog listing (WS16). Client writes to `properties/*` are denied by
+  // Firestore rules, so the delete routes through /api/properties (action `delete_listing`)
+  // with the user's Firebase ID token; the server removes it via the Admin SDK.
   const handleDeleteProperty = async (propId: string) => {
     if (!user) return;
-    const path = `properties/${propId}`;
     try {
-      await deleteDoc(doc(db, "properties", propId));
+      const idToken = await user.getIdToken();
+      const response = await fetch("/api/properties", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ action: "delete_listing", listingId: propId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to delete listing.");
+      }
       toast({ variant: "info", description: "Property listing deleted." });
     } catch (err: unknown) {
-      handleFirestoreError(err, OperationType.DELETE, path);
+      toast({ variant: "error", description: `Delete failed: ${getErrorMessage(err)}` });
     }
   };
 

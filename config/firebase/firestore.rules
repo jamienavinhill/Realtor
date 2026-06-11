@@ -28,54 +28,11 @@ service cloud.firestore {
       return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
     }
 
-    function optionalNumber(data, field) {
-      return !(field in data) || (data[field] is number && data[field] >= 0);
-    }
-
-    function optionalCoordinates(data) {
-      return !(data.keys().hasAll(['coordinates']))
-        || (data.coordinates is map
-          && data.coordinates.lat is number
-          && data.coordinates.lng is number);
-    }
-
-    function optionalMediaArray(data) {
-      return !(data.keys().hasAll(['media']))
-        || (data.media is list && data.media.size() <= 100);
-    }
-
     // --- Entity Validators ---
-
-    function isValidProperty(data) {
-      return data.keys().hasAll(['id', 'title', 'address', 'city', 'state', 'zipCode', 'price', 'beds', 'baths', 'sqft', 'propertyType', 'status', 'imageUrl', 'createdAt', 'updatedAt'])
-        && data.keys().size() <= 40
-        && data.id is string && data.id.size() <= 128
-        && data.title is string && data.title.size() <= 200
-        && data.address is string && data.address.size() <= 200
-        && data.city is string && data.city.size() <= 100
-        && data.state is string && data.state.size() <= 5
-        && data.zipCode is string && data.zipCode.size() <= 15
-        && data.price is number && data.price >= 0
-        && data.beds is number && data.beds >= 0
-        && data.baths is number && data.baths >= 0
-        && data.sqft is number && data.sqft >= 0
-        && data.propertyType is string && data.propertyType.size() <= 50
-        && data.status is string && data.status.size() <= 50
-        && data.imageUrl is string && data.imageUrl.size() <= 1000
-        && optionalString(data, 'source', 50)
-        && optionalString(data, 'sourceProvider', 50)
-        && optionalString(data, 'sourceUrl', 2000)
-        && optionalString(data, 'sourceListingId', 128)
-        && optionalString(data, 'sourceUpdatedAt', 64)
-        && optionalString(data, 'ingestedAt', 64)
-        && optionalString(data, 'rawHash', 128)
-        && optionalString(data, 'dedupeKey', 256)
-        && optionalNumber(data, 'distanceMiles')
-        && optionalCoordinates(data)
-        && optionalMediaArray(data)
-        && data.createdAt is string
-        && data.updatedAt is string;
-    }
+    // NOTE (WS16): the former `isValidProperty` shape validator was removed when the
+    // shared `properties/*` catalog became server-write-only. Listing payloads are now
+    // validated by the server (`lib/schemas/listing.ts` + `lib/ingest/manual-normalize.ts`)
+    // before the Admin SDK writes them; no client write rule references a property shape.
 
     function isValidAlert(data) {
       return data.keys().hasAll(['id', 'userId', 'name', 'criteria', 'isActive', 'createdAt'])
@@ -218,10 +175,11 @@ service cloud.firestore {
 
     match /properties/{propertyId} {
       allow list, get: if true; // Public property listings read
-      // Client writes remain for Gmail/manual extraction flows; server ingestion uses Admin SDK bypass.
-      allow create: if isSignedIn() && isValidId(propertyId) && isValidProperty(incoming());
-      allow update: if isSignedIn() && isValidId(propertyId) && isValidProperty(incoming());
-      allow delete: if isSignedIn() && isValidId(propertyId);
+      // WS16: the shared catalog is SERVER-OWNED. All writes go through the Admin SDK
+      // (which bypasses these rules) via the ingestion pipeline and the
+      // `/api/properties` commit/delete routes (Firebase ID-token authenticated). The
+      // browser can no longer create, update, or delete arbitrary shared listing state.
+      allow create, update, delete: if false;
     }
 
     match /alerts/{alertId} {

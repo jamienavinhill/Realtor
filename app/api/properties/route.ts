@@ -8,6 +8,17 @@ import {
   GmailMessagePayload,
   GmailSearchResponse,
 } from "@/types/gmail";
+import { getAdminAuth } from "@/lib/firebase-admin";
+import { extractBearerToken } from "@/lib/ingest/auth";
+import { deleteListing, upsertListing } from "@/lib/repositories/listings";
+import {
+  normalizeManualListing,
+  type ManualCommitOrigin,
+  type ManualListingInput,
+} from "@/lib/ingest/manual-normalize";
+
+// The Admin SDK (firebase-admin) requires the Node.js runtime, not the Edge runtime.
+export const runtime = "nodejs";
 
 function decodeBase64Url(str: string): string {
   // Decode base64url (RFC 4648) to standard string
@@ -40,6 +51,100 @@ function getEmailBody(payload: GmailMessagePayload | undefined): string {
 
 export async function POST(req: NextRequest) {
   try {
+    const authHeader = req.headers.get("Authorization");
+    const { action, ...payload } = await req.json();
+
+    // COMMIT runs before the Gemini gate: it persists already-extracted listings via the
+    // Admin SDK and needs no GEMINI_API_KEY or Gemini client. Handled first so a missing
+    // Gemini key never blocks committing a reviewed listing.
+    if (action === "commit") {
+      const idToken = extractBearerToken(authHeader);
+      if (!idToken) {
+        return NextResponse.json(
+          { error: "Sign in to commit listings (missing Firebase ID token)." },
+          { status: 401 },
+        );
+      }
+      try {
+        await getAdminAuth().verifyIdToken(idToken);
+      } catch {
+        return NextResponse.json({ error: "Invalid Firebase ID token" }, { status: 401 });
+      }
+
+      const listings = payload.listings;
+      if (!Array.isArray(listings) || listings.length === 0) {
+        return NextResponse.json({ error: "No listings provided to commit." }, { status: 400 });
+      }
+      if (listings.length > 50) {
+        return NextResponse.json(
+          { error: "Too many listings in one commit (max 50)." },
+          { status: 400 },
+        );
+      }
+
+      const origin: ManualCommitOrigin =
+        payload.origin === "manual_gmail" ? "manual_gmail" : "manual_paste";
+
+      const committed: ListingProperty[] = [];
+      const rejected: { index: number; errors: string[] }[] = [];
+
+      for (let index = 0; index < listings.length; index += 1) {
+        const normalized = normalizeManualListing(listings[index] as ManualListingInput, origin);
+        if (!normalized.success) {
+          rejected.push({ index, errors: normalized.errors });
+          continue;
+        }
+        try {
+          await upsertListing(normalized.listing);
+          committed.push(normalized.listing);
+        } catch (error) {
+          rejected.push({ index, errors: [getErrorMessage(error)] });
+        }
+      }
+
+      if (committed.length === 0) {
+        return NextResponse.json(
+          { error: "No listings could be committed.", rejected },
+          { status: 400 },
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        committedCount: committed.length,
+        rejectedCount: rejected.length,
+        // Return the server-normalized listings so the client reflects stored provenance.
+        properties: committed,
+        rejected,
+      });
+    }
+
+    // DELETE_LISTING (WS16) — remove a catalog listing via the Admin SDK. Client deletes of
+    // `properties/*` are denied by Firestore rules; this is the server path the listing
+    // "delete" button uses. Verifies the caller's Firebase ID token; no Gemini needed.
+    if (action === "delete_listing") {
+      const idToken = extractBearerToken(authHeader);
+      if (!idToken) {
+        return NextResponse.json(
+          { error: "Sign in to delete listings (missing Firebase ID token)." },
+          { status: 401 },
+        );
+      }
+      try {
+        await getAdminAuth().verifyIdToken(idToken);
+      } catch {
+        return NextResponse.json({ error: "Invalid Firebase ID token" }, { status: 401 });
+      }
+
+      const listingId = typeof payload.listingId === "string" ? payload.listingId.trim() : "";
+      if (!listingId || listingId.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(listingId)) {
+        return NextResponse.json({ error: "A valid listingId is required." }, { status: 400 });
+      }
+
+      await deleteListing(listingId);
+      return NextResponse.json({ success: true, listingId });
+    }
+
     const key = process.env.GEMINI_API_KEY;
     if (!key) {
       return NextResponse.json(
@@ -50,9 +155,6 @@ export async function POST(req: NextRequest) {
         { status: 500 },
       );
     }
-
-    const authHeader = req.headers.get("Authorization");
-    const { action, ...payload } = await req.json();
 
     const ai = new GoogleGenAI({
       apiKey: key,

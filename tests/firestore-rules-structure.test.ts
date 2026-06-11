@@ -16,6 +16,15 @@ describe("firestore rules structure", () => {
     assert.match(rules, /match \/properties\/\{propertyId\} \{\s*allow list, get: if true;/);
   });
 
+  it("makes the shared properties catalog server-write-only (WS16)", () => {
+    // The browser must not create/update/delete shared listing state; all writes go
+    // through the Admin SDK (ingestion + /api/properties commit/delete routes).
+    assert.match(
+      rules,
+      /match \/properties\/\{propertyId\} \{[\s\S]*?allow create, update, delete: if false;/,
+    );
+  });
+
   it("scopes alerts and alert_matches to the owner", () => {
     assert.match(rules, /match \/alerts\/\{alertId\}/);
     assert.match(rules, /match \/alert_matches\/\{matchId\}/);

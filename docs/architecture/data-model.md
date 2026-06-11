@@ -19,7 +19,7 @@ Abode Alerts stores a shared listing catalog, user-owned alerts and matches, and
 
 | Path                      | Contract          | Read                         | Write (today)                                                               | Repository                     |
 | ------------------------- | ----------------- | ---------------------------- | --------------------------------------------------------------------------- | ------------------------------ |
-| `properties/{listingId}`  | `ListingProperty` | public list/get              | signed-in client create/update (tightened in WS16); Admin SDK for ingestion | `lib/repositories/listings.ts` |
+| `properties/{listingId}`  | `ListingProperty` | public list/get              | server-only (Admin SDK): ingestion + `/api/properties` commit/delete (WS16) | `lib/repositories/listings.ts` |
 | `alerts/{alertId}`        | `PropertyAlert`   | owner (`userId == auth.uid`) | owner only                                                                  | `lib/repositories/alerts.ts`   |
 | `alert_matches/{matchId}` | `AlertMatch`      | owner                        | Admin SDK only                                                              | `lib/repositories/matches.ts`  |
 | `ingest_runs/{runId}`     | `IngestRun`       | denied to clients            | Admin SDK only                                                              | `lib/repositories/runs.ts`     |
@@ -37,7 +37,7 @@ Server ingestion (RealtyAPI backfill/daily refresh) requires these provenance an
 - `provenance` (`providerRunId`, `keyAlias`, `fetchPage` when applicable)
 - `radiusCenter`, `distanceMiles` for geo-scoped sweeps
 
-Client Gmail/manual extraction paths may write leaner documents today; WS16 will route those through server validation or tighten rules.
+The manual Gmail-scan / paste-commit flow produces leaner Gemini-extracted drafts; WS16 routes these through server validation: `POST /api/properties` (`action: commit`, Firebase ID-token verified) re-validates and re-provenances each draft via `lib/ingest/manual-normalize.ts` (synthesizing `source`, `sourceProvider`, `dedupeKey`, `rawHash`, timestamps) and writes via the Admin SDK. Client writes to `properties/*` are denied by the rules. See `auth-and-secrets.md`.
 
 ### Free-lane enrichment and history (additive, optional)
 

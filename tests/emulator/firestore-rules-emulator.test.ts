@@ -14,6 +14,109 @@ const PROJECT_ID = firebaseConfig.projectId;
 
 let testEnv: RulesTestEnvironment;
 
+function propertyDoc(id: string) {
+  const now = new Date().toISOString();
+  return {
+    id,
+    title: "Test Listing",
+    address: "1 Test St",
+    city: "Stow",
+    state: "OH",
+    zipCode: "44224",
+    price: 250000,
+    beds: 3,
+    baths: 2,
+    sqft: 1800,
+    propertyType: "Single Family",
+    status: "Active",
+    imageUrl: "",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+describe("firestore rules emulator — properties catalog is server-write-only (WS16)", () => {
+  before(async () => {
+    testEnv = await initializeTestEnvironment({
+      projectId: PROJECT_ID,
+      firestore: { rules: RULES, host: "127.0.0.1", port: 8080 },
+    });
+  });
+
+  after(async () => {
+    await testEnv.cleanup();
+  });
+
+  it("allows public (signed-out) read of a property", async () => {
+    // Seed via the privileged context (bypasses rules), then read unauthenticated.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("properties")
+        .doc("prop-public")
+        .set(propertyDoc("prop-public"));
+    });
+
+    const anon = testEnv.unauthenticatedContext();
+    await assertSucceeds(anon.firestore().collection("properties").doc("prop-public").get());
+  });
+
+  it("allows a signed-in user to read a property", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection("properties").doc("prop-read").set(propertyDoc("prop-read"));
+    });
+
+    const user = testEnv.authenticatedContext("reader-uid");
+    await assertSucceeds(user.firestore().collection("properties").doc("prop-read").get());
+  });
+
+  it("DENIES a signed-in client creating a property (server-only write)", async () => {
+    const user = testEnv.authenticatedContext("writer-uid");
+    await assertFails(
+      user.firestore().collection("properties").doc("prop-create").set(propertyDoc("prop-create")),
+    );
+  });
+
+  it("DENIES a signed-in client updating a property (server-only write)", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("properties")
+        .doc("prop-update")
+        .set(propertyDoc("prop-update"));
+    });
+
+    const user = testEnv.authenticatedContext("writer-uid");
+    await assertFails(
+      user
+        .firestore()
+        .collection("properties")
+        .doc("prop-update")
+        .set({ ...propertyDoc("prop-update"), price: 999999 }),
+    );
+  });
+
+  it("DENIES a signed-in client deleting a property (server-only write)", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("properties")
+        .doc("prop-delete")
+        .set(propertyDoc("prop-delete"));
+    });
+
+    const user = testEnv.authenticatedContext("writer-uid");
+    await assertFails(user.firestore().collection("properties").doc("prop-delete").delete());
+  });
+
+  it("DENIES an unauthenticated client creating a property", async () => {
+    const anon = testEnv.unauthenticatedContext();
+    await assertFails(
+      anon.firestore().collection("properties").doc("prop-anon").set(propertyDoc("prop-anon")),
+    );
+  });
+});
+
 function preferenceDoc(listingId: string, userId: string) {
   const now = new Date().toISOString();
   return {

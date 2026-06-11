@@ -219,7 +219,7 @@ function ProfileMenu({
             className="flex w-full cursor-pointer items-center gap-2 px-4 py-2.5 text-left text-sm text-stone-700 transition hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-stone-800"
           >
             <Users className="h-4 w-4" />
-            <span>Share workspace</span>
+            <span>Add user</span>
           </button>
           <button
             type="button"

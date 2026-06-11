@@ -179,8 +179,8 @@ export function ShareWorkspaceDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Share workspace"
-      subtitle="Invite people to view or edit this workspace"
+      title="Add a user"
+      subtitle="Invite someone by email to view or edit your workspace"
       size="lg"
     >
       {loading ? (
@@ -222,8 +222,8 @@ export function ShareWorkspaceDialog({
                   aria-label="Invite role"
                   className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-700 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
                 >
-                  <option value="viewer">Viewer (read-only)</option>
-                  <option value="editor">Editor (can edit)</option>
+                  <option value="viewer">Read-only</option>
+                  <option value="editor">Read &amp; write</option>
                 </select>
                 <button
                   type="submit"

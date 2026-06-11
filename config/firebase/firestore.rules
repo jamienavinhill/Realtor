@@ -274,16 +274,16 @@ service cloud.firestore {
       allow delete: if canEditWorkspace(ownerUid) && memberUid != ownerUid;
     }
 
-    // Pending email invites, keyed by an unguessable token. Invites are minted, accepted,
-    // and revoked SERVER-SIDE via the Admin SDK (which bypasses these rules) after the
-    // `/api/account/*` routes verify the caller's Firebase ID token and (for acceptance)
-    // match the verified email. The only client capability is READ: the owner reads their
-    // own invites, and an invitee reads an invite addressed to their verified email so the
-    // app can render the pending-invite acceptance screen. All client writes are denied.
+    // Pending email invites, keyed by an unguessable (256-bit) token. Possessing the token
+    // (from the accept link) IS the capability, so any signed-in user may READ a single
+    // invite by id to render the acceptance screen. We do NOT gate the read on email here:
+    // rules have no lowercase, so an `email ==` check is case-sensitive and wrongly rejects
+    // legitimate Gmail addresses. The authoritative, Gmail-normalized email match runs
+    // server-side in acceptInvite (Admin SDK). `list` stays denied so invites can't be
+    // enumerated without a token; all client writes are denied (mint/accept/revoke are
+    // server-only via the `/api/account/*` routes).
     match /invites/{token} {
-      allow get: if isSignedIn()
-        && (existing().ownerUid == request.auth.uid
-          || existing().email == request.auth.token.email);
+      allow get: if isSignedIn();
       allow list: if false;
       allow create, update, delete: if false;
     }

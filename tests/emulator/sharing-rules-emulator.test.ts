@@ -220,8 +220,10 @@ describe("firestore rules emulator — WS18 account sharing", () => {
     );
   });
 
-  it("a signed-in user with a different email cannot read the invite", async () => {
-    await assertFails(dbWithEmail(STRANGER, "someone@else.com").doc(`invites/tok_pending`).get());
+  it("any signed-in holder of the token can read the invite (email match enforced at accept, server-side)", async () => {
+    await assertSucceeds(
+      dbWithEmail(STRANGER, "someone@else.com").doc(`invites/tok_pending`).get(),
+    );
   });
 
   it("denies ALL client writes to invites (mint/accept/revoke are Admin SDK only)", async () => {

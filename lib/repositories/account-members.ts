@@ -36,6 +36,25 @@ function generateInviteToken(): string {
   return randomBytes(INVITE_TOKEN_BYTES).toString("base64url");
 }
 
+/**
+ * Normalize an email for matching: lowercase, and for Gmail/Googlemail strip dots and any
+ * "+tag" from the local part (Gmail ignores both). So "James.Navinhill18+x@gmail.com" and
+ * "jamesnavinhill18@gmail.com" are treated as the same person. Firestore rules can't do this
+ * (no lowercase), which is why the invite read is token-gated and the authoritative match
+ * lives here.
+ */
+function normalizeEmailForMatch(email: string): string {
+  const e = email.trim().toLowerCase();
+  const at = e.lastIndexOf("@");
+  if (at < 0) return e;
+  const local = e.slice(0, at);
+  const domain = e.slice(at + 1);
+  if (domain === "gmail.com" || domain === "googlemail.com") {
+    return `${local.split("+")[0].replace(/\./g, "")}@gmail.com`;
+  }
+  return `${local}@${domain}`;
+}
+
 /** True when `role` is at or below `ceiling` in the role hierarchy (viewer < editor). */
 export function roleAtOrBelow(role: MemberRole, ceiling: MemberRole): boolean {
   return MEMBER_ROLE_ORDER[role] <= MEMBER_ROLE_ORDER[ceiling];
@@ -129,7 +148,7 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<AcceptInvi
     if (invite.status === "accepted") {
       return { ok: false, reason: "already-accepted" } as const;
     }
-    if (invite.email !== memberEmail) {
+    if (normalizeEmailForMatch(invite.email) !== normalizeEmailForMatch(memberEmail)) {
       return { ok: false, reason: "email-mismatch" } as const;
     }
     if (invite.ownerUid === input.memberUid) {

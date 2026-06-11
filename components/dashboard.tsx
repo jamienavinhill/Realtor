@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   AlertTriangle,
   Bell,
-  Building2,
   Cloud,
   FileText,
   Loader2,
@@ -1051,10 +1051,15 @@ export default function Dashboard() {
       {/* 1. TOP HEADER NAVIGATION PANEL */}
       <header className="sticky top-0 z-40 border-b border-stone-200 bg-white backdrop-blur dark:border-stone-900 dark:bg-stone-900/40">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center space-x-3">
-            <div className="bg-primary-500/10 text-primary-500 rounded-lg p-2">
-              <Building2 className="h-5 w-5" />
-            </div>
+          <div className="flex items-center space-x-2.5">
+            <Image
+              src="/brand/logo-mark.png"
+              alt="Abode Alerts"
+              width={44}
+              height={37}
+              priority
+              className="h-9 w-auto"
+            />
             <span className="font-sans text-lg font-bold tracking-tight text-stone-900 dark:text-white">
               Abode Alerts
             </span>

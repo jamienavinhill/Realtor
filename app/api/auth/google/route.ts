@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OAuth2Client } from "google-auth-library";
-import { getServerEnv } from "@/lib/env";
 import { getErrorMessage } from "@/lib/errors";
 import { encryptToken } from "@/lib/crypto/token-cipher";
 import { getAdminFirestore } from "@/lib/firebase-admin";
@@ -19,10 +18,28 @@ interface ExchangeBody {
   code?: string;
 }
 
+/** Decode the `sub` (Google account id) from an id_token without re-verifying it — it came
+ * directly from Google's token endpoint over TLS, so a second network verification is wasted. */
+function decodeIdTokenSub(idToken: string): string | undefined {
+  const payload = idToken.split(".")[1];
+  if (!payload) return undefined;
+  try {
+    const json = Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString(
+      "utf8",
+    );
+    return (JSON.parse(json) as { sub?: string }).sub;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const env = getServerEnv();
-    if (!env.googleOAuthClientId || !env.googleOAuthClientSecret) {
+    // Read ONLY the OAuth client vars. Sign-in must not depend on unrelated server env
+    // (RealtyAPI, etc.), so we deliberately do NOT call the all-or-nothing getServerEnv().
+    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim();
+    const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim();
+    if (!clientId || !clientSecret) {
       return NextResponse.json(
         { error: "Google OAuth client is not configured on the server." },
         { status: 503 },
@@ -35,11 +52,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing authorization code." }, { status: 400 });
     }
 
-    const oauth = new OAuth2Client({
-      clientId: env.googleOAuthClientId,
-      clientSecret: env.googleOAuthClientSecret,
-      redirectUri: "postmessage",
-    });
+    const oauth = new OAuth2Client({ clientId, clientSecret, redirectUri: "postmessage" });
 
     let idToken: string | undefined;
     let accessToken: string | undefined;
@@ -50,6 +63,7 @@ export async function POST(req: NextRequest) {
       accessToken = tokens.access_token ?? undefined;
       refreshToken = tokens.refresh_token ?? undefined;
     } catch (error) {
+      console.error("google auth code exchange failed:", getErrorMessage(error));
       return NextResponse.json(
         { error: `Authorization code exchange failed: ${getErrorMessage(error)}` },
         { status: 400 },
@@ -63,9 +77,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Resolve the Google account id from the verified id_token to key the pending token.
-    const ticket = await oauth.verifyIdToken({ idToken, audience: env.googleOAuthClientId });
-    const sub = ticket.getPayload()?.sub;
+    // Resolve the Google account id (sub) from the id_token (came from Google's token
+    // endpoint over TLS, so we decode rather than make a second verification network call).
+    const sub = decodeIdTokenSub(idToken);
     if (!sub) {
       return NextResponse.json({ error: "Could not resolve the Google account." }, { status: 400 });
     }

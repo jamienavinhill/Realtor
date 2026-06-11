@@ -33,7 +33,12 @@ import {
 import { onAuthStateChanged, User, GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 
 import { getErrorMessage } from "../lib/errors";
-import { requestOfflineAuthCode, SIGNIN_SCOPES, preloadGis } from "../lib/gmail/gis-client";
+import {
+  initSignIn,
+  isSignInReady,
+  requestOfflineAuthCode,
+  SIGNIN_SCOPES,
+} from "../lib/gmail/gis-client";
 import { DASHBOARD_TABS, type DashboardTab } from "../types/dashboard";
 import {
   AlertMatch,
@@ -505,20 +510,34 @@ export default function Dashboard() {
     };
   }, [user, authLoading, activeOwnerUid]);
 
-  // Preload Google Identity Services so the sign-in consent popup opens promptly on click.
+  // Build the offline sign-in client on mount so the consent popup opens in-gesture on click.
   useEffect(() => {
-    preloadGis();
+    initSignIn(process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID ?? "", SIGNIN_SCOPES);
   }, []);
 
-  // Sign in with Google using the OFFLINE auth-code flow so one consent covers everything
-  // (identity + Gmail read/send + Workspace) AND yields a stored refresh token — no more
-  // re-authorizing each session. Falls back to the proven popup if anything in the new flow
-  // fails, so sign-in can never fully break.
+  // Sign in with Google using the OFFLINE auth-code flow so ONE consent covers everything
+  // (identity + Gmail read/send + Workspace) and yields a stored refresh token — no more
+  // re-authorizing each session. If the offline client isn't ready or the flow errors, fall
+  // back to the proven Firebase popup so sign-in can never fully break.
   const handleGoogleAuth = async () => {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID;
+    const popupSignIn = async () => {
+      const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) setAccessToken(credential.accessToken);
+      toast({ variant: "success", description: "Signed in." });
+    };
+
+    if (!isSignInReady()) {
+      try {
+        await popupSignIn();
+      } catch (e: unknown) {
+        toast({ variant: "error", description: `Sign-in failed: ${getErrorMessage(e)}` });
+      }
+      return;
+    }
+
     try {
-      if (!clientId) throw new Error("offline-client-id-unavailable");
-      const code = await requestOfflineAuthCode(clientId, SIGNIN_SCOPES);
+      const code = await requestOfflineAuthCode();
       const res = await fetch("/api/auth/google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -526,9 +545,9 @@ export default function Dashboard() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.idToken) {
-        throw new Error(data.error || "Sign-in exchange failed");
+        throw new Error(data.error || `Sign-in exchange failed (${res.status})`);
       }
-      const credential = GoogleAuthProvider.credential(data.idToken, data.accessToken);
+      const credential = GoogleAuthProvider.credential(data.idToken);
       const result = await signInWithCredential(auth, credential);
       if (data.accessToken) setAccessToken(data.accessToken);
       // Move the stored refresh token under this uid (set-and-forget Gmail). Best-effort.
@@ -543,19 +562,11 @@ export default function Dashboard() {
       }
       toast({ variant: "success", description: "Signed in. Google connected." });
     } catch (error: unknown) {
-      // Fallback to the proven popup so sign-in can never fully break.
       console.error("Offline sign-in failed; falling back to popup:", error);
       try {
-        const result = await signInWithPopup(auth, googleProvider);
-        const credential = GoogleAuthProvider.credentialFromResult(result);
-        if (credential?.accessToken) setAccessToken(credential.accessToken);
-        toast({ variant: "success", description: "Signed in." });
-      } catch (fallbackError: unknown) {
-        console.error("Google Auth error:", fallbackError);
-        toast({
-          variant: "error",
-          description: `Sign-in failed: ${getErrorMessage(fallbackError)}`,
-        });
+        await popupSignIn();
+      } catch (e: unknown) {
+        toast({ variant: "error", description: `Sign-in failed: ${getErrorMessage(e)}` });
       }
     }
   };

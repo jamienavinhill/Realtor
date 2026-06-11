@@ -8,6 +8,10 @@
  * authorization-CODE flow once: the code is exchanged server-side for a long-lived refresh
  * token (stored encrypted) AND an id_token, which we use to sign into Firebase as the SAME
  * Google identity (so the account/uid is unchanged). One consent covers everything.
+ *
+ * CRITICAL: browsers block popups not opened directly inside a click. So we build the code
+ * client AHEAD of time (`initSignIn` on mount) and open the consent popup SYNCHRONOUSLY in
+ * the click handler (`requestOfflineAuthCode` — no awaits before `requestCode()`).
  */
 
 interface CodeClient {
@@ -30,6 +34,8 @@ declare global {
 
 const GIS_SRC = "https://accounts.google.com/gsi/client";
 let gisPromise: Promise<void> | null = null;
+let codeClient: CodeClient | null = null;
+let resolver: { resolve: (code: string) => void; reject: (err: Error) => void } | null = null;
 
 function loadGis(): Promise<void> {
   if (typeof window === "undefined") {
@@ -52,33 +58,49 @@ function loadGis(): Promise<void> {
   return gisPromise;
 }
 
-/** Preload the GIS script so the consent popup opens promptly on the user's click. */
-export function preloadGis(): void {
-  void loadGis().catch(() => {
-    /* best-effort preload; the click handler retries */
-  });
+/**
+ * Load GIS and build the code client up front (call on mount), so the consent popup can be
+ * opened synchronously on click without an intervening await that would break the gesture.
+ */
+export function initSignIn(clientId: string, scope: string): void {
+  if (!clientId) return;
+  void loadGis()
+    .then(() => {
+      if (codeClient || !window.google?.accounts?.oauth2) return;
+      codeClient = window.google.accounts.oauth2.initCodeClient({
+        client_id: clientId,
+        scope,
+        ux_mode: "popup",
+        callback: (resp) => {
+          const r = resolver;
+          resolver = null;
+          if (!r) return;
+          if (resp.error) r.reject(new Error(resp.error_description || resp.error));
+          else if (resp.code) r.resolve(resp.code);
+          else r.reject(new Error("No authorization code returned"));
+        },
+      });
+    })
+    .catch(() => {
+      /* best-effort; isSignInReady() stays false and the caller uses the popup fallback */
+    });
+}
+
+/** True once the offline code client is built and the consent popup can open in-gesture. */
+export function isSignInReady(): boolean {
+  return codeClient !== null;
 }
 
 /**
- * Open Google's offline consent popup and resolve with the one-time authorization code.
- * Must be called from a user gesture (the consent popup is otherwise blocked).
+ * Open Google's offline consent popup and resolve with the one-time code. MUST be called
+ * directly inside a click handler with no preceding await. Requires `initSignIn` to have
+ * finished (guard with `isSignInReady()` and fall back to the Firebase popup otherwise).
  */
-export async function requestOfflineAuthCode(clientId: string, scope: string): Promise<string> {
-  await loadGis();
-  const oauth2 = window.google?.accounts?.oauth2;
-  if (!oauth2) throw new Error("Google Identity Services failed to initialize");
+export function requestOfflineAuthCode(): Promise<string> {
+  if (!codeClient) return Promise.reject(new Error("sign-in-not-ready"));
   return new Promise<string>((resolve, reject) => {
-    const client = oauth2.initCodeClient({
-      client_id: clientId,
-      scope,
-      ux_mode: "popup",
-      callback: (resp) => {
-        if (resp.error) reject(new Error(resp.error_description || resp.error));
-        else if (resp.code) resolve(resp.code);
-        else reject(new Error("No authorization code returned"));
-      },
-    });
-    client.requestCode();
+    resolver = { resolve, reject };
+    codeClient!.requestCode();
   });
 }
 

@@ -13,9 +13,10 @@ name: CI
 # at module load in pages). No secrets are injected here. This is NOT a deploy
 # workflow — Vercel deploys automatically on git push.
 #
-# Action versions pinned and verified against official docs (2026-06-10):
+# Action versions pinned and verified against the GitHub API release feeds (2026-06-10):
 #   actions/checkout@v6, actions/setup-node@v6, actions/setup-java@v5,
-#   actions/cache@v4, actions/upload-artifact@v7.
+#   actions/cache@v5, actions/upload-artifact@v7 — all current major lines on the
+#   Node 24 runner runtime.
 
 on:
   push:
@@ -75,7 +76,7 @@ jobs:
           java-version: "21"
 
       - name: Cache Firebase emulator binaries
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-${{ runner.os }}

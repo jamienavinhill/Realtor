@@ -18,6 +18,11 @@ test.describe("docs TOC", () => {
     const toc = page.getByRole("navigation", { name: /documentation sections/i });
     await expect(toc).toBeVisible();
 
+    // The TOC lists the WS18 workspace-sharing section (added to both the TOC and the
+    // content), and its anchor points at the #sharing section heading below.
+    await expect(toc.getByRole("link", { name: /sharing a workspace/i })).toHaveCount(1);
+    await expect(page.locator("#sharing")).toHaveCount(1);
+
     // The DocsView's inner <main> is the SOLE scroll container (overflow-y-auto);
     // it holds the section headings. The page nests it inside two outer <main>
     // wrappers, so target the scrollable one directly.

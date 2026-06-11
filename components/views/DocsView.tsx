@@ -60,6 +60,7 @@ const DOC_GROUPS: DocGroup[] = [
       { id: "listing-actions", label: "Listing actions" },
       { id: "alerts", label: "Alerts" },
       { id: "cma", label: "CMA" },
+      { id: "sharing", label: "Sharing a workspace" },
     ],
   },
 ];
@@ -377,7 +378,7 @@ export function DocsView() {
             </p>
           </Section>
 
-          <Section id="cma" className="scroll-mt-6 pb-16">
+          <Section id="cma" className="scroll-mt-6">
             <h2 className="mb-3 text-lg font-semibold">CMA</h2>
             <p className="text-stone-600 dark:text-stone-400">
               The Comparative Market Analysis view summarizes the real Firestore inventory — every
@@ -390,6 +391,70 @@ export function DocsView() {
               columns. When the inventory is empty, the view shows an honest empty state rather than
               placeholder numbers. Rows link through to the same compact listing dialog used across
               the workspace.
+            </p>
+          </Section>
+
+          <Section id="sharing" className="scroll-mt-6 pb-16">
+            <h2 className="mb-3 text-lg font-semibold">Sharing a workspace</h2>
+            <p className="text-stone-600 dark:text-stone-400">
+              You can invite another person into your workspace so you both work on the same data —
+              the same listings, alerts, matches, and CMA. There is no separate copy: an invited
+              member sees and (as an editor) edits <em>your</em> workspace.
+            </p>
+            <h3 className="mt-4 mb-2 text-sm font-semibold text-stone-800 dark:text-stone-200">
+              Inviting someone
+            </h3>
+            <p className="text-stone-600 dark:text-stone-400">
+              Open the profile menu (your avatar, top-right) and choose{" "}
+              <span className="font-medium text-stone-800 dark:text-stone-200">
+                Share workspace
+              </span>
+              . Enter the person&rsquo;s email, pick a role, and send the invite. If your Gmail is
+              connected, an accept-link email is sent from your own mailbox; otherwise the invite is
+              still created and you can copy the accept link and share it yourself. (The
+              send-from-Gmail path depends on the operator&rsquo;s Google/OAuth setup being live;
+              the copyable link always works.)
+            </p>
+            <h3 className="mt-4 mb-2 text-sm font-semibold text-stone-800 dark:text-stone-200">
+              Viewer vs. editor
+            </h3>
+            <ul className="ml-5 list-disc space-y-1 text-stone-600 dark:text-stone-400">
+              <li>
+                <span className="font-medium text-stone-800 dark:text-stone-200">Viewer</span> —
+                strictly read-only. They can open your listings, alerts, matches, and CMA, but every
+                mutating control is hidden and any write is denied by the security rules.
+              </li>
+              <li>
+                <span className="font-medium text-stone-800 dark:text-stone-200">Editor</span> — can
+                do everything you can in the workspace (set listing preferences, compare, create and
+                edit alerts, and invite or remove other members at or below editor){" "}
+                <span className="font-medium text-stone-800 dark:text-stone-200">except</span>{" "}
+                deleting the account or removing/demoting you, the owner. Only the owner can do
+                that.
+              </li>
+            </ul>
+            <h3 className="mt-4 mb-2 text-sm font-semibold text-stone-800 dark:text-stone-200">
+              Accepting an invite
+            </h3>
+            <p className="text-stone-600 dark:text-stone-400">
+              The invited person opens the accept link, signs in with the Google account for the
+              email you invited, and accepts. The membership is written server-side only when their
+              verified email matches the invite — there is no way to accept an invite that
+              wasn&rsquo;t addressed to you.
+            </p>
+            <h3 className="mt-4 mb-2 text-sm font-semibold text-stone-800 dark:text-stone-200">
+              Switching workspaces
+            </h3>
+            <p className="text-stone-600 dark:text-stone-400">
+              Once you belong to more than one workspace (your own plus any you&rsquo;ve been added
+              to), a workspace switcher appears in the header. Pick a workspace there and the whole
+              app — listings, alerts, matches, CMA, and the share dialog — reads and writes that
+              owner&rsquo;s data, scoped to your role. As a viewer the controls are read-only; as an
+              editor you can make changes. You can revoke a member or invite at any time from{" "}
+              <span className="font-medium text-stone-800 dark:text-stone-200">
+                Share workspace
+              </span>
+              , which removes their access immediately.
             </p>
           </Section>
         </div>

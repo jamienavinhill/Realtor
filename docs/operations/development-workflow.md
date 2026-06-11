@@ -159,7 +159,8 @@ the release runbook.
 The repo is **public**, so Actions minutes are free/unlimited; all three jobs run on
 every push/PR. CI is **not** a deploy trigger — Vercel deploys automatically on
 `git push`. Action versions are pinned (`checkout@v6`, `setup-node@v6`,
-`setup-java@v5`, `cache@v4`, `upload-artifact@v7`), verified against official docs.
+`setup-java@v5`, `cache@v5`, `upload-artifact@v7`) — all current major lines on the
+Node 24 runner, verified against the GitHub release feeds.
 
 ## Operator scripts
 

@@ -26,13 +26,6 @@ interface MembersResponse {
   pendingInvites: AccountInvite[];
 }
 
-/** Build a mailto: link that opens the user's own email client pre-filled with the invite. */
-function buildInviteMailto(email: string, url: string): string {
-  const subject = encodeURIComponent("You're invited to my Abode Alerts workspace");
-  const body = encodeURIComponent(`Open this link to join my Abode Alerts workspace:\n\n${url}`);
-  return `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
-}
-
 async function authedFetch(user: User, input: string, init?: RequestInit) {
   const idToken = await user.getIdToken();
   const res = await fetch(input, {
@@ -71,7 +64,6 @@ export function ShareWorkspaceDialog({
   const [inviteRole, setInviteRole] = React.useState<MemberRole>("viewer");
   const [inviting, setInviting] = React.useState(false);
   const [lastAcceptUrl, setLastAcceptUrl] = React.useState<string | null>(null);
-  const [lastInviteEmail, setLastInviteEmail] = React.useState<string>("");
   const [busyMember, setBusyMember] = React.useState<string | null>(null);
   const [busyInvite, setBusyInvite] = React.useState<string | null>(null);
 
@@ -111,7 +103,6 @@ export function ShareWorkspaceDialog({
         body: JSON.stringify({ email, role: inviteRole, ownerUid }),
       });
       setInviteEmail("");
-      setLastInviteEmail(email);
       setLastAcceptUrl(res.acceptUrl ?? null);
       toast({
         variant: "success",
@@ -259,12 +250,6 @@ export function ShareWorkspaceDialog({
                   >
                     <Copy className="h-3 w-3" /> Copy link
                   </button>
-                  <a
-                    href={buildInviteMailto(lastInviteEmail, lastAcceptUrl)}
-                    className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-stone-700 hover:underline dark:text-stone-200"
-                  >
-                    <Mail className="h-3 w-3" /> Email it
-                  </a>
                 </div>
               ) : null}
             </form>

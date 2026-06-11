@@ -50,18 +50,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid Firebase ID token" }, { status: 401 });
     }
 
-    const env = getServerEnv();
-    if (!env.googleOAuthClientId || !env.googleOAuthClientSecret) {
-      return NextResponse.json(
-        { error: "Google OAuth client is not configured on the server." },
-        { status: 503 },
-      );
-    }
-
     const body = (await req.json()) as ConnectBody;
 
     let plaintextRefreshToken: string | undefined;
     if (body.serverAuthCode) {
+      // The offline authorization-code -> refresh-token exchange is the ONLY part of
+      // this route that needs the server-side OAuth client. Saving just a platform
+      // filter (no serverAuthCode) works on Firebase Auth alone, so the OAuth-client
+      // requirement must not gate that path.
+      const env = getServerEnv();
+      if (!env.googleOAuthClientId || !env.googleOAuthClientSecret) {
+        return NextResponse.json(
+          { error: "Google OAuth client is not configured on the server." },
+          { status: 503 },
+        );
+      }
       const oauthClient = new OAuth2Client({
         clientId: env.googleOAuthClientId,
         clientSecret: env.googleOAuthClientSecret,

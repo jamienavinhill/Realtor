@@ -372,7 +372,7 @@ function PropertyProfileModal({
   // hidden and replaced with an honest read-only note. Owners/editors get full controls.
   const canWrite = prefs?.canWrite ?? true;
   const hasIconActions =
-    (isSignedIn && Boolean(prefs) && canWrite) || hasWorkspaceAccess || Boolean(onDeleteProperty);
+    isSignedIn && ((Boolean(prefs) && canWrite) || hasWorkspaceAccess || Boolean(onDeleteProperty));
   const hasTextActions = isSignedIn && (Boolean(onAnalyze) || (Boolean(prefs) && canWrite));
 
   // Action bar: the self-evident states (interested/not, favorite, hide, schedule) are
@@ -417,7 +417,7 @@ function PropertyProfileModal({
           </>
         )}
 
-        {(hasWorkspaceAccess || onDeleteProperty) && (
+        {isSignedIn && (hasWorkspaceAccess || onDeleteProperty) && (
           <ActionChip
             iconOnly
             active={showWorkspace}
@@ -482,7 +482,7 @@ function PropertyProfileModal({
           analysis + workspace actions span full width below. */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Media */}
-        <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-stone-950 md:aspect-auto md:min-h-64">
+        <div className="relative aspect-[4/3] w-full self-stretch overflow-hidden rounded-xl bg-stone-950 md:aspect-auto">
           {images.length > 0 ? (
             <img
               src={images[currentImageIdx]}
@@ -529,7 +529,7 @@ function PropertyProfileModal({
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-3 gap-2 text-sm">
             <Fact label="Beds" value={property.beds} />
             <Fact label="Baths" value={property.baths} />
             <Fact label="Sq ft" value={property.sqft.toLocaleString()} />
@@ -541,11 +541,11 @@ function PropertyProfileModal({
           </div>
 
           {property.description ? (
-            <div>
+            <div className="min-h-0">
               <h3 className="mb-1 text-xs font-semibold tracking-wider text-stone-500 uppercase">
                 Details
               </h3>
-              <p className="max-h-28 overflow-y-auto pr-1 text-sm leading-relaxed text-stone-600 dark:text-stone-400">
+              <p className="line-clamp-4 text-sm leading-relaxed text-stone-600 dark:text-stone-400">
                 {property.description}
               </p>
             </div>

@@ -1,13 +1,5 @@
 import type { GmailSync } from "@/types/gmail-sync";
-import {
-  fail,
-  isNonEmptyString,
-  isOptionalString,
-  isStringArray,
-  isObject,
-  ok,
-  type ValidationResult,
-} from "./common";
+import { fail, isNonEmptyString, isStringArray, isObject, ok, type ValidationResult } from "./common";
 
 /**
  * Runtime validator for the server-only `GmailSync` document. Hand-written to match
@@ -39,8 +31,15 @@ export function validateGmailSync(value: unknown): ValidationResult<GmailSync> {
   if (!isStringArray(value.platformSelection, 50)) {
     errors.push("platformSelection must be an array of strings");
   }
-  if (value.customQuery !== undefined && !isOptionalString(value.customQuery, 2000)) {
-    errors.push("customQuery must be a string when provided");
+  // customQuery is an OPTIONAL free-text fragment where "" legitimately means "no
+  // fragment". It must accept the empty string — `isOptionalString` rejects "" (requires
+  // length > 0), which silently failed the whole gmailSync read path (token, watch, push)
+  // whenever an empty customQuery was persisted. Accept any string up to the cap.
+  if (
+    value.customQuery !== undefined &&
+    (typeof value.customQuery !== "string" || value.customQuery.length > 2000)
+  ) {
+    errors.push("customQuery must be a string of at most 2000 characters when provided");
   }
   // The encrypted token can be long; allow up to 8KB. Empty/undefined is allowed
   // (selection can be persisted before the token is captured).

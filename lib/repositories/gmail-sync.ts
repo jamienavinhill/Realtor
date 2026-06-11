@@ -1,6 +1,7 @@
 import type { GmailSync } from "@/types/gmail-sync";
 import { GMAIL_SYNC_DOC_ID } from "@/types/gmail-sync";
 import { validateGmailSync } from "@/lib/schemas/gmail-sync";
+import { FieldValue } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase-admin";
 import { decryptToken, encryptToken } from "@/lib/crypto/token-cipher";
 
@@ -49,7 +50,12 @@ export async function upsertGmailSync(
   if (rest.watchExpiresAt !== undefined) fields.watchExpiresAt = rest.watchExpiresAt;
   if (rest.lastProcessedAt !== undefined) fields.lastProcessedAt = rest.lastProcessedAt;
   if (rest.platformSelection !== undefined) fields.platformSelection = rest.platformSelection;
-  if (rest.customQuery !== undefined) fields.customQuery = rest.customQuery;
+  if (rest.customQuery !== undefined) {
+    // Persist a trimmed non-empty fragment, or clear the field entirely. Never store ""
+    // — an empty optional string is meaningless and used to poison the gmailSync read path.
+    const trimmed = rest.customQuery.trim();
+    fields.customQuery = trimmed.length > 0 ? trimmed : FieldValue.delete();
+  }
 
   if (plaintextRefreshToken !== undefined && plaintextRefreshToken.trim().length > 0) {
     fields.refreshTokenEnc = encryptToken(plaintextRefreshToken.trim());

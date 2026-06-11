@@ -63,6 +63,15 @@ Firestore security rules have a dedicated emulator suite that is not part of `ve
 npm run test:rules
 ```
 
+Playwright critical-path smokes (auth chrome, docs TOC, CMA pagination/sort, toast non-shift, protected route) run against the app started by Playwright's web server:
+
+```bash
+npx playwright install --with-deps chromium   # once
+npm run test:e2e
+```
+
+CI (`.github/workflows/ci.yml`) runs `verify`, `test:rules`, and `test:e2e` on every push and pull request to `main`. The full release-gate ladder (which rungs run in CI vs. operator/manual) and the manual production smoke runbook are in `docs/operations/development-workflow.md` and `docs/operations/release-runbook.md`.
+
 ## Active Execution Plan
 
 - Roadmap, data contracts, and Firestore collection map: `docs/roadmaps/`

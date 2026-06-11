@@ -6,7 +6,7 @@ Durable docs point to directories, not transient dated files — open the direct
 - `docs/engineering/standards/` — durable engineering standards (planning style, report style, docs standards).
 - `docs/engineering/agents/` — agent operating docs and run logs.
 - `docs/research/` — research notes (e.g. Gmail/listing parsing in `INBOX_PARSING.md`).
-- `docs/operations/` — durable operations docs. `development-workflow.md` covers local setup, the quality gates, and the verify release gate; `env-and-deploy.md` covers the env canon and deploy model; `provider-ingestion.md` covers the 44224 baseline backfill (provenance, idempotency, dry-run, cost posture).
+- `docs/operations/` — durable operations docs. `development-workflow.md` covers local setup, the quality gates, the full release-gate ladder (CI vs operator/manual), and CI; `release-runbook.md` is the repeatable manual production smoke checklist (mapped to the Acceptance Criteria, incl. the WS18 two-account sharing flow and operator prerequisites); `env-and-deploy.md` covers the env canon and deploy model; `provider-ingestion.md` covers the 44224 baseline backfill (provenance, idempotency, dry-run, cost posture).
 - `docs/architecture/` — durable architecture records: `data-model.md` (Firestore contracts + access table) and `auth-and-secrets.md` (auth, secret lanes, encrypted refresh token, rules posture, App Check path). `docs/decisions/` holds decision records, added as the roadmap executes.
 
 Repository-owned configuration that is not tool-discovery-fixed lives under `config/`:

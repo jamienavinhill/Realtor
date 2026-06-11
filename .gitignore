@@ -45,3 +45,9 @@ agent-tools/
 output/
 mcps/
 tsconfig.tsbuildinfo
+
+# Playwright e2e outputs
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

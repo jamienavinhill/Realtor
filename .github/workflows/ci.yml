@@ -1,0 +1,127 @@
+name: CI
+
+# Production release gate. Runs the full local gate (lint, typecheck, format:check,
+# unit tests, build) on every push and pull request to main, plus the Firestore
+# security-rules emulator suite in a separate job (Java + the Firebase emulator).
+#
+# The repository is PUBLIC, so GitHub Actions minutes are free/unlimited; both jobs
+# run on every push and PR to main with no minute-budget concern.
+#
+# The build needs NO real secrets: Firebase WEB client config is public
+# (config/firebase/client-config.json) and `next build` does not read any runtime
+# app secret (validateEnv/getServerEnv are only invoked in server/script paths, not
+# at module load in pages). No secrets are injected here. This is NOT a deploy
+# workflow — Vercel deploys automatically on git push.
+#
+# Action versions pinned and verified against official docs (2026-06-10):
+#   actions/checkout@v6, actions/setup-node@v6, actions/setup-java@v5,
+#   actions/cache@v4, actions/upload-artifact@v7.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Cancel superseded runs on the same ref to keep the queue lean.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify (lint, typecheck, format, test, build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          # The repo pins no Node version (no .nvmrc, no engines field). 24 matches
+          # the dev host (node v24.x) and is a current setup-node-supported line;
+          # Next 15 supports Node >=18.18, so this is comfortably in range.
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify gate
+        # lint -> typecheck -> format:check -> test -> build, in sequence.
+        run: npm run verify
+
+  rules:
+    name: Firestore security rules (emulator)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Set up Java (required by the Firestore emulator)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Cache Firebase emulator binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}
+          restore-keys: |
+            firebase-emulators-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Firestore rules emulator suite
+        # `firebase emulators:exec --only firestore` downloads the emulator JAR on
+        # first run (cached above) and needs no Firebase login for Firestore.
+        run: npm run test:rules
+
+  e2e:
+    name: Playwright critical-path smokes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        # Chromium + its system deps for the headless smokes (official Playwright CI step).
+        run: npx playwright install --with-deps chromium
+
+      - name: Run e2e smokes
+        # The Playwright webServer starts the app (npx next dev) on its own test port
+        # and sets a throwaway INGEST_JOB_TOKEN so the protected-route gate is
+        # exercised. Reachable smokes (auth chrome, docs TOC, toast non-shift,
+        # protected route, CMA when the public catalog is reachable) run for real;
+        # OAuth-gated specs are documented test.skip. No real secrets are needed.
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

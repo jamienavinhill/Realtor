@@ -12,15 +12,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
  * `scroll-mt-*` so an anchored heading is not hidden under the sticky in-column
  * header.
  *
- * Mount context: this view renders inside the dashboard's centered, padded
- * `<main className="mx-auto max-w-7xl grow px-4 py-8 sm:px-6 lg:px-8">`, and the
- * window itself is the document scroll container (sticky 64px header in normal
- * flow). A naive `h-[calc(100vh-64px)]` block would sit BELOW the wrapper's
- * `py-8`, overflow the viewport by ~64px, and scroll the whole window — dragging
- * the "pinned" TOC away. So the root cancels the wrapper's vertical padding
- * (`-my-8`) and bleeds past its horizontal padding (responsive negative margins)
- * to occupy exactly the `100vh - 64px` region under the header. That keeps the
- * inner `main` the single scroll container and the window static.
+ * Mount context: for the docs tab the dashboard renders this inside a FULL-BLEED
+ * `<main className="w-full grow">` (no max-width, no padding), so the view simply
+ * occupies the `100vh - header` region under the sticky header and makes its inner
+ * `main` the single scroll container. No negative-margin bleed is needed, so the
+ * window itself never scrolls and there is exactly one scrollbar, at the page edge.
  *
  * Content reflects what the app ACTUALLY does today (WS7 email ingest, WS8 daily
  * refresh + alerts, WS12 listing actions, WS13 CMA) and the durable docs under
@@ -117,7 +113,7 @@ export function DocsView() {
   }, []);
 
   return (
-    <div className="-mx-4 -my-8 flex h-[calc(100vh-64px)] overflow-hidden bg-stone-50 text-stone-900 sm:-mx-6 lg:-mx-8 dark:bg-stone-950 dark:text-stone-100">
+    <div className="flex h-[calc(100vh-65px)] overflow-hidden bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
       {/* Pinned TOC — fixed height, only its own inner list scrolls if it overflows. */}
       <nav
         aria-label="Documentation sections"

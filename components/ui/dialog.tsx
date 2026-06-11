@@ -21,6 +21,7 @@ const SIZE_CLASS: Record<NonNullable<DialogProps["size"]>, string> = {
   md: "max-w-lg",
   lg: "max-w-xl",
   xl: "max-w-3xl",
+  "2xl": "max-w-4xl",
 };
 
 export interface DialogProps {
@@ -31,7 +32,7 @@ export interface DialogProps {
   subtitle?: React.ReactNode;
   /** Sticky footer region (e.g. action bar). */
   footer?: React.ReactNode;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl";
   children: React.ReactNode;
   /** Accessible label when `title` is not plain text. */
   ariaLabel?: string;

@@ -55,6 +55,7 @@ import { IngestPlatformSelector } from "./views/IngestPlatformSelector";
 import { ListingsGrid, NoListingMedia } from "./views/ListingsGrid";
 import { CompareDialog } from "./views/CompareDialog";
 import { CMAView } from "./views/CMAView";
+import { AlertMatchesTable } from "./views/AlertMatchesTable";
 import { ThemeControls } from "./theme-controls";
 import { useToast } from "./ui/toast";
 import { useListingPreferences } from "@/lib/hooks/useListingPreferences";
@@ -1135,7 +1136,13 @@ export default function Dashboard() {
       ) : null}
 
       {/* Alert matches and workspace events surface through the toast system (components/ui/toast.tsx). */}
-      <main className="mx-auto w-full max-w-7xl grow px-4 py-8 sm:px-6 lg:px-8">
+      <main
+        className={
+          activeTab === "docs"
+            ? "w-full grow"
+            : "mx-auto w-full max-w-7xl grow px-4 py-8 sm:px-6 lg:px-8"
+        }
+      >
         {/* TAB VIEW CONTAINER ROUTING */}
         {activeTab === "listings" && (
           <div className="space-y-6">
@@ -1487,113 +1494,114 @@ export default function Dashboard() {
         )}
 
         {activeTab === "alerts" && (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-            {/* ALERTS SCHEDULER FORM */}
-            <div className="h-fit space-y-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-lg lg:col-span-4 dark:border-stone-800 dark:bg-stone-900">
-              <div className="flex items-center space-x-2 border-b border-stone-200 pb-4 dark:border-stone-800">
-                <Bell className="text-primary-400 h-5 w-5" />
-                <h2 className="text-sm font-bold text-stone-900 dark:text-white">
-                  Create Lead Monitor
-                </h2>
+          <div className="space-y-8">
+            {/* Top row: Create Lead Monitor + Active Monitoring Queries, equal height. */}
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-stretch">
+              {/* ALERTS SCHEDULER FORM */}
+              <div className="flex flex-col space-y-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
+                <div className="flex items-center space-x-2 border-b border-stone-200 pb-4 dark:border-stone-800">
+                  <Bell className="text-primary-400 h-5 w-5" />
+                  <h2 className="text-sm font-bold text-stone-900 dark:text-white">
+                    Create Lead Monitor
+                  </h2>
+                </div>
+
+                {user && !canWrite ? (
+                  <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-center dark:border-stone-800 dark:bg-stone-950">
+                    <ShieldCheck className="mx-auto mb-2 h-7 w-7 text-stone-400" />
+                    <span className="mb-1 block text-xs font-bold text-stone-700 dark:text-stone-200">
+                      View-only access
+                    </span>
+                    <p className="text-[11px] leading-relaxed text-stone-500">
+                      You can view this workspace&apos;s alerts and matches, but only the owner or
+                      an editor can create or mute monitors.
+                    </p>
+                  </div>
+                ) : !user ? (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-center text-amber-300">
+                    <span className="mb-1 block text-xs font-bold">Authorization Required</span>
+                    <p className="mb-3 text-[11px] leading-relaxed text-stone-400">
+                      Please sign in to configure alerts.
+                    </p>
+                    <button
+                      onClick={handleGoogleAuth}
+                      className="bg-primary-600 w-full cursor-pointer rounded px-4 py-1.5 text-xs font-bold text-stone-950 transition"
+                    >
+                      Sign In
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleCreateAlert} className="space-y-4">
+                    <div>
+                      <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
+                        Alert Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newAlertName}
+                        onChange={(e) => setNewAlertName(e.target.value)}
+                        placeholder="e.g. Stow homes under $400k"
+                        className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-sans text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
+                        Target City Area
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newAlertCity}
+                        onChange={(e) => setNewAlertCity(e.target.value)}
+                        placeholder={`e.g. ${DEFAULT_ALERT_CITY}`}
+                        className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-sans text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
+                        Maximum Price ($)
+                      </label>
+                      <input
+                        type="number"
+                        value={newAlertMaxPrice}
+                        onChange={(e) => setNewAlertMaxPrice(e.target.value)}
+                        placeholder="e.g. 750000"
+                        className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-mono text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
+                        Minimum Bedrooms
+                      </label>
+                      <select
+                        value={newAlertMinBeds}
+                        onChange={(e) => setNewAlertMinBeds(e.target.value)}
+                        title="Minimum bedrooms"
+                        className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-sans text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
+                      >
+                        <option value="1">1+ Beds</option>
+                        <option value="2">2+ Beds</option>
+                        <option value="3">3+ Beds</option>
+                        <option value="4">4+ Beds</option>
+                      </select>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="bg-primary-600 hover:bg-primary-500 border-primary-500 w-full cursor-pointer rounded border p-3 text-center font-mono text-xs font-bold text-stone-950 shadow transition"
+                    >
+                      Set Active Alert Trigger Rule
+                    </button>
+                  </form>
+                )}
               </div>
 
-              {user && !canWrite ? (
-                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-center dark:border-stone-800 dark:bg-stone-950">
-                  <ShieldCheck className="mx-auto mb-2 h-7 w-7 text-stone-400" />
-                  <span className="mb-1 block text-xs font-bold text-stone-700 dark:text-stone-200">
-                    View-only access
-                  </span>
-                  <p className="text-[11px] leading-relaxed text-stone-500">
-                    You can view this workspace&apos;s alerts and matches, but only the owner or an
-                    editor can create or mute monitors.
-                  </p>
-                </div>
-              ) : !user ? (
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-center text-amber-300">
-                  <span className="mb-1 block text-xs font-bold">Authorization Required</span>
-                  <p className="mb-3 text-[11px] leading-relaxed text-stone-400">
-                    Please sign in to configure alerts.
-                  </p>
-                  <button
-                    onClick={handleGoogleAuth}
-                    className="bg-primary-600 w-full cursor-pointer rounded px-4 py-1.5 text-xs font-bold text-stone-950 transition"
-                  >
-                    Sign In
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleCreateAlert} className="space-y-4">
-                  <div>
-                    <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
-                      Alert Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={newAlertName}
-                      onChange={(e) => setNewAlertName(e.target.value)}
-                      placeholder="e.g. Stow homes under $400k"
-                      className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-sans text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
-                      Target City Area
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={newAlertCity}
-                      onChange={(e) => setNewAlertCity(e.target.value)}
-                      placeholder={`e.g. ${DEFAULT_ALERT_CITY}`}
-                      className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-sans text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
-                      Maximum Price ($)
-                    </label>
-                    <input
-                      type="number"
-                      value={newAlertMaxPrice}
-                      onChange={(e) => setNewAlertMaxPrice(e.target.value)}
-                      placeholder="e.g. 750000"
-                      className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-mono text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
-                      Minimum Bedrooms
-                    </label>
-                    <select
-                      value={newAlertMinBeds}
-                      onChange={(e) => setNewAlertMinBeds(e.target.value)}
-                      title="Minimum bedrooms"
-                      className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-sans text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
-                    >
-                      <option value="1">1+ Beds</option>
-                      <option value="2">2+ Beds</option>
-                      <option value="3">3+ Beds</option>
-                      <option value="4">4+ Beds</option>
-                    </select>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="bg-primary-600 hover:bg-primary-500 border-primary-500 w-full cursor-pointer rounded border p-3 text-center font-mono text-xs font-bold text-stone-950 shadow transition"
-                  >
-                    Set Active Alert Trigger Rule
-                  </button>
-                </form>
-              )}
-            </div>
-
-            <div className="space-y-6 lg:col-span-8">
               {/* LIVE ACTIVE ALERTS ROW MATCH LISTING */}
-              <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
+              <div className="flex flex-col rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
                 <div className="mb-4 flex items-center justify-between border-b border-stone-200 pb-4 dark:border-stone-800">
                   <span className="font-sans text-sm font-bold text-stone-900 dark:text-white">
                     Active Monitoring Queries
@@ -1669,75 +1677,40 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* PERSISTED ALERT MATCHES */}
-              <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
-                <div className="mb-4 flex items-center justify-between border-b border-stone-200 pb-4 dark:border-stone-800">
-                  <span className="font-sans text-sm font-bold text-stone-900 dark:text-white">
-                    Persisted Alert Matches
-                  </span>
-                  <span className="font-mono text-[10px] text-stone-500 uppercase">
-                    Saved from daily refresh
-                  </span>
-                </div>
-
-                {!user ? (
-                  <div className="py-12 text-center font-mono text-xs text-stone-500">
-                    Sign in to view alert matches saved by the ingestion pipeline.
-                  </div>
-                ) : resolvedAlertMatches.length === 0 ? (
-                  <div className="mx-auto max-w-lg py-12 text-center">
-                    <Bell className="mx-auto mb-3 h-10 w-10 text-stone-700" />
-                    <p className="font-mono text-xs leading-relaxed text-stone-500">
-                      No persisted matches yet. Matches appear here after daily refresh evaluates
-                      your active alerts against the {BASELINE_ZIP} listing inventory.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {resolvedAlertMatches.map(({ match, alert, property }) => (
-                      <div
-                        key={match.id}
-                        className="flex flex-col gap-3 rounded-xl border border-stone-200 bg-stone-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-stone-800 dark:bg-stone-950"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="mb-1 flex flex-wrap items-center gap-2">
-                            <span className="bg-primary-500/10 text-primary-500 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider uppercase">
-                              {alert?.name || "Deleted alert"}
-                            </span>
-                            <span className="font-mono text-[10px] text-stone-500">
-                              Last seen {new Date(match.lastSeenAt).toLocaleString()}
-                            </span>
-                          </div>
-                          <h4 className="truncate text-sm font-bold text-stone-900 dark:text-stone-100">
-                            {property?.title || `Listing ${match.listingId}`}
-                          </h4>
-                          <p className="mt-1 font-mono text-[11px] text-stone-500">
-                            {property
-                              ? `${property.address}, ${property.city} — $${property.price.toLocaleString()}`
-                              : "Listing details unavailable until inventory syncs."}
-                          </p>
-                          <p className="mt-2 font-mono text-[10px] text-stone-400">
-                            Match reason: {match.matchReason}
-                          </p>
-                        </div>
-                        {property && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveTab("listings");
-                              setSearchTerm(property.title);
-                            }}
-                            className="text-primary-950 hover:bg-primary-50 shrink-0 cursor-pointer rounded bg-white px-4 py-2 text-xs font-bold shadow transition dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800"
-                          >
-                            View Listing
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+            {/* PERSISTED ALERT MATCHES — full width below the top row */}
+            <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
+              <div className="mb-4 flex items-center justify-between border-b border-stone-200 pb-4 dark:border-stone-800">
+                <span className="font-sans text-sm font-bold text-stone-900 dark:text-white">
+                  Persisted Alert Matches
+                </span>
+                <span className="font-mono text-[10px] text-stone-500 uppercase">
+                  Saved from daily refresh
+                </span>
               </div>
+
+              {!user ? (
+                <div className="py-12 text-center font-mono text-xs text-stone-500">
+                  Sign in to view alert matches saved by the ingestion pipeline.
+                </div>
+              ) : resolvedAlertMatches.length === 0 ? (
+                <div className="mx-auto max-w-lg py-12 text-center">
+                  <Bell className="mx-auto mb-3 h-10 w-10 text-stone-700" />
+                  <p className="font-mono text-xs leading-relaxed text-stone-500">
+                    No persisted matches yet. Matches appear here after daily refresh evaluates your
+                    active alerts against the {BASELINE_ZIP} listing inventory.
+                  </p>
+                </div>
+              ) : (
+                <AlertMatchesTable
+                  matches={resolvedAlertMatches}
+                  onView={(p) => {
+                    setActiveTab("listings");
+                    setSearchTerm(p.title);
+                  }}
+                />
+              )}
             </div>
           </div>
         )}

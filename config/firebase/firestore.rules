@@ -294,5 +294,12 @@ service cloud.firestore {
       // must never read or write it, so the refresh token is never exposed to the browser.
       allow read, write: if false;
     }
+
+    match /pendingGmailTokens/{sub} {
+      // Server-only: briefly holds an encrypted refresh token between the offline auth-code
+      // exchange (/api/auth/google) and the moment the client claims it under its uid
+      // (/api/gmail/claim). Admin SDK only; never client-readable.
+      allow read, write: if false;
+    }
   }
 }

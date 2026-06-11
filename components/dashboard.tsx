@@ -30,9 +30,10 @@ import {
   handleFirestoreError,
   OperationType,
 } from "../lib/firebase";
-import { onAuthStateChanged, User, GoogleAuthProvider } from "firebase/auth";
+import { onAuthStateChanged, User, GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 
 import { getErrorMessage } from "../lib/errors";
+import { requestOfflineAuthCode, SIGNIN_SCOPES, preloadGis } from "../lib/gmail/gis-client";
 import { DASHBOARD_TABS, type DashboardTab } from "../types/dashboard";
 import {
   AlertMatch,
@@ -504,26 +505,58 @@ export default function Dashboard() {
     };
   }, [user, authLoading, activeOwnerUid]);
 
-  // Authenticate user & capture Google Access Token in-memory
+  // Preload Google Identity Services so the sign-in consent popup opens promptly on click.
+  useEffect(() => {
+    preloadGis();
+  }, []);
+
+  // Sign in with Google using the OFFLINE auth-code flow so one consent covers everything
+  // (identity + Gmail read/send + Workspace) AND yields a stored refresh token — no more
+  // re-authorizing each session. Falls back to the proven popup if anything in the new flow
+  // fails, so sign-in can never fully break.
   const handleGoogleAuth = async () => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID;
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      if (credential?.accessToken) {
-        setAccessToken(credential.accessToken);
-        toast({
-          variant: "success",
-          description: "Connected Google Workspace services.",
+      if (!clientId) throw new Error("offline-client-id-unavailable");
+      const code = await requestOfflineAuthCode(clientId, SIGNIN_SCOPES);
+      const res = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.idToken) {
+        throw new Error(data.error || "Sign-in exchange failed");
+      }
+      const credential = GoogleAuthProvider.credential(data.idToken, data.accessToken);
+      const result = await signInWithCredential(auth, credential);
+      if (data.accessToken) setAccessToken(data.accessToken);
+      // Move the stored refresh token under this uid (set-and-forget Gmail). Best-effort.
+      try {
+        const fbIdToken = await result.user.getIdToken();
+        await fetch("/api/gmail/claim", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${fbIdToken}` },
         });
-      } else {
+      } catch {
+        /* claim is best-effort; sign-in already succeeded */
+      }
+      toast({ variant: "success", description: "Signed in. Google connected." });
+    } catch (error: unknown) {
+      // Fallback to the proven popup so sign-in can never fully break.
+      console.error("Offline sign-in failed; falling back to popup:", error);
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) setAccessToken(credential.accessToken);
+        toast({ variant: "success", description: "Signed in." });
+      } catch (fallbackError: unknown) {
+        console.error("Google Auth error:", fallbackError);
         toast({
-          variant: "info",
-          description: "Signed in, but Workspace token access was restricted.",
+          variant: "error",
+          description: `Sign-in failed: ${getErrorMessage(fallbackError)}`,
         });
       }
-    } catch (error: unknown) {
-      console.error("Google Auth error:", error);
-      toast({ variant: "error", description: `Authorization failed: ${getErrorMessage(error)}` });
     }
   };
 

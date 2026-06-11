@@ -515,6 +515,32 @@ export default function Dashboard() {
     initSignIn(process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID ?? "", SIGNIN_SCOPES);
   }, []);
 
+  // Set-and-forget: when signed in but the in-memory Google access token is gone (e.g. after a
+  // reload), silently mint a fresh one from the STORED refresh token — no re-auth popup. The
+  // harvester / Sheets export / Calendar all read this token.
+  useEffect(() => {
+    if (!user || accessToken) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const idToken = await user.getIdToken();
+        const res = await fetch("/api/gmail/access-token", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok && data.connected && data.accessToken) {
+          setAccessToken(data.accessToken);
+        }
+      } catch {
+        /* silent — the "Authorize Google Services" button stays as a manual fallback */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, accessToken]);
+
   // Sign in with Google using the OFFLINE auth-code flow so ONE consent covers everything
   // (identity + Gmail read/send + Workspace) and yields a stored refresh token — no more
   // re-authorizing each session. If the offline client isn't ready or the flow errors, fall

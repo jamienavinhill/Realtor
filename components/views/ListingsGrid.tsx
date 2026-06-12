@@ -175,120 +175,125 @@ function PropertyCard({
 
   return (
     <article className="group hover:border-primary-400 dark:hover:border-primary-600 w-full overflow-hidden rounded-xl border border-stone-200 bg-white text-left shadow-sm transition-all hover:shadow-md dark:border-stone-800 dark:bg-stone-900">
-      <div tabIndex={0} onClick={onClick} onKeyDown={handleCardKeyDown} className="cursor-pointer">
-        <div className="relative aspect-4/3 overflow-hidden bg-stone-100 dark:bg-stone-950">
-          {images.length > 0 ? (
-            <img
-              src={images[currentImageIdx]}
-              alt={property.title}
-              className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <NoListingMedia />
-          )}
+      {/* Image area click opens detail dialog (explicit, not the meta/detail panel below). */}
+      <div
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={handleCardKeyDown}
+        className="relative aspect-4/3 cursor-pointer overflow-hidden bg-stone-100 dark:bg-stone-950"
+      >
+        {images.length > 0 ? (
+          <img
+            src={images[currentImageIdx]}
+            alt={property.title}
+            className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <NoListingMedia />
+        )}
 
-          {images.length > 1 && (
-            <div
-              className="absolute inset-0 flex items-center justify-between px-2 opacity-0 transition-opacity group-hover:opacity-100"
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.stopPropagation()}
+        {images.length > 1 && (
+          <div
+            className="absolute inset-0 flex items-center justify-between px-2 opacity-0 transition-opacity group-hover:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={handlePrev}
+              className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
+              aria-label="Previous image"
             >
-              <button
-                type="button"
-                onClick={handlePrev}
-                className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
-                aria-label="Previous image"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={handleNext}
-                className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
-                aria-label="Next image"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
-
-          {images.length > 1 && (
-            <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1">
-              {images.map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-1 rounded-full transition-all ${i === currentImageIdx ? "w-3 bg-white" : "w-1 bg-white/50"}`}
-                />
-              ))}
-            </div>
-          )}
-
-          <div className="absolute top-2 left-2 flex gap-1.5">
-            <span className="rounded-md bg-white/90 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-stone-900 shadow-sm backdrop-blur-md dark:bg-stone-900/90 dark:text-white">
-              {property.status}
-            </span>
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNext}
+              className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
+              aria-label="Next image"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
           </div>
+        )}
 
-          {/* Per-user state badges (favorite / interested) so the grid reflects saved prefs. */}
-          <div className="absolute top-2 right-2 flex gap-1.5">
-            {state === "favorite" && (
-              <span
-                className="rounded-md bg-rose-500/90 p-1 text-white shadow-sm"
-                title="Favorited"
-              >
-                <Heart className="h-3 w-3 fill-current" />
-              </span>
-            )}
-            {state === "interested" && (
-              <span
-                className="rounded-md bg-emerald-500/90 p-1 text-white shadow-sm"
-                title="Interested"
-              >
-                <ThumbsUp className="h-3 w-3" />
-              </span>
-            )}
-            {inCompare && (
-              <span
-                className="rounded-md bg-stone-900/80 p-1 text-white shadow-sm"
-                title="In compare"
-              >
-                <GitCompareArrows className="h-3 w-3" />
-              </span>
-            )}
+        {images.length > 1 && (
+          <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1">
+            {images.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1 rounded-full transition-all ${i === currentImageIdx ? "w-3 bg-white" : "w-1 bg-white/50"}`}
+              />
+            ))}
           </div>
+        )}
+
+        <div className="absolute top-2 left-2 flex gap-1.5">
+          <span className="rounded-md bg-white/90 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-stone-900 shadow-sm backdrop-blur-md dark:bg-stone-900/90 dark:text-white">
+            {property.status}
+          </span>
         </div>
 
-        <div className="p-3.5">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="line-clamp-1 text-sm font-semibold text-stone-900 dark:text-white">
-              {property.title}
-            </h3>
-            <span className="text-primary-600 dark:text-primary-400 shrink-0 font-mono text-sm font-semibold">
-              ${property.price.toLocaleString()}
+        {/* Per-user state badges (favorite / interested) so the grid reflects saved prefs. */}
+        <div className="absolute top-2 right-2 flex gap-1.5">
+          {state === "favorite" && (
+            <span
+              className="rounded-md bg-rose-500/90 p-1 text-white shadow-sm"
+              title="Favorited"
+            >
+              <Heart className="h-3 w-3 fill-current" />
             </span>
-          </div>
-          <p className="mt-0.5 flex items-center text-xs text-stone-500">
-            <MapPin className="mr-1 h-3 w-3 shrink-0" />
-            <span className="truncate">
-              {property.address}, {property.city}
+          )}
+          {state === "interested" && (
+            <span
+              className="rounded-md bg-emerald-500/90 p-1 text-white shadow-sm"
+              title="Interested"
+            >
+              <ThumbsUp className="h-3 w-3" />
             </span>
-          </p>
+          )}
+          {inCompare && (
+            <span
+              className="rounded-md bg-stone-900/80 p-1 text-white shadow-sm"
+              title="In compare"
+            >
+              <GitCompareArrows className="h-3 w-3" />
+            </span>
+          )}
+        </div>
+      </div>
 
-          <div className="mt-2.5 flex items-center gap-3 text-xs text-stone-600 dark:text-stone-400">
-            <span className="flex items-center gap-1">
-              <BedDouble className="h-3.5 w-3.5 text-stone-400" />
-              {property.beds} bd
-            </span>
-            <span className="flex items-center gap-1">
-              <Bath className="h-3.5 w-3.5 text-stone-400" />
-              {property.baths} ba
-            </span>
-            <span className="flex items-center gap-1">
-              <Maximize2 className="h-3.5 w-3.5 text-stone-400" />
-              {property.sqft.toLocaleString()} sqft
-            </span>
-          </div>
+      {/* Meta / summary panel below image — does not open dialog (image click does). */}
+      <div className="p-3.5">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="line-clamp-1 text-sm font-semibold text-stone-900 dark:text-white">
+            {property.title}
+          </h3>
+          <span className="text-primary-600 dark:text-primary-400 shrink-0 font-mono text-sm font-semibold">
+            ${property.price.toLocaleString()}
+          </span>
+        </div>
+        <p className="mt-0.5 flex items-center text-xs text-stone-500">
+          <MapPin className="mr-1 h-3 w-3 shrink-0" />
+          <span className="truncate">
+            {property.address}, {property.city}
+          </span>
+        </p>
+
+        <div className="mt-2.5 flex items-center gap-3 text-xs text-stone-600 dark:text-stone-400">
+          <span className="flex items-center gap-1">
+            <BedDouble className="h-3.5 w-3.5 text-stone-400" />
+            {property.beds} bd
+          </span>
+          <span className="flex items-center gap-1">
+            <Bath className="h-3.5 w-3.5 text-stone-400" />
+            {property.baths} ba
+          </span>
+          <span className="flex items-center gap-1">
+            <Maximize2 className="h-3.5 w-3.5 text-stone-400" />
+            {property.sqft.toLocaleString()} sqft
+          </span>
         </div>
       </div>
     </article>

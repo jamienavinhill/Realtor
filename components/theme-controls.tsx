@@ -47,6 +47,12 @@ function applyAccent(color: string) {
   root.style.setProperty("--primary-800", mix(color, "black", 0.38));
   root.style.setProperty("--primary-900", mix(color, "black", 0.52));
   root.style.setProperty("--primary-950", mix(color, "black", 0.72));
+
+  // Automatic 3-color graph token mapping derived from the live accent (global, strategic).
+  // Used by CMA charts and any future viz for consistent accent-driven palettes.
+  root.style.setProperty("--chart-1", color);
+  root.style.setProperty("--chart-2", mix(color, "white", 0.22));
+  root.style.setProperty("--chart-3", mix(color, "black", 0.18));
 }
 
 export function ThemeControls() {

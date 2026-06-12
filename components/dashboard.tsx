@@ -54,6 +54,7 @@ import { AlertsWizardView } from "./views/AlertsWizardView";
 import { IngestPlatformSelector } from "./views/IngestPlatformSelector";
 import { ListingsGrid, NoListingMedia } from "./views/ListingsGrid";
 import { CompareDialog } from "./views/CompareDialog";
+import { DataTable, type DataTableColumn } from "./ui/data-table";
 import { CMAView } from "./views/CMAView";
 import { AlertMatchesTable } from "./views/AlertMatchesTable";
 import { ThemeControls } from "./theme-controls";
@@ -133,17 +134,22 @@ function FilterToggle({
   onClick,
   icon,
   label,
+  iconOnly = false,
 }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  /** Render icon alone (label as title/aria for uniformity with icon-only controls). */
+  iconOnly?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      title={iconOnly ? label : undefined}
+      aria-label={iconOnly ? label : undefined}
       className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition ${
         active
           ? "border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400"
@@ -151,7 +157,7 @@ function FilterToggle({
       }`}
     >
       {icon}
-      {label}
+      {!iconOnly && label}
     </button>
   );
 }
@@ -189,6 +195,24 @@ function ProfileMenu({
     };
   }, [open]);
 
+  // Close property multi-filter dropdown on outside click / escape (uniform to ProfileMenu).
+  useEffect(() => {
+    if (!showPropertyFilter) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (propertyFilterRef.current && !propertyFilterRef.current.contains(event.target as Node)) {
+        setShowPropertyFilter(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowPropertyFilter(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showPropertyFilter]);
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -279,6 +303,18 @@ export default function Dashboard() {
   const [showHidden, setShowHidden] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+
+  // New grouped multi-select property filter (price/beds/baths/types). Icon-only trigger, no label text.
+  // Defaults exclude "Land" (addresses prior "settings" expectation; land comes from real ingested provider rows).
+  const DEFAULT_PROPERTY_FILTERS = {
+    priceBands: [] as string[],
+    bedMins: [] as number[],
+    bathMins: [] as number[],
+    types: ["Single Family", "Condo", "Townhouse", "Multi-Family"],
+  };
+  const [propertyFilters, setPropertyFilters] = useState(DEFAULT_PROPERTY_FILTERS);
+  const [showPropertyFilter, setShowPropertyFilter] = useState(false);
+  const propertyFilterRef = React.useRef<HTMLDivElement>(null);
 
   // Alert form state
   const [newAlertName, setNewAlertName] = useState("");
@@ -1023,8 +1059,17 @@ export default function Dashboard() {
 
   // Filtering calculations
   const cities = Array.from(new Set(properties.map((p) => p.city)));
+  const propertyFilterActive =
+    propertyFilters.priceBands.length > 0 ||
+    propertyFilters.bedMins.length > 0 ||
+    propertyFilters.bathMins.length > 0 ||
+    propertyFilters.types.length < 5; // not the full residential set (Land omitted)
   const hasActiveFilters =
-    searchTerm.trim().length > 0 || cityFilter !== "All" || favoritesOnly || showHidden;
+    searchTerm.trim().length > 0 ||
+    cityFilter !== "All" ||
+    favoritesOnly ||
+    showHidden ||
+    propertyFilterActive;
 
   const resolvedAlertMatches = alertMatches.map((match) => ({
     match,
@@ -1040,6 +1085,7 @@ export default function Dashboard() {
     states: prefs.states,
     showHidden,
     favoritesOnly,
+    propertyFilters,
   });
 
   // Listings currently queued for comparison, in queue order.
@@ -1158,25 +1204,8 @@ export default function Dashboard() {
                 />
               </div>
 
-              <div className="flex w-full flex-wrap items-center gap-3 md:w-auto">
-                <div className="flex items-center space-x-2 text-xs font-semibold tracking-wider text-stone-500 uppercase">
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  <span>City Filtering</span>
-                </div>
-                <select
-                  value={cityFilter}
-                  onChange={(e) => setCityFilter(e.target.value)}
-                  title="Filter by city"
-                  className="focus:border-primary-500 rounded-lg border border-stone-200 bg-stone-50 p-2 text-xs font-semibold text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300"
-                >
-                  <option value="All">All Cities</option>
-                  {cities.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-
+              <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+                {/* Order: favs, hidden, cities, filter (search stays left). Icon-only for fav/hidden. No "City Filtering" label. */}
                 {user && (
                   <>
                     <FilterToggle
@@ -1186,6 +1215,7 @@ export default function Dashboard() {
                         <Heart className={`h-3.5 w-3.5 ${favoritesOnly ? "fill-current" : ""}`} />
                       }
                       label="Favorites"
+                      iconOnly
                     />
                     <FilterToggle
                       active={showHidden}
@@ -1198,18 +1228,200 @@ export default function Dashboard() {
                         )
                       }
                       label={hiddenCount > 0 ? `Hidden (${hiddenCount})` : "Hidden"}
+                      iconOnly
                     />
-                    {prefs.compareIds.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setCompareOpen(true)}
-                        className="border-primary-500 bg-primary-500 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold text-white transition hover:opacity-90"
-                      >
-                        <GitCompareArrows className="h-3.5 w-3.5" />
-                        Compare ({prefs.compareIds.length})
-                      </button>
-                    )}
                   </>
+                )}
+
+                {/* City selector: natural padding/spacing, uniform, no label, fixed cramped chevron via px/py. */}
+                <select
+                  value={cityFilter}
+                  onChange={(e) => setCityFilter(e.target.value)}
+                  title="Filter by city"
+                  className="focus:border-primary-500 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300"
+                >
+                  <option value="All">All Cities</option>
+                  {cities.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Clean, organized, grouped multi-select filter. No text label. Uniform icon trigger + dropdown to others. */}
+                <div ref={propertyFilterRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowPropertyFilter((v) => !v)}
+                    aria-pressed={propertyFilterActive}
+                    title="Listing filters"
+                    aria-label="Listing filters"
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition ${
+                      propertyFilterActive
+                        ? "border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400"
+                        : "border-stone-200 bg-stone-50 text-stone-500 hover:text-stone-900 dark:border-stone-800 dark:bg-stone-950 dark:hover:text-stone-200"
+                    }`}
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                  </button>
+
+                  {showPropertyFilter && (
+                    <div className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-stone-200 bg-white p-3 shadow-lg dark:border-stone-800 dark:bg-stone-900">
+                      <div className="space-y-3 text-xs">
+                        {/* Price bands */}
+                        <div>
+                          <div className="mb-1 font-semibold tracking-wider text-stone-500 uppercase">Price</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              { id: "lt200", label: "< $200k" },
+                              { id: "200-350", label: "$200–350k" },
+                              { id: "350-500", label: "$350–500k" },
+                              { id: "gt500", label: "$500k+" },
+                            ].map((b) => {
+                              const on = propertyFilters.priceBands.includes(b.id);
+                              return (
+                                <button
+                                  key={b.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setPropertyFilters((prev) => ({
+                                      ...prev,
+                                      priceBands: on
+                                        ? prev.priceBands.filter((x) => x !== b.id)
+                                        : [...prev.priceBands, b.id],
+                                    }))
+                                  }
+                                  className={`rounded-full border px-2 py-0.5 font-medium transition ${
+                                    on
+                                      ? "border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400"
+                                      : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-950"
+                                  }`}
+                                >
+                                  {b.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Beds */}
+                        <div>
+                          <div className="mb-1 font-semibold tracking-wider text-stone-500 uppercase">Beds</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[1, 2, 3, 4].map((m) => {
+                              const on = propertyFilters.bedMins.includes(m);
+                              return (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() =>
+                                    setPropertyFilters((prev) => ({
+                                      ...prev,
+                                      bedMins: on
+                                        ? prev.bedMins.filter((x) => x !== m)
+                                        : [...prev.bedMins, m],
+                                    }))
+                                  }
+                                  className={`rounded-full border px-2 py-0.5 font-medium transition ${
+                                    on
+                                      ? "border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400"
+                                      : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-950"
+                                  }`}
+                                >
+                                  {m}+
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Baths */}
+                        <div>
+                          <div className="mb-1 font-semibold tracking-wider text-stone-500 uppercase">Baths</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[1, 2, 3].map((m) => {
+                              const on = propertyFilters.bathMins.includes(m);
+                              return (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() =>
+                                    setPropertyFilters((prev) => ({
+                                      ...prev,
+                                      bathMins: on
+                                        ? prev.bathMins.filter((x) => x !== m)
+                                        : [...prev.bathMins, m],
+                                    }))
+                                  }
+                                  className={`rounded-full border px-2 py-0.5 font-medium transition ${
+                                    on
+                                      ? "border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400"
+                                      : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-950"
+                                  }`}
+                                >
+                                  {m}+
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Types (grouped, Land off by default so land from providers is filtered unless user includes) */}
+                        <div>
+                          <div className="mb-1 font-semibold tracking-wider text-stone-500 uppercase">Type</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {["Single Family", "Condo", "Townhouse", "Multi-Family", "Land"].map((t) => {
+                              const on = propertyFilters.types.includes(t);
+                              return (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  onClick={() =>
+                                    setPropertyFilters((prev) => ({
+                                      ...prev,
+                                      types: on
+                                        ? prev.types.filter((x) => x !== t)
+                                        : [...prev.types, t],
+                                    }))
+                                  }
+                                  className={`rounded-full border px-2 py-0.5 font-medium transition ${
+                                    on
+                                      ? "border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400"
+                                      : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-950"
+                                  }`}
+                                >
+                                  {t}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end border-t border-stone-100 pt-2 dark:border-stone-800">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPropertyFilters(DEFAULT_PROPERTY_FILTERS);
+                            }}
+                            className="text-[10px] font-medium text-stone-500 hover:text-stone-700 dark:hover:text-stone-300"
+                          >
+                            Reset filters
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {user && prefs.compareIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setCompareOpen(true)}
+                    className="border-primary-500 bg-primary-500 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+                  >
+                    <GitCompareArrows className="h-3.5 w-3.5" />
+                    Compare ({prefs.compareIds.length})
+                  </button>
                 )}
               </div>
             </div>
@@ -1240,222 +1452,225 @@ export default function Dashboard() {
         {activeTab === "wizard" && <AlertsWizardView />}
 
         {activeTab === "harvester" && (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-            {/* HARVESTER CONTROL OPTIONS */}
-            <div className="space-y-6 lg:col-span-4">
-              {/* OPTIONS BOX 1: GMAIL SCANNER */}
-              <div className="space-y-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
-                <div className="flex items-center space-x-2 border-b border-stone-200 pb-4 dark:border-stone-800">
-                  <Mail className="text-primary-500 h-5 w-5" />
-                  <h2 className="text-sm font-bold text-stone-900 dark:text-white">
-                    Gmail Alert Harvester
-                  </h2>
-                </div>
-
-                {!user || !accessToken ? (
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-center text-amber-700 dark:text-amber-300">
-                    <AlertTriangle className="mx-auto mb-2 h-8 w-8 text-amber-500" />
-                    <span className="mb-1 block text-xs font-bold">
-                      Google Workspace Auth Required
-                    </span>
-                    <p className="mb-4 text-[11px] leading-relaxed text-stone-400">
-                      Abode Alerts requires secure OAuth permission to verify and safely parse alert
-                      emails of listings directly from your inbox. No data is stored outside your
-                      account.
-                    </p>
-                    <button
-                      onClick={handleGoogleAuth}
-                      className="bg-primary-600 hover:bg-primary-500 border-primary-500 w-full cursor-pointer rounded border px-4 py-2 font-mono text-xs font-semibold text-white shadow transition"
-                    >
-                      Authorize Google Services
-                    </button>
+          /* Vertical stack preferred: top controls split horizontally (harvester ~70 / manual ~30), harvested listings (pagination table) underneath. */
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-10">
+              {/* Gmail harvester (wider, ~70%) */}
+              <div className="lg:col-span-7">
+                <div className="space-y-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
+                  <div className="flex items-center space-x-2 border-b border-stone-200 pb-4 dark:border-stone-800">
+                    <Mail className="text-primary-500 h-5 w-5" />
+                    <h2 className="text-sm font-bold text-stone-900 dark:text-white">
+                      Gmail Alert Harvester
+                    </h2>
                   </div>
-                ) : (
-                  <div className="space-y-5">
-                    <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-[11px] leading-relaxed text-emerald-300">
-                      Ingestion runs <span className="font-bold">automatically</span> — a new
-                      listing-alert email triggers the pipeline and lands the listing here within
-                      minutes. Choose which platforms to watch below; the manual scan is an optional
-                      fallback.
-                    </p>
 
-                    <IngestPlatformSelector
-                      selected={platformSelection}
-                      customQuery={customQuery}
-                      onChange={({ selected, customQuery: nextCustom }) => {
-                        setPlatformSelection(selected);
-                        setCustomQuery(nextCustom);
-                      }}
+                  {!user || !accessToken ? (
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-center text-amber-700 dark:text-amber-300">
+                      <AlertTriangle className="mx-auto mb-2 h-8 w-8 text-amber-500" />
+                      <span className="mb-1 block text-xs font-bold">
+                        Google Workspace Auth Required
+                      </span>
+                      <p className="mb-4 text-[11px] leading-relaxed text-stone-400">
+                        Abode Alerts requires secure OAuth permission to verify and safely parse alert
+                        emails of listings directly from your inbox. No data is stored outside your
+                        account.
+                      </p>
+                      <button
+                        onClick={handleGoogleAuth}
+                        className="bg-primary-600 hover:bg-primary-500 border-primary-500 w-full cursor-pointer rounded border px-4 py-2 font-mono text-xs font-semibold text-white shadow transition"
+                      >
+                        Authorize Google Services
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-[11px] leading-relaxed text-emerald-300">
+                        Ingestion runs <span className="font-bold">automatically</span> — a new
+                        listing-alert email triggers the pipeline and lands the listing here within
+                        minutes. Choose which platforms to watch below; the manual scan is an optional
+                        fallback.
+                      </p>
+
+                      <IngestPlatformSelector
+                        selected={platformSelection}
+                        customQuery={customQuery}
+                        onChange={({ selected, customQuery: nextCustom }) => {
+                          setPlatformSelection(selected);
+                          setCustomQuery(nextCustom);
+                        }}
+                      />
+
+                      <button
+                        onClick={persistPlatformSelection}
+                        disabled={isSavingFilter}
+                        className="bg-primary-600 hover:bg-primary-500 border-primary-500 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded border p-2.5 font-mono text-xs font-bold text-white shadow transition disabled:opacity-40"
+                      >
+                        {isSavingFilter ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Saving filter...</span>
+                          </>
+                        ) : (
+                          <span>Save Platform Filter</span>
+                        )}
+                      </button>
+
+                      <div className="border-t border-stone-200 pt-4 dark:border-stone-800">
+                        <button
+                          type="button"
+                          onClick={() => setShowAdvancedScan((v) => !v)}
+                          aria-expanded={showAdvancedScan}
+                          className="flex w-full items-center justify-between font-mono text-[11px] tracking-wider text-stone-400 uppercase hover:text-stone-200"
+                        >
+                          <span>Advanced — Manual Scan</span>
+                          <span>{showAdvancedScan ? "−" : "+"}</span>
+                        </button>
+
+                        {showAdvancedScan && (
+                          <div className="mt-4 space-y-4">
+                            <div>
+                              <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
+                                Search Limit (Emails count)
+                              </label>
+                              <select
+                                value={gmailMaxResults}
+                                onChange={(e) => setGmailMaxResults(parseInt(e.target.value))}
+                                title="Search limit"
+                                className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-mono text-xs text-stone-900 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
+                              >
+                                <option value={3}>Latest 3 Matching Emails</option>
+                                <option value={5}>Latest 5 Matching Emails</option>
+                                <option value={10}>Latest 10 Matching Emails</option>
+                              </select>
+                            </div>
+
+                            <button
+                              onClick={triggerGmailHarvest}
+                              disabled={isScanningGmail}
+                              className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded border border-stone-700 bg-stone-100 p-3 font-mono text-xs font-bold text-stone-900 shadow-md transition disabled:opacity-40 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
+                            >
+                              {isScanningGmail ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <span>Harvesting Real Alerts...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Mail className="h-4 w-4" />
+                                  <span>Scan Gmail Inbox Now</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Manual / direct parser (narrower ~30%) */}
+              <div className="lg:col-span-3">
+                <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
+                  <div className="flex items-center space-x-2 border-b border-stone-200 pb-3 dark:border-stone-800">
+                    <FileText className="h-5 w-5 text-blue-500" />
+                    <h2 className="text-sm font-bold text-stone-900 dark:text-white">
+                      Direct Raw Alert Parser
+                    </h2>
+                  </div>
+
+                  <p className="text-[11px] leading-relaxed text-stone-500 dark:text-stone-400">
+                    Paste the body of a real-estate alert email or a copied listing snippet. Gemini
+                    extracts the structured listing from the text only — prices, photos, and details
+                    are never invented. Review below before committing.
+                  </p>
+
+                  <div className="space-y-3">
+                    <textarea
+                      rows={4}
+                      value={directPastedText}
+                      onChange={(e) => setDirectPastedText(e.target.value)}
+                      placeholder="Paste email alert body or listing details text here..."
+                      className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-mono text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
                     />
 
                     <button
-                      onClick={persistPlatformSelection}
-                      disabled={isSavingFilter}
-                      className="bg-primary-600 hover:bg-primary-500 border-primary-500 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded border p-2.5 font-mono text-xs font-bold text-white shadow transition disabled:opacity-40"
+                      onClick={triggerDirectTextParse}
+                      disabled={isParsingDirect || !directPastedText.trim()}
+                      className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded border border-stone-700 bg-stone-100 p-2.5 text-xs font-bold text-stone-900 transition hover:bg-stone-200 disabled:opacity-30 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
                     >
-                      {isSavingFilter ? (
+                      {isParsingDirect ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Saving filter...</span>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Extracting listing...</span>
                         </>
                       ) : (
-                        <span>Save Platform Filter</span>
+                        <>
+                          <Send className="h-3.5 w-3.5 text-blue-400" />
+                          <span>Parse Text to Property Schema</span>
+                        </>
                       )}
                     </button>
-
-                    <div className="border-t border-stone-200 pt-4 dark:border-stone-800">
-                      <button
-                        type="button"
-                        onClick={() => setShowAdvancedScan((v) => !v)}
-                        aria-expanded={showAdvancedScan}
-                        className="flex w-full items-center justify-between font-mono text-[11px] tracking-wider text-stone-400 uppercase hover:text-stone-200"
-                      >
-                        <span>Advanced — Manual Scan</span>
-                        <span>{showAdvancedScan ? "−" : "+"}</span>
-                      </button>
-
-                      {showAdvancedScan && (
-                        <div className="mt-4 space-y-4">
-                          <div>
-                            <label className="mb-1.5 block font-mono text-[11px] tracking-wider text-stone-400 uppercase">
-                              Search Limit (Emails count)
-                            </label>
-                            <select
-                              value={gmailMaxResults}
-                              onChange={(e) => setGmailMaxResults(parseInt(e.target.value))}
-                              title="Search limit"
-                              className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-mono text-xs text-stone-900 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
-                            >
-                              <option value={3}>Latest 3 Matching Emails</option>
-                              <option value={5}>Latest 5 Matching Emails</option>
-                              <option value={10}>Latest 10 Matching Emails</option>
-                            </select>
-                          </div>
-
-                          <button
-                            onClick={triggerGmailHarvest}
-                            disabled={isScanningGmail}
-                            className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded border border-stone-700 bg-stone-100 p-3 font-mono text-xs font-bold text-stone-900 shadow-md transition disabled:opacity-40 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
-                          >
-                            {isScanningGmail ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <span>Harvesting Real Alerts...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Mail className="h-4 w-4" />
-                                <span>Scan Gmail Inbox Now</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
-                    </div>
                   </div>
-                )}
-              </div>
-
-              {/* OPTIONS BOX 2: DIRECT COPY-PASTER */}
-              <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
-                <div className="flex items-center space-x-2 border-b border-stone-200 pb-3 dark:border-stone-800">
-                  <FileText className="h-5 w-5 text-blue-500" />
-                  <h2 className="text-sm font-bold text-stone-900 dark:text-white">
-                    Direct Raw Alert Parser
-                  </h2>
-                </div>
-
-                <p className="text-[11px] leading-relaxed text-stone-500 dark:text-stone-400">
-                  Paste the body of a real-estate alert email or a copied listing snippet. Gemini
-                  extracts the structured listing from the text only — prices, photos, and details
-                  are never invented. Review the result below before committing it.
-                </p>
-
-                <div className="space-y-3">
-                  <textarea
-                    rows={4}
-                    value={directPastedText}
-                    onChange={(e) => setDirectPastedText(e.target.value)}
-                    placeholder="Paste email alert body or listing details text here..."
-                    className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-mono text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
-                  />
-
-                  <button
-                    onClick={triggerDirectTextParse}
-                    disabled={isParsingDirect || !directPastedText.trim()}
-                    className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded border border-stone-700 bg-stone-100 p-2.5 text-xs font-bold text-stone-900 transition hover:bg-stone-200 disabled:opacity-30 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
-                  >
-                    {isParsingDirect ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        <span>Extracting listing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-3.5 w-3.5 text-blue-400" />
-                        <span>Parse Text to Property Schema</span>
-                      </>
-                    )}
-                  </button>
                 </div>
               </div>
             </div>
 
-            {/* PREVIEW CONTAINER FOR COMMIT */}
-            <div className="flex flex-col justify-between rounded-2xl border border-stone-200 bg-white p-6 shadow-lg lg:col-span-8 dark:border-stone-800 dark:bg-stone-900">
-              <div>
-                <div className="mb-4 flex items-center justify-between border-b border-stone-200 pb-4 dark:border-stone-800">
-                  <div className="flex items-center space-x-2">
-                    <Sparkles className="text-primary-500 h-5 w-5" />
-                    <h2 className="font-sans text-sm font-bold text-stone-900 dark:text-white">
-                      Review &amp; Commit
-                    </h2>
-                  </div>
-                  {harvestedPreviews.length > 0 && user && (
-                    <button
-                      onClick={commitListingsToFirestore}
-                      className="bg-primary-600 hover:bg-primary-500 border-primary-500 flex cursor-pointer items-center space-x-1 rounded border px-3 py-1.5 text-xs font-bold text-white shadow transition"
-                    >
-                      <PlusCircle className="h-3.5 w-3.5" />
-                      <span>
-                        Save {harvestedPreviews.length}{" "}
-                        {harvestedPreviews.length === 1 ? "listing" : "listings"} to database
-                      </span>
-                    </button>
-                  )}
+            {/* Harvested previews underneath — using the pagination table for uniform treatment. */}
+            <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
+              <div className="mb-4 flex items-center justify-between border-b border-stone-200 pb-4 dark:border-stone-800">
+                <div className="flex items-center space-x-2">
+                  <Sparkles className="text-primary-500 h-5 w-5" />
+                  <h2 className="font-sans text-sm font-bold text-stone-900 dark:text-white">
+                    Review &amp; Commit
+                  </h2>
                 </div>
-
-                {isScanningGmail || isParsingDirect ? (
-                  <div className="space-y-3 py-24 text-center">
-                    <Loader2 className="text-primary-500 mx-auto h-10 w-10 animate-spin" />
-                    <span className="block animate-pulse font-mono text-xs text-stone-400">
-                      Analyzing input text elements &amp; compiling models...
+                {harvestedPreviews.length > 0 && user && (
+                  <button
+                    onClick={commitListingsToFirestore}
+                    className="bg-primary-600 hover:bg-primary-500 border-primary-500 flex cursor-pointer items-center space-x-1 rounded border px-3 py-1.5 text-xs font-bold text-white shadow transition"
+                  >
+                    <PlusCircle className="h-3.5 w-3.5" />
+                    <span>
+                      Save {harvestedPreviews.length}{" "}
+                      {harvestedPreviews.length === 1 ? "listing" : "listings"} to database
                     </span>
-                  </div>
-                ) : harvestedPreviews.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-stone-200 bg-stone-100/40 py-20 text-center dark:border-stone-800 dark:bg-stone-950/40">
-                    <Cloud className="mx-auto mb-3 h-10 w-10 text-stone-600" />
-                    <h3 className="font-mono text-xs font-bold text-stone-700 dark:text-stone-300">
-                      Scanner buffer empty
-                    </h3>
-                    <p className="m-auto mt-1 max-w-sm text-[11px] leading-relaxed text-stone-500">
-                      Log in to your Gmail, select a search filter, and harvest live alerts, or
-                      copy-paste text in the direct parser block!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="max-h-120 space-y-4 overflow-y-auto pr-2">
-                    {harvestedPreviews.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="flex flex-col items-start justify-between gap-4 rounded-xl border border-stone-200 bg-stone-50 p-3.5 sm:flex-row sm:items-center dark:border-stone-800 dark:bg-stone-950"
-                      >
-                        <div className="flex items-center space-x-3.5">
-                          <div className="h-14 w-14 shrink-0 overflow-hidden rounded border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
-                            {item.imageUrl ? (
+                  </button>
+                )}
+              </div>
+
+              {isScanningGmail || isParsingDirect ? (
+                <div className="space-y-3 py-24 text-center">
+                  <Loader2 className="text-primary-500 mx-auto h-10 w-10 animate-spin" />
+                  <span className="block animate-pulse font-mono text-xs text-stone-400">
+                    Analyzing input text elements &amp; compiling models...
+                  </span>
+                </div>
+              ) : harvestedPreviews.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-stone-200 bg-stone-100/40 py-20 text-center dark:border-stone-800 dark:bg-stone-950/40">
+                  <Cloud className="mx-auto mb-3 h-10 w-10 text-stone-600" />
+                  <h3 className="font-mono text-xs font-bold text-stone-700 dark:text-stone-300">
+                    Scanner buffer empty
+                  </h3>
+                  <p className="m-auto mt-1 max-w-sm text-[11px] leading-relaxed text-stone-500">
+                    Log in to your Gmail, select a search filter, and harvest live alerts, or
+                    copy-paste text in the direct parser block!
+                  </p>
+                </div>
+              ) : (
+                <DataTable
+                  columns={
+                    [
+                      {
+                        id: "media",
+                        header: "",
+                        render: (row) => (
+                          <div className="h-10 w-10 overflow-hidden rounded border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
+                            {row.imageUrl ? (
                               <img
-                                src={item.imageUrl}
-                                alt={item.title}
+                                src={row.imageUrl}
+                                alt={row.title}
                                 referrerPolicy="no-referrer"
                                 className="h-full w-full object-cover"
                               />
@@ -1463,32 +1678,60 @@ export default function Dashboard() {
                               <NoListingMedia />
                             )}
                           </div>
+                        ),
+                        className: "w-12",
+                      },
+                      {
+                        id: "title",
+                        header: "Listing",
+                        accessor: (r) => r.title,
+                        render: (row) => (
                           <div>
-                            <h4 className="text-xs leading-tight font-bold text-stone-900 dark:text-white">
-                              {item.title}
-                            </h4>
-                            <span className="mt-0.5 block font-mono text-[11px] text-stone-500 dark:text-stone-400">
-                              {item.address}, {item.city}
-                            </span>
-                            <span className="mt-1 block font-mono text-[10px] text-stone-500">
-                              Beds: {item.beds} | Baths: {item.baths} | Size: {item.sqft} sqft
-                            </span>
+                            <div className="text-xs font-bold text-stone-900 dark:text-white">{row.title}</div>
+                            <div className="text-[10px] text-stone-500 dark:text-stone-400">
+                              {row.address}, {row.city}
+                            </div>
                           </div>
-                        </div>
-
-                        <div className="flex w-full shrink-0 items-center justify-between border-t border-stone-200 pt-2 text-right sm:w-auto sm:flex-col sm:items-end sm:border-t-0 sm:pt-0 dark:border-stone-800">
-                          <span className="text-primary-600 dark:text-primary-400 block font-mono text-sm font-bold">
-                            ${item.price.toLocaleString()}
+                        ),
+                      },
+                      {
+                        id: "price",
+                        header: "Price",
+                        accessor: (r) => r.price,
+                        render: (row) => (
+                          <span className="font-mono text-sm font-bold text-primary-600 dark:text-primary-400">
+                            ${row.price.toLocaleString()}
                           </span>
-                          <span className="mt-0.5 block rounded border border-stone-200 bg-white px-2 py-0.5 font-mono text-[9px] tracking-wide text-stone-500 uppercase dark:border-stone-800 dark:bg-stone-900">
-                            Ready to Commit
+                        ),
+                        className: "text-right",
+                      },
+                      {
+                        id: "specs",
+                        header: "Beds / Baths / Sqft",
+                        render: (row) => (
+                          <span className="font-mono text-[11px] text-stone-500 dark:text-stone-400">
+                            {row.beds}bd / {row.baths}ba / {row.sqft} sqft
                           </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                        ),
+                      },
+                      {
+                        id: "status",
+                        header: "",
+                        render: () => (
+                          <span className="rounded border border-stone-200 bg-white px-2 py-0.5 font-mono text-[9px] tracking-wide text-stone-500 uppercase dark:border-stone-800 dark:bg-stone-900">
+                            Ready to commit
+                          </span>
+                        ),
+                        className: "text-right",
+                      },
+                    ] as DataTableColumn<ListingProperty>[]
+                  }
+                  rows={harvestedPreviews}
+                  rowKey={(_, i) => String(i)}
+                  defaultPageSize={5}
+                  caption="Harvested previews ready for review before commit to the catalog."
+                />
+              )}
             </div>
           </div>
         )}

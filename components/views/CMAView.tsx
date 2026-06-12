@@ -51,16 +51,9 @@ import { NoListingMedia } from "./ListingsGrid";
  * compare column wires into the WS4 compare queue (cap enforced by the hook).
  */
 
-const PIE_COLORS = [
-  "var(--primary-500)",
-  "#0ea5e9",
-  "#f59e0b",
-  "#10b981",
-  "#a855f7",
-  "#ef4444",
-  "#64748b",
-  "#14b8a6",
-];
+// 3-color chart palette driven by the runtime accent tokens (set in theme-controls applyAccent).
+// Global/systems approach: changing accent instantly remaps charts without per-chart overrides.
+const CHART_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)"];
 
 export function CMAView({
   properties,
@@ -559,7 +552,7 @@ function CategoryPie({ data }: { data: { name: string; count: number }[] }) {
           paddingAngle={2}
         >
           {data.map((entry, i) => (
-            <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+            <Cell key={entry.name} fill={CHART_COLORS[i % CHART_COLORS.length]} />
           ))}
         </Pie>
         <Tooltip

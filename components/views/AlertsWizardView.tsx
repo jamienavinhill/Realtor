@@ -2,13 +2,14 @@ import React, { useState } from "react";
 import { Mail, ArrowRight, Building2, Loader2, AlertTriangle, RotateCw } from "lucide-react";
 import { BASELINE_ZIP, DEFAULT_ALERT_CITY, DEFAULT_ALERT_STATE } from "@/lib/ingest/constants";
 
-/** The five baseline listing-email platforms (WS7, User Requirements B.3). */
+/** Six realtor sites for even grid + full wiring in setup cheat sheet. */
 const BASELINE_PLATFORM_LINKS: { label: string; href: string }[] = [
   { label: "Zillow", href: "https://www.zillow.com" },
   { label: "Trulia", href: "https://www.trulia.com" },
   { label: "Homes.com", href: "https://www.homes.com" },
   { label: "Redfin", href: "https://www.redfin.com" },
   { label: "realtor.com", href: "https://www.realtor.com" },
+  { label: "Movoto", href: "https://www.movoto.com" },
 ];
 
 export function AlertsWizardView() {
@@ -17,6 +18,7 @@ export function AlertsWizardView() {
     state: DEFAULT_ALERT_STATE,
     maxPrice: "450000",
     beds: "3",
+    baths: "2",
     emails: true,
   });
   const [isGenerating, setIsGenerating] = useState(false);
@@ -34,7 +36,7 @@ export function AlertsWizardView() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: `Generate a short step-by-step text guide for the user to sign up for email alerts on Zillow, Trulia, Homes.com, Redfin, and realtor.com using these specific criteria: City: ${criteria.city}, Max Price: ${criteria.maxPrice}, Beds: ${criteria.beds}. Keep it extremely concise and actionable.`,
+          prompt: `Generate a short step-by-step text guide for the user to sign up for email alerts on Zillow, Trulia, Homes.com, Redfin, realtor.com, and Movoto using these specific criteria: City: ${criteria.city}, Max Price: ${criteria.maxPrice}, Min Beds: ${criteria.beds}, Min Baths: ${criteria.baths}. Keep it extremely concise and actionable. Include how to set any property type or style filters where available.`,
         }),
       });
       const data = await response.json();
@@ -64,7 +66,7 @@ export function AlertsWizardView() {
           </h1>
           <p className="mt-1 text-sm text-stone-500">
             Set criteria for the {BASELINE_ZIP} Stow/Akron area, then generate a cheat sheet for
-            subscribing to Zillow, Trulia, Homes.com, Redfin, and realtor.com alerts.
+            subscribing to Zillow, Trulia, Homes.com, Redfin, realtor.com, and Movoto alerts.
           </p>
         </div>
 
@@ -82,7 +84,8 @@ export function AlertsWizardView() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Additional filter options (baths + beds/price) for uniform even layout in email alerts setup. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-1.5 block text-xs font-semibold tracking-widest text-stone-500 uppercase">
                 Max Price
@@ -104,6 +107,18 @@ export function AlertsWizardView() {
                 value={criteria.beds}
                 onChange={(e) => setCriteria({ ...criteria, beds: e.target.value })}
                 title="Min Beds"
+                className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold tracking-widest text-stone-500 uppercase">
+                Min Baths
+              </label>
+              <input
+                type="number"
+                value={criteria.baths}
+                onChange={(e) => setCriteria({ ...criteria, baths: e.target.value })}
+                title="Min Baths"
                 className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
               />
             </div>
@@ -146,7 +161,7 @@ export function AlertsWizardView() {
               <Mail className="h-8 w-8 text-stone-300 dark:text-stone-600" />
               <p className="max-w-xs text-sm text-stone-500">
                 Generate a step-by-step guide for subscribing to Zillow, Trulia, Homes.com, Redfin,
-                and realtor.com email alerts using your criteria.
+                realtor.com, and Movoto email alerts using your criteria.
               </p>
               <GenerateButton
                 onClick={handleGenerate}

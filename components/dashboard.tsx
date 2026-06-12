@@ -1726,7 +1726,7 @@ export default function Dashboard() {
                     ] as DataTableColumn<ListingProperty>[]
                   }
                   rows={harvestedPreviews}
-                  rowKey={(_, i) => String(i)}
+                  rowKey={(_, i) => `preview-${i}`}
                   defaultPageSize={5}
                   caption="Harvested previews ready for review before commit to the catalog."
                 />

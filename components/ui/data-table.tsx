@@ -41,7 +41,9 @@ export interface DataTableColumn<T> {
 export interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
   rows: T[];
-  rowKey: (row: T) => string;
+  /** Returns a stable string key for a row (and optionally its index in the current rows array).
+   * Index is provided for transient lists (e.g. pre-commit harvested previews) that lack durable ids. */
+  rowKey: (row: T, index?: number) => string;
   /** Optional initial sort. Defaults to the first sortable column ascending. */
   initialSort?: SortState<string>;
   defaultPageSize?: number;
@@ -144,8 +146,8 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody>
-            {pageResult.rows.map((row) => {
-              const key = rowKey(row);
+            {pageResult.rows.map((row, index) => {
+              const key = rowKey(row, index);
               const clickable = Boolean(onRowClick);
               return (
                 <tr

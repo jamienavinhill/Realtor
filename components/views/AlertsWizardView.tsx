@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Mail, ArrowRight, Building2, Loader2, AlertTriangle, RotateCw } from "lucide-react";
+import { Mail, ArrowRight, Clipboard, Loader2, AlertTriangle, RotateCw } from "lucide-react";
 import { BASELINE_ZIP, DEFAULT_ALERT_CITY, DEFAULT_ALERT_STATE } from "@/lib/ingest/constants";
 
 /** Six realtor sites for even grid + full wiring in setup cheat sheet. */
@@ -58,19 +58,19 @@ export function AlertsWizardView() {
 
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:items-stretch">
-      {/* LEFT — title + criteria */}
+      {/* LEFT — criteria form (primary place to set values + trigger) */}
       <div className="flex flex-col rounded-2xl border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900">
-        <div className="mb-6">
+        <div className="mb-5">
           <h1 className="text-xl font-semibold tracking-tight text-stone-900 dark:text-white">
             Email Alerts Setup
           </h1>
           <p className="mt-1 text-sm text-stone-500">
-            Set criteria for the {BASELINE_ZIP} Stow/Akron area, then generate a cheat sheet for
-            subscribing to Zillow, Trulia, Homes.com, Redfin, realtor.com, and Movoto alerts.
+            Set criteria for the {BASELINE_ZIP} Stow/Akron area, then generate a step-by-step cheat
+            sheet for subscribing on the major sites.
           </p>
         </div>
 
-        <div className="space-y-4">
+        <div className="flex-1 space-y-5">
           <div>
             <label className="mb-1.5 block text-xs font-semibold tracking-widest text-stone-500 uppercase">
               City
@@ -84,51 +84,60 @@ export function AlertsWizardView() {
             />
           </div>
 
-          {/* Additional filter options (baths + beds/price) for uniform even layout in email alerts setup. */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold tracking-widest text-stone-500 uppercase">
-                Max Price
-              </label>
-              <input
-                type="number"
-                value={criteria.maxPrice}
-                onChange={(e) => setCriteria({ ...criteria, maxPrice: e.target.value })}
-                title="Max Price"
-                className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
-              />
+          <div>
+            <div className="mb-1.5 text-xs font-semibold tracking-widest text-stone-500 uppercase">
+              Filters
             </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold tracking-widest text-stone-500 uppercase">
-                Min Beds
-              </label>
-              <input
-                type="number"
-                value={criteria.beds}
-                onChange={(e) => setCriteria({ ...criteria, beds: e.target.value })}
-                title="Min Beds"
-                className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold tracking-widest text-stone-500 uppercase">
-                Min Baths
-              </label>
-              <input
-                type="number"
-                value={criteria.baths}
-                onChange={(e) => setCriteria({ ...criteria, baths: e.target.value })}
-                title="Min Baths"
-                className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
-              />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-stone-500">Max Price</label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">$</span>
+                  <input
+                    type="number"
+                    value={criteria.maxPrice}
+                    onChange={(e) => setCriteria({ ...criteria, maxPrice: e.target.value })}
+                    title="Max Price"
+                    className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 py-2.5 pl-7 pr-3 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-stone-500">Min Beds</label>
+                <input
+                  type="number"
+                  value={criteria.beds}
+                  onChange={(e) => setCriteria({ ...criteria, beds: e.target.value })}
+                  title="Min Beds"
+                  className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-2.5 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-stone-500">Min Baths</label>
+                <input
+                  type="number"
+                  value={criteria.baths}
+                  onChange={(e) => setCriteria({ ...criteria, baths: e.target.value })}
+                  title="Min Baths"
+                  className="focus:border-primary-500 w-full rounded-lg border border-stone-200 bg-stone-50 p-2.5 text-sm transition outline-none dark:border-stone-800 dark:bg-stone-950"
+                />
+              </div>
             </div>
           </div>
         </div>
+
+        <div className="mt-6">
+          <GenerateButton
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            label="Generate AI Setup Guide"
+          />
+        </div>
       </div>
 
-      {/* RIGHT — cheat sheet; the Generate action lives in the display window. */}
+      {/* RIGHT — cheat sheet + quick links (balanced, good breathing room) */}
       <div className="flex flex-col rounded-2xl border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900">
-        <h2 className="mb-6 text-lg font-semibold">Setup Cheat Sheet</h2>
+        <h2 className="mb-4 text-lg font-semibold text-stone-900 dark:text-white">Setup Cheat Sheet</h2>
 
         <div className="flex-1 overflow-y-auto rounded-xl border border-stone-200 bg-stone-50 p-5 dark:border-stone-800 dark:bg-stone-950">
           {isGenerating ? (
@@ -160,8 +169,8 @@ export function AlertsWizardView() {
             <div className="flex h-full min-h-48 flex-col items-center justify-center space-y-4 text-center">
               <Mail className="h-8 w-8 text-stone-300 dark:text-stone-600" />
               <p className="max-w-xs text-sm text-stone-500">
-                Generate a step-by-step guide for subscribing to Zillow, Trulia, Homes.com, Redfin,
-                realtor.com, and Movoto email alerts using your criteria.
+                Generate a concise step-by-step guide for setting up email alerts on Zillow, Trulia,
+                Homes.com, Redfin, realtor.com, and Movoto using the criteria on the left.
               </p>
               <GenerateButton
                 onClick={handleGenerate}
@@ -172,19 +181,25 @@ export function AlertsWizardView() {
           )}
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {BASELINE_PLATFORM_LINKS.map((platform) => (
-            <a
-              key={platform.label}
-              href={platform.href}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="hover:border-primary-500 group block rounded-lg border border-stone-200 bg-stone-50 p-3 text-center transition dark:border-stone-800 dark:bg-stone-950"
-            >
-              <Building2 className="text-primary-500 mx-auto mb-2 h-5 w-5 transition group-hover:scale-110" />
-              <span className="text-xs font-semibold">{platform.label}</span>
-            </a>
-          ))}
+        {/* Quick links — uniform, well-spaced, not crammed. Clipboard icon to evoke "copy the query / follow the steps". */}
+        <div className="mt-5">
+          <div className="mb-2 text-[10px] font-semibold tracking-[0.5px] text-stone-500 uppercase">
+            Quick links
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {BASELINE_PLATFORM_LINKS.map((platform) => (
+              <a
+                key={platform.label}
+                href={platform.href}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="hover:border-primary-500 group flex flex-col items-center justify-center rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-center transition active:scale-[0.985] dark:border-stone-800 dark:bg-stone-950"
+              >
+                <Clipboard className="text-primary-500 mb-1.5 h-4 w-4 transition group-hover:scale-110" />
+                <span className="text-xs font-semibold">{platform.label}</span>
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </div>

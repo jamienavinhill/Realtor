@@ -48,11 +48,14 @@ function applyAccent(color: string) {
   root.style.setProperty("--primary-900", mix(color, "black", 0.52));
   root.style.setProperty("--primary-950", mix(color, "black", 0.72));
 
-  // Automatic 3-color graph token mapping derived from the live accent (global, strategic).
-  // Used by CMA charts and any future viz for consistent accent-driven palettes.
+  // Rich categorical palette for charts (distinct pink / purple / orange tones that work beautifully
+  // on the dark UI and harmonize with whatever accent the user picked). --chart-1 stays tied to the
+  // live accent for primary series; the others are warm distinct hues for variety in bars/pies.
   root.style.setProperty("--chart-1", color);
-  root.style.setProperty("--chart-2", mix(color, "white", 0.22));
-  root.style.setProperty("--chart-3", mix(color, "black", 0.18));
+  root.style.setProperty("--chart-2", "#f472b6"); // pink/rose
+  root.style.setProperty("--chart-3", "#a78bfa"); // purple/violet
+  root.style.setProperty("--chart-4", "#fb923c"); // orange/amber
+  root.style.setProperty("--chart-5", mix(color, "#0ea5e9", 0.35)); // subtle cool accent complement
 }
 
 export function ThemeControls() {

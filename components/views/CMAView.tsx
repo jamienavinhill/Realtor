@@ -51,9 +51,15 @@ import { NoListingMedia } from "./ListingsGrid";
  * compare column wires into the WS4 compare queue (cap enforced by the hook).
  */
 
-// 3-color chart palette driven by the runtime accent tokens (set in theme-controls applyAccent).
-// Global/systems approach: changing accent instantly remaps charts without per-chart overrides.
-const CHART_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)"];
+// Categorical palette (set in theme-controls). Distinct pink/purple/orange + accent-driven for visual variety
+// while still feeling cohesive with the user's chosen accent.
+const CHART_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+];
 
 export function CMAView({
   properties,
@@ -285,7 +291,7 @@ export function CMAView({
                       />
                       <Bar
                         dataKey="count"
-                        fill="var(--primary-500)"
+                        fill="var(--chart-1)"
                         radius={[4, 4, 0, 0]}
                         maxBarSize={48}
                       />
@@ -336,12 +342,14 @@ export function CMAView({
                           "Avg $/sqft",
                         ]}
                       />
-                      <Bar
-                        dataKey="avgPricePerSqft"
-                        fill="var(--primary-500)"
-                        radius={[0, 4, 4, 0]}
-                        maxBarSize={28}
-                      />
+                      <Bar dataKey="avgPricePerSqft" radius={[0, 4, 4, 0]} maxBarSize={28}>
+                        {ppsfByType.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={CHART_COLORS[index % CHART_COLORS.length]}
+                          />
+                        ))}
+                      </Bar>
                     </RechartsBarChart>
                   </ResponsiveContainer>
                 )}
@@ -388,7 +396,7 @@ export function CMAView({
                       />
                       <Bar
                         dataKey="count"
-                        fill="var(--primary-500)"
+                        fill="var(--chart-4)"
                         radius={[4, 4, 0, 0]}
                         maxBarSize={48}
                       />

@@ -173,19 +173,35 @@ function PropertyCard({
     }
   };
 
+  // Whole card (especially the image) opens the compact detail dialog.
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Ignore clicks on the image carousel controls (they have their own stopPropagation).
+    onClick();
+  };
+
   return (
-    <article className="group hover:border-primary-400 dark:hover:border-primary-600 w-full overflow-hidden rounded-xl border border-stone-200 bg-white text-left shadow-sm transition-all hover:shadow-md dark:border-stone-800 dark:bg-stone-900">
-      {/* Image area click opens detail dialog (explicit, not the meta/detail panel below). */}
+    <article
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+      tabIndex={0}
+      className="group hover:border-primary-400 dark:hover:border-primary-600 w-full cursor-pointer overflow-hidden rounded-xl border border-stone-200 bg-white text-left shadow-sm transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500/40 dark:border-stone-800 dark:bg-stone-900"
+    >
+      {/* Image area — primary and most obvious affordance for the detail dialog. */}
       <div
-        tabIndex={0}
-        onClick={onClick}
-        onKeyDown={handleCardKeyDown}
-        className="relative aspect-4/3 cursor-pointer overflow-hidden bg-stone-100 dark:bg-stone-950"
+        className="relative aspect-4/3 overflow-hidden bg-stone-100 dark:bg-stone-950"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
       >
         {images.length > 0 ? (
           <img
             src={images[currentImageIdx]}
             alt={property.title}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
             className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
             referrerPolicy="no-referrer"
           />
@@ -201,7 +217,10 @@ function PropertyCard({
           >
             <button
               type="button"
-              onClick={handlePrev}
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePrev(e);
+              }}
               className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
               aria-label="Previous image"
             >
@@ -209,7 +228,10 @@ function PropertyCard({
             </button>
             <button
               type="button"
-              onClick={handleNext}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleNext(e);
+              }}
               className="rounded-full bg-stone-900/60 p-1.5 text-white backdrop-blur-sm transition hover:bg-stone-900/90"
               aria-label="Next image"
             >
@@ -264,10 +286,10 @@ function PropertyCard({
         </div>
       </div>
 
-      {/* Meta / summary panel below image — does not open dialog (image click does). */}
-      <div className="p-3.5">
+      {/* Meta / summary — clicking title or the block also opens the dialog for discoverability. */}
+      <div className="p-3.5" onClick={(e) => { e.stopPropagation(); onClick(); }}>
         <div className="flex items-start justify-between gap-2">
-          <h3 className="line-clamp-1 text-sm font-semibold text-stone-900 dark:text-white">
+          <h3 className="line-clamp-1 text-sm font-semibold text-stone-900 dark:text-white hover:underline">
             {property.title}
           </h3>
           <span className="text-primary-600 dark:text-primary-400 shrink-0 font-mono text-sm font-semibold">

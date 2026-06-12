@@ -372,6 +372,7 @@ export default function Dashboard() {
   // Direct Text Parser controls
   const [directPastedText, setDirectPastedText] = useState("");
   const [isParsingDirect, setIsParsingDirect] = useState(false);
+  const [showManualParseDialog, setShowManualParseDialog] = useState(false);
 
   // Workspace integration loading states for specific property cards
   const [sheetsExportingPropId, setSheetsExportingPropId] = useState<string | null>(null);
@@ -1451,17 +1452,24 @@ export default function Dashboard() {
         {activeTab === "wizard" && <AlertsWizardView />}
 
         {activeTab === "harvester" && (
-          /* Vertical stack preferred: top controls split horizontally (harvester ~70 / manual ~30), harvested listings (pagination table) underneath. */
           <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-10">
-              {/* Gmail harvester (wider, ~70%) */}
-              <div className="lg:col-span-7">
-                <div className="space-y-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
+            {/* Gmail harvester — full width now (manual paste moved to a header icon + clean dialog) */}
+            <div className="space-y-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
                   <div className="flex items-center space-x-2 border-b border-stone-200 pb-4 dark:border-stone-800">
                     <Mail className="text-primary-500 h-5 w-5" />
                     <h2 className="text-sm font-bold text-stone-900 dark:text-white">
                       Gmail Alert Harvester
                     </h2>
+                    {/* Small affordance for manual/raw paste — opens clean dialog. The old side card is removed per UX feedback. */}
+                    <button
+                      type="button"
+                      onClick={() => setShowManualParseDialog(true)}
+                      className="ml-auto rounded-lg p-1.5 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-stone-800 dark:hover:text-stone-200"
+                      title="Paste raw alert text or listing snippet (manual fallback)"
+                      aria-label="Open manual paste dialog"
+                    >
+                      <FileText className="h-4 w-4" />
+                    </button>
                   </div>
 
                   {!user || !accessToken ? (
@@ -1568,53 +1576,48 @@ export default function Dashboard() {
                   )}
                 </div>
               </div>
-
-              {/* Manual / direct parser (narrower ~30%) */}
-              <div className="lg:col-span-3">
-                <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
-                  <div className="flex items-center space-x-2 border-b border-stone-200 pb-3 dark:border-stone-800">
-                    <FileText className="h-5 w-5 text-blue-500" />
-                    <h2 className="text-sm font-bold text-stone-900 dark:text-white">
-                      Direct Raw Alert Parser
-                    </h2>
-                  </div>
-
-                  <p className="text-[11px] leading-relaxed text-stone-500 dark:text-stone-400">
-                    Paste the body of a real-estate alert email or a copied listing snippet. Gemini
-                    extracts the structured listing from the text only — prices, photos, and details
-                    are never invented. Review below before committing.
-                  </p>
-
-                  <div className="space-y-3">
-                    <textarea
-                      rows={4}
-                      value={directPastedText}
-                      onChange={(e) => setDirectPastedText(e.target.value)}
-                      placeholder="Paste email alert body or listing details text here..."
-                      className="w-full rounded border border-stone-200 bg-stone-50 p-2.5 font-mono text-xs text-stone-900 focus:outline-none dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200"
-                    />
-
-                    <button
-                      onClick={triggerDirectTextParse}
-                      disabled={isParsingDirect || !directPastedText.trim()}
-                      className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded border border-stone-700 bg-stone-100 p-2.5 text-xs font-bold text-stone-900 transition hover:bg-stone-200 disabled:opacity-30 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
-                    >
-                      {isParsingDirect ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          <span>Extracting listing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Send className="h-3.5 w-3.5 text-blue-400" />
-                          <span>Parse Text to Property Schema</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
+
+            {/* Clean manual paste dialog — triggered from small icon in the Gmail Harvester header. */}
+            <Dialog
+              open={showManualParseDialog}
+              onClose={() => setShowManualParseDialog(false)}
+              title="Paste raw alert text or listing snippet"
+              subtitle="Gemini extracts the structured listing. Prices, photos and facts are never invented."
+            >
+              <div className="space-y-4">
+                <textarea
+                  rows={8}
+                  value={directPastedText}
+                  onChange={(e) => setDirectPastedText(e.target.value)}
+                  placeholder="Paste the body of a real-estate alert email or a copied listing details text here..."
+                  className="w-full rounded-lg border border-stone-200 bg-stone-50 p-3 font-mono text-sm text-stone-900 focus:outline-none dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100"
+                />
+                <button
+                  onClick={async () => {
+                    await triggerDirectTextParse();
+                    setShowManualParseDialog(false);
+                  }}
+                  disabled={isParsingDirect || !directPastedText.trim()}
+                  className="bg-primary-600 hover:bg-primary-500 border-primary-500 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-bold text-white shadow transition disabled:opacity-40"
+                >
+                  {isParsingDirect ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Extracting…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      <span>Parse to Property Schema</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-center text-[10px] text-stone-500">
+                  Results appear in the Review &amp; Commit buffer below for inspection before saving.
+                </p>
+              </div>
+            </Dialog>
 
             {/* Harvested previews underneath — using the pagination table for uniform treatment. */}
             <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-lg dark:border-stone-800 dark:bg-stone-900">
@@ -1653,8 +1656,8 @@ export default function Dashboard() {
                     Scanner buffer empty
                   </h3>
                   <p className="m-auto mt-1 max-w-sm text-[11px] leading-relaxed text-stone-500">
-                    Log in to your Gmail, select a search filter, and harvest live alerts, or
-                    copy-paste text in the direct parser block!
+                    Log in to your Gmail, select a search filter, and harvest live alerts, or use the
+                    paste icon in the header above for manual raw text.
                   </p>
                 </div>
               ) : (

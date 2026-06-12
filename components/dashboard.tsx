@@ -287,23 +287,55 @@ export default function Dashboard() {
   const [compareOpen, setCompareOpen] = useState(false);
 
   // New grouped multi-select property filter (price/beds/baths/types). Icon-only trigger, no label text.
-  // Defaults exclude "Land" (addresses prior "settings" expectation; land comes from real ingested provider rows).
+  // Defaults exclude "Land". Land listings originate from real provider data (Gmail/backfill) with no prior type filtering.
   const DEFAULT_PROPERTY_FILTERS = {
     priceBands: [] as string[],
     bedMins: [] as number[],
     bathMins: [] as number[],
     types: ["Single Family", "Condo", "Townhouse", "Multi-Family"],
-  };
+  } as const;
+
   const [propertyFilters, setPropertyFilters] = useState(DEFAULT_PROPERTY_FILTERS);
   const [showPropertyFilter, setShowPropertyFilter] = useState(false);
   const propertyFilterRef = React.useRef<HTMLDivElement>(null);
 
-  // Close property multi-filter dropdown on outside click / escape (uniform to ProfileMenu).
-  // Placed after the state declarations (hooks must be at top level of Dashboard).
-  useEffect(() => {
-    if (!showPropertyFilter) return;
+  // Current open state via ref so the effect doesn't re-attach listeners on every toggle (avoids deps + disable).
+  const showPropertyFilterRef = React.useRef(showPropertyFilter);
+  showPropertyFilterRef.current = showPropertyFilter;
 
+  // Data for the grouped multi-select (defined once, not recreated in render).
+  const PRICE_BANDS = [
+    { id: "lt200", label: "< $200k" },
+    { id: "200-350", label: "$200–350k" },
+    { id: "350-500", label: "$350–500k" },
+    { id: "gt500", label: "$500k+" },
+  ] as const;
+
+  const BED_OPTIONS = [1, 2, 3, 4] as const;
+  const BATH_OPTIONS = [1, 2, 3] as const;
+  const TYPE_OPTIONS = ["Single Family", "Condo", "Townhouse", "Multi-Family", "Land"] as const;
+
+  // Reusable chip for the filter dropdown (eliminates 4 near-identical button blocks).
+  function FilterChip({ label, active, onToggle }: { label: string; active: boolean; onToggle: () => void }) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`rounded-full border px-2 py-0.5 font-medium transition ${
+          active
+            ? "border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400"
+            : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-950"
+        }`}
+      >
+        {label}
+      </button>
+    );
+  }
+
+  // Close property multi-filter dropdown on outside click / escape. Listeners attached once.
+  useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
+      if (!showPropertyFilterRef.current) return;
       if (propertyFilterRef.current && !propertyFilterRef.current.contains(event.target as Node)) {
         setShowPropertyFilter(false);
       }
@@ -318,8 +350,7 @@ export default function Dashboard() {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showPropertyFilter]);
+  }, []);
 
   // Alert form state
   const [newAlertName, setNewAlertName] = useState("");
@@ -1068,7 +1099,7 @@ export default function Dashboard() {
     propertyFilters.priceBands.length > 0 ||
     propertyFilters.bedMins.length > 0 ||
     propertyFilters.bathMins.length > 0 ||
-    propertyFilters.types.length < 5; // not the full residential set (Land omitted)
+    propertyFilters.types.length < TYPE_OPTIONS.length; // not all types selected (Land excluded by default)
   const hasActiveFilters =
     searchTerm.trim().length > 0 ||
     cityFilter !== "All" ||
@@ -1273,22 +1304,18 @@ export default function Dashboard() {
                   {showPropertyFilter && (
                     <div className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-stone-200 bg-white p-3 shadow-lg dark:border-stone-800 dark:bg-stone-900">
                       <div className="space-y-3 text-xs">
-                        {/* Price bands */}
+                        {/* Price */}
                         <div>
                           <div className="mb-1 font-semibold tracking-wider text-stone-500 uppercase">Price</div>
                           <div className="flex flex-wrap gap-1.5">
-                            {[
-                              { id: "lt200", label: "< $200k" },
-                              { id: "200-350", label: "$200–350k" },
-                              { id: "350-500", label: "$350–500k" },
-                              { id: "gt500", label: "$500k+" },
-                            ].map((b) => {
+                            {PRICE_BANDS.map((b) => {
                               const on = propertyFilters.priceBands.includes(b.id);
                               return (
-                                <button
+                                <FilterChip
                                   key={b.id}
-                                  type="button"
-                                  onClick={() =>
+                                  label={b.label}
+                                  active={on}
+                                  onToggle={() =>
                                     setPropertyFilters((prev) => ({
                                       ...prev,
                                       priceBands: on
@@ -1296,14 +1323,7 @@ export default function Dashboard() {
                                         : [...prev.priceBands, b.id],
                                     }))
                                   }
-                                  className={`rounded-full border px-2 py-0.5 font-medium transition ${
-                                    on
-                                      ? "border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400"
-                                      : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-950"
-                                  }`}
-                                >
-                                  {b.label}
-                                </button>
+                                />
                               );
                             })}
                           </div>
@@ -1313,28 +1333,20 @@ export default function Dashboard() {
                         <div>
                           <div className="mb-1 font-semibold tracking-wider text-stone-500 uppercase">Beds</div>
                           <div className="flex flex-wrap gap-1.5">
-                            {[1, 2, 3, 4].map((m) => {
+                            {BED_OPTIONS.map((m) => {
                               const on = propertyFilters.bedMins.includes(m);
                               return (
-                                <button
+                                <FilterChip
                                   key={m}
-                                  type="button"
-                                  onClick={() =>
+                                  label={`${m}+`}
+                                  active={on}
+                                  onToggle={() =>
                                     setPropertyFilters((prev) => ({
                                       ...prev,
-                                      bedMins: on
-                                        ? prev.bedMins.filter((x) => x !== m)
-                                        : [...prev.bedMins, m],
+                                      bedMins: on ? prev.bedMins.filter((x) => x !== m) : [...prev.bedMins, m],
                                     }))
                                   }
-                                  className={`rounded-full border px-2 py-0.5 font-medium transition ${
-                                    on
-                                      ? "border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400"
-                                      : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-950"
-                                  }`}
-                                >
-                                  {m}+
-                                </button>
+                                />
                               );
                             })}
                           </div>
@@ -1344,59 +1356,43 @@ export default function Dashboard() {
                         <div>
                           <div className="mb-1 font-semibold tracking-wider text-stone-500 uppercase">Baths</div>
                           <div className="flex flex-wrap gap-1.5">
-                            {[1, 2, 3].map((m) => {
+                            {BATH_OPTIONS.map((m) => {
                               const on = propertyFilters.bathMins.includes(m);
                               return (
-                                <button
+                                <FilterChip
                                   key={m}
-                                  type="button"
-                                  onClick={() =>
+                                  label={`${m}+`}
+                                  active={on}
+                                  onToggle={() =>
                                     setPropertyFilters((prev) => ({
                                       ...prev,
-                                      bathMins: on
-                                        ? prev.bathMins.filter((x) => x !== m)
-                                        : [...prev.bathMins, m],
+                                      bathMins: on ? prev.bathMins.filter((x) => x !== m) : [...prev.bathMins, m],
                                     }))
                                   }
-                                  className={`rounded-full border px-2 py-0.5 font-medium transition ${
-                                    on
-                                      ? "border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400"
-                                      : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-950"
-                                  }`}
-                                >
-                                  {m}+
-                                </button>
+                                />
                               );
                             })}
                           </div>
                         </div>
 
-                        {/* Types (grouped, Land off by default so land from providers is filtered unless user includes) */}
+                        {/* Type (Land excluded by default) */}
                         <div>
                           <div className="mb-1 font-semibold tracking-wider text-stone-500 uppercase">Type</div>
                           <div className="flex flex-wrap gap-1.5">
-                            {["Single Family", "Condo", "Townhouse", "Multi-Family", "Land"].map((t) => {
+                            {TYPE_OPTIONS.map((t) => {
                               const on = propertyFilters.types.includes(t);
                               return (
-                                <button
+                                <FilterChip
                                   key={t}
-                                  type="button"
-                                  onClick={() =>
+                                  label={t}
+                                  active={on}
+                                  onToggle={() =>
                                     setPropertyFilters((prev) => ({
                                       ...prev,
-                                      types: on
-                                        ? prev.types.filter((x) => x !== t)
-                                        : [...prev.types, t],
+                                      types: on ? prev.types.filter((x) => x !== t) : [...prev.types, t],
                                     }))
                                   }
-                                  className={`rounded-full border px-2 py-0.5 font-medium transition ${
-                                    on
-                                      ? "border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400"
-                                      : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-950"
-                                  }`}
-                                >
-                                  {t}
-                                </button>
+                                />
                               );
                             })}
                           </div>
@@ -1405,9 +1401,7 @@ export default function Dashboard() {
                         <div className="flex justify-end border-t border-stone-100 pt-2 dark:border-stone-800">
                           <button
                             type="button"
-                            onClick={() => {
-                              setPropertyFilters(DEFAULT_PROPERTY_FILTERS);
-                            }}
+                            onClick={() => setPropertyFilters(DEFAULT_PROPERTY_FILTERS)}
                             className="text-[10px] font-medium text-stone-500 hover:text-stone-700 dark:hover:text-stone-300"
                           >
                             Reset filters

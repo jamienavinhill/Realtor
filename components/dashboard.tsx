@@ -63,8 +63,27 @@ import { useListingPreferences } from "@/lib/hooks/useListingPreferences";
 import { useWorkspaces } from "@/lib/hooks/useWorkspaces";
 import { resolveActiveOwnerUid, canWriteWorkspace } from "@/lib/account/active-workspace";
 import { ShareWorkspaceDialog } from "./sharing/ShareWorkspaceDialog";
-import { filterListings } from "@/lib/listings/filter";
+import { filterListings, type PropertyMultiFilter } from "@/lib/listings/filter";
 import { Eye, EyeOff, GitCompareArrows, Heart } from "lucide-react";
+
+// Hoisted filter UI data (module scope, not recreated on every Dashboard render - less slop).
+const PRICE_BANDS = [
+  { id: "lt200", label: "< $200k" },
+  { id: "200-350", label: "$200–350k" },
+  { id: "350-500", label: "$350–500k" },
+  { id: "gt500", label: "$500k+" },
+] as const;
+
+const BED_OPTIONS = [1, 2, 3, 4] as const;
+const BATH_OPTIONS = [1, 2, 3] as const;
+const TYPE_OPTIONS = ["Single Family", "Condo", "Townhouse", "Multi-Family", "Land"] as const;
+
+const DEFAULT_PROPERTY_FILTERS: PropertyMultiFilter = {
+  priceBands: [],
+  bedMins: [],
+  bathMins: [],
+  types: ["Single Family", "Condo", "Townhouse", "Multi-Family"],
+};
 
 // Request Google Workspace granular scopes
 googleProvider.addScope("https://www.googleapis.com/auth/gmail.readonly");
@@ -288,32 +307,13 @@ export default function Dashboard() {
 
   // New grouped multi-select property filter (price/beds/baths/types). Icon-only trigger, no label text.
   // Defaults exclude "Land". Land listings originate from real provider data (Gmail/backfill) with no prior type filtering.
-  const DEFAULT_PROPERTY_FILTERS = {
-    priceBands: [] as string[],
-    bedMins: [] as number[],
-    bathMins: [] as number[],
-    types: ["Single Family", "Condo", "Townhouse", "Multi-Family"],
-  } as const;
-
-  const [propertyFilters, setPropertyFilters] = useState(DEFAULT_PROPERTY_FILTERS);
+  const [propertyFilters, setPropertyFilters] = useState<PropertyMultiFilter>(DEFAULT_PROPERTY_FILTERS);
   const [showPropertyFilter, setShowPropertyFilter] = useState(false);
   const propertyFilterRef = React.useRef<HTMLDivElement>(null);
 
   // Current open state via ref so the effect doesn't re-attach listeners on every toggle (avoids deps + disable).
   const showPropertyFilterRef = React.useRef(showPropertyFilter);
   showPropertyFilterRef.current = showPropertyFilter;
-
-  // Data for the grouped multi-select (defined once, not recreated in render).
-  const PRICE_BANDS = [
-    { id: "lt200", label: "< $200k" },
-    { id: "200-350", label: "$200–350k" },
-    { id: "350-500", label: "$350–500k" },
-    { id: "gt500", label: "$500k+" },
-  ] as const;
-
-  const BED_OPTIONS = [1, 2, 3, 4] as const;
-  const BATH_OPTIONS = [1, 2, 3] as const;
-  const TYPE_OPTIONS = ["Single Family", "Condo", "Townhouse", "Multi-Family", "Land"] as const;
 
   // Reusable chip for the filter dropdown (eliminates 4 near-identical button blocks).
   function FilterChip({ label, active, onToggle }: { label: string; active: boolean; onToggle: () => void }) {

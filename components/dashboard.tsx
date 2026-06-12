@@ -195,24 +195,6 @@ function ProfileMenu({
     };
   }, [open]);
 
-  // Close property multi-filter dropdown on outside click / escape (uniform to ProfileMenu).
-  useEffect(() => {
-    if (!showPropertyFilter) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      if (propertyFilterRef.current && !propertyFilterRef.current.contains(event.target as Node)) {
-        setShowPropertyFilter(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setShowPropertyFilter(false);
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [showPropertyFilter]);
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -315,6 +297,29 @@ export default function Dashboard() {
   const [propertyFilters, setPropertyFilters] = useState(DEFAULT_PROPERTY_FILTERS);
   const [showPropertyFilter, setShowPropertyFilter] = useState(false);
   const propertyFilterRef = React.useRef<HTMLDivElement>(null);
+
+  // Close property multi-filter dropdown on outside click / escape (uniform to ProfileMenu).
+  // Placed after the state declarations (hooks must be at top level of Dashboard).
+  useEffect(() => {
+    if (!showPropertyFilter) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (propertyFilterRef.current && !propertyFilterRef.current.contains(event.target as Node)) {
+        setShowPropertyFilter(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowPropertyFilter(false);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPropertyFilter]);
 
   // Alert form state
   const [newAlertName, setNewAlertName] = useState("");

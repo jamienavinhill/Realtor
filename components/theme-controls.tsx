@@ -21,13 +21,13 @@ function toHex(value: number) {
   return value.toString(16).padStart(2, "0");
 }
 
-function mix(color: string, target: "white" | "black", amount: number) {
+function mix(color: string, targetColor: string, amount: number) {
   const rgb = hexToRgb(color);
-  const targetValue = target === "white" ? 255 : 0;
+  const targetRgb = hexToRgb(targetColor);
   const next = {
-    r: Math.round(rgb.r + (targetValue - rgb.r) * amount),
-    g: Math.round(rgb.g + (targetValue - rgb.g) * amount),
-    b: Math.round(rgb.b + (targetValue - rgb.b) * amount),
+    r: Math.round(rgb.r + (targetRgb.r - rgb.r) * amount),
+    g: Math.round(rgb.g + (targetRgb.g - rgb.g) * amount),
+    b: Math.round(rgb.b + (targetRgb.b - rgb.b) * amount),
   };
 
   return `#${toHex(next.r)}${toHex(next.g)}${toHex(next.b)}`;
@@ -36,17 +36,17 @@ function mix(color: string, target: "white" | "black", amount: number) {
 function applyAccent(color: string) {
   const root = document.documentElement;
 
-  root.style.setProperty("--primary-50", mix(color, "white", 0.95));
-  root.style.setProperty("--primary-100", mix(color, "white", 0.88));
-  root.style.setProperty("--primary-200", mix(color, "white", 0.76));
-  root.style.setProperty("--primary-300", mix(color, "white", 0.58));
-  root.style.setProperty("--primary-400", mix(color, "white", 0.32));
+  root.style.setProperty("--primary-50", mix(color, "#ffffff", 0.95));
+  root.style.setProperty("--primary-100", mix(color, "#ffffff", 0.88));
+  root.style.setProperty("--primary-200", mix(color, "#ffffff", 0.76));
+  root.style.setProperty("--primary-300", mix(color, "#ffffff", 0.58));
+  root.style.setProperty("--primary-400", mix(color, "#ffffff", 0.32));
   root.style.setProperty("--primary-500", color);
-  root.style.setProperty("--primary-600", mix(color, "black", 0.12));
-  root.style.setProperty("--primary-700", mix(color, "black", 0.24));
-  root.style.setProperty("--primary-800", mix(color, "black", 0.38));
-  root.style.setProperty("--primary-900", mix(color, "black", 0.52));
-  root.style.setProperty("--primary-950", mix(color, "black", 0.72));
+  root.style.setProperty("--primary-600", mix(color, "#000000", 0.12));
+  root.style.setProperty("--primary-700", mix(color, "#000000", 0.24));
+  root.style.setProperty("--primary-800", mix(color, "#000000", 0.38));
+  root.style.setProperty("--primary-900", mix(color, "#000000", 0.52));
+  root.style.setProperty("--primary-950", mix(color, "#000000", 0.72));
 
   // Rich categorical palette for charts (distinct pink / purple / orange tones that work beautifully
   // on the dark UI and harmonize with whatever accent the user picked). --chart-1 stays tied to the

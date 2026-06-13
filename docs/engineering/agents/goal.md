@@ -1,6 +1,10 @@
 # Goal Prompt
 
-Working from: `C:\Users\james\projects\Realtor\docs\roadmaps\2026-06-08-abode-alerts-end-to-end-production-plan.md`
+**Refreshed 2026-06-12 for durable closeout roadmap session per objective; all workflows, the entire Reusable Workstream Prompt block, orchestration loop (two fresh-context passes, AUDIT/EXECUTE, checkpointing, size/contents-class gating, etc.), implementation standards, verification ladder, and "DO NOT remove or reduce the workflows" requirements are preserved verbatim. Only the Working-from paths, date references, and this one-sentence note were added.**
+
+Working from: `C:\Users\james\projects\Realtor\docs\roadmaps\abode-alerts-production-closeout.md`
+
+**Canon update (final 2026-06-12 closeout dispatch):** Closeout-8 executed (gates all success per SCRATCH final-continuation-verification-coexist-2026-06-12.log; coexisting tree verified with rg/git/list_dir; retire mv recorded verbatim as last operator step only, never executed during verification; polish 8M pre-existing untouched confirmed via git status --porcelain/diff-stat; AC 1-5 asserted class C PASS; durable + log + this goal + docs/README updated for parity. Reusable block and all rules remain fully unreduced. (See durable roadmap orchestrator checkpoints and {SCRATCH} evidence.)
 
 ## Your Role: The Orchestrator
 
@@ -118,7 +122,7 @@ Before final response:
 ## Reusable Workstream Prompt
 
 ```text
-Working from: `C:\Users\james\projects\Realtor\docs\roadmaps\2026-06-08-abode-alerts-end-to-end-production-plan.md`
+Working from: `C:\Users\james\projects\Realtor\docs\roadmaps\abode-alerts-production-closeout.md`
 The live repository is the source of truth, not roadmap claims.
 
 <APPEND YOUR WORKSTREAM STEERING HERE>

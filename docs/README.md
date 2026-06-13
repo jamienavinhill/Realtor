@@ -2,7 +2,7 @@
 
 Durable docs point to directories, not transient dated files — open the directory for the current artifact.
 
-- `docs/roadmaps/` — active implementation roadmap: data contracts, schemas, Firestore collection map, workstreams, and acceptance criteria.
+- `docs/roadmaps/` — active implementation roadmap(s): the historical full WS1–WS19 narrative lives in the 2026-06-08 file (preserved until retirement per its own rules). For the current production closeout/operator phase (2026-06-12): `docs/roadmaps/abode-alerts-production-closeout.md` (durable non-dated; focused on the exact remaining operator/account-console items, first CI/push, live OAuth-gated + deployed smokes, Gmail watch/Pub/Sub + consent + authorized domains + Vercel env + budget alert, final verification, canon parity, and retirement of the dated file only after this phase's ACs + durable docs carry the rules). The full prior workflow details (WS1–WS19 tasks, exit criteria, checkpoints) are not reduced here — see the 2026-06-08 source + the "Preserved Workflow Fidelity" declaration in the closeout file. (Closeout-8 final verification + canon complete 2026-06-12: gates green, coexisting tree for verif (source + durable in active roadmaps/), retire mv recorded as last post-commit operator step only, class C PASS, all ACs hold; see durable checkpoints + {SCRATCH}/final-continuation-verification-coexist-2026-06-12.log.)
 - `docs/engineering/standards/` — durable engineering standards (planning style, report style, docs standards).
 - `docs/engineering/agents/` — agent operating docs and run logs.
 - `docs/research/` — research notes (e.g. Gmail/listing parsing in `INBOX_PARSING.md`).

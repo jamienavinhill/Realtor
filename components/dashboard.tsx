@@ -1575,7 +1575,6 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-              </div>
 
             {/* Clean manual paste dialog — triggered from small icon in the Gmail Harvester header. */}
             <Dialog

@@ -63,6 +63,7 @@ import { useListingPreferences } from "@/lib/hooks/useListingPreferences";
 import { useWorkspaces } from "@/lib/hooks/useWorkspaces";
 import { resolveActiveOwnerUid, canWriteWorkspace } from "@/lib/account/active-workspace";
 import { ShareWorkspaceDialog } from "./sharing/ShareWorkspaceDialog";
+import { Dialog } from "./ui/dialog";
 import { filterListings, type PropertyMultiFilter } from "@/lib/listings/filter";
 import { Eye, EyeOff, GitCompareArrows, Heart } from "lucide-react";
 

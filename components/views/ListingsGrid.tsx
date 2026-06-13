@@ -174,7 +174,7 @@ function PropertyCard({
   };
 
   // Whole card (especially the image) opens the compact detail dialog.
-  const handleCardClick = (e: React.MouseEvent) => {
+  const handleCardClick = (_e: React.MouseEvent) => {
     // Ignore clicks on the image carousel controls (they have their own stopPropagation).
     onClick();
   };

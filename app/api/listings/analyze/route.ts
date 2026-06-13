@@ -1,8 +1,8 @@
-import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 import { getErrorMessage } from "@/lib/errors";
 import { getAdminAuth } from "@/lib/firebase-admin";
 import { extractBearerToken } from "@/lib/ingest/auth";
+import { createGeminiClient, GeminiBudgetExceededError, geminiConfigured } from "@/lib/ai/gemini";
 
 /**
  * Gemini-backed listing analysis (WS12 "Analyze" action).
@@ -99,10 +99,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid Firebase ID token" }, { status: 401 });
     }
 
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) {
+    if (!geminiConfigured()) {
       return NextResponse.json(
-        { error: "GEMINI_API_KEY is not configured on the server." },
+        { error: "Gemini is not configured on the server." },
         { status: 503 },
       );
     }
@@ -121,8 +120,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const ai = new GoogleGenAI({ apiKey: key });
-    const response = await ai.models.generateContent({
+    const gemini = createGeminiClient();
+    const response = await gemini.generate({
       model: "gemini-2.5-flash",
       contents: [`${SYSTEM_GUIDANCE}\n\nLISTING FIELDS:\n${facts}`],
     });
@@ -137,6 +136,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ analysis });
   } catch (error: unknown) {
+    if (error instanceof GeminiBudgetExceededError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
     console.error("Listing analyze error:", error);
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }

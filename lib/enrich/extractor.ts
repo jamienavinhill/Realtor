@@ -1,4 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
+import { createGeminiClient, type CappedGeminiClient } from "@/lib/ai/gemini";
 import type { ParsedGmailMessage } from "@/lib/gmail/client";
 
 /**
@@ -95,19 +96,23 @@ const RESPONSE_SCHEMA = {
 export interface GeminiExtractorOptions {
   apiKey: string;
   model?: string;
+  /**
+   * Injectable capped Gemini client (tests / Vertex). Defaults to the shared client,
+   * which enforces the daily call cap and disables thinking — so extraction can never
+   * run away on cost regardless of how many emails a push/scan replays.
+   */
+  client?: CappedGeminiClient;
 }
 
 /**
  * Gemini-backed extractor. Server-side only (the `GEMINI_API_KEY` lives in the server
  * env and is never exposed to the browser). Truncates the email body to keep the prompt
- * bounded.
+ * bounded. All model calls go through the shared capped client.
  */
 export function createGeminiExtractor(options: GeminiExtractorOptions): ListingExtractor {
-  const ai = new GoogleGenAI({
-    apiKey: options.apiKey,
-    httpOptions: { headers: { "User-Agent": "abode-alerts" } },
-  });
-  const model = options.model ?? "gemini-2.5-flash";
+  const client = options.client ?? createGeminiClient({ apiKey: options.apiKey });
+  // Flash-Lite: cheapest current model, ample for structured listing extraction.
+  const model = options.model ?? "gemini-2.5-flash-lite";
 
   return {
     async extract(message) {
@@ -119,7 +124,7 @@ Body:
 ${message.body.slice(0, 18000)}
 --------------------------`;
 
-      const res = await ai.models.generateContent({
+      const res = await client.generate({
         model,
         contents: [{ text: SYSTEM_PROMPT }, { text: emailText }],
         config: { responseMimeType: "application/json", responseSchema: RESPONSE_SCHEMA },

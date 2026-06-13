@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
+import { createGeminiClient, GeminiBudgetExceededError, geminiConfigured } from "@/lib/ai/gemini";
 import { getErrorMessage } from "@/lib/errors";
 import { ListingProperty } from "@/types/listings";
 import {
@@ -220,25 +221,19 @@ export async function handlePropertiesPost(
       if (!auth.ok) return auth.response;
     }
 
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) {
+    if (!geminiConfigured()) {
       return NextResponse.json(
         {
           error:
-            "GEMINI_API_KEY environment variable is missing on the server. Please check settings.",
+            "Gemini is not configured on the server (set GEMINI_API_KEY or Vertex env). Please check settings.",
         },
         { status: 500 },
       );
     }
 
-    const ai = new GoogleGenAI({
-      apiKey: key,
-      httpOptions: {
-        headers: {
-          "User-Agent": "abode-alerts",
-        },
-      },
-    });
+    // Shared capped client: enforces the daily call cap + disables thinking, so this
+    // legacy per-email extraction loop can no longer run away on cost.
+    const gemini = createGeminiClient();
 
     // 1. GMAIL ACTION - Parse real estate emails
     if (action === "parse_gmail") {
@@ -332,8 +327,8 @@ Specify the source as "realty_api" so it fits our dashboard.
 Returns a JSON array of parsed properties matching the schema. Do NOT return markdown formatting. Return raw JSON.`;
 
         try {
-          const res = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
+          const res = await gemini.generate({
+            model: "gemini-2.5-flash-lite",
             contents: [{ text: systemPrompt }, { text: combinedEmailText }],
             config: {
               responseMimeType: "application/json",
@@ -408,6 +403,14 @@ Returns a JSON array of parsed properties matching the schema. Do NOT return mar
             });
           }
         } catch (e) {
+          if (e instanceof GeminiBudgetExceededError) {
+            // Daily Gemini budget hit mid-scan: stop hammering the API and return what we
+            // extracted so far rather than firing a failing call per remaining email.
+            console.warn(
+              `Daily Gemini budget reached mid-scan; stopping after ${parsedProperties.length} extracted.`,
+            );
+            break;
+          }
           console.error(`Gemini Extraction failed for email ID ${msgSummary.id}:`, e);
         }
       }
@@ -429,8 +432,8 @@ Do not hallucinate facts or values. Extract an image URL only when the pasted so
 
 Return raw JSON schema.`;
 
-      const res = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const res = await gemini.generate({
+        model: "gemini-2.5-flash-lite",
         contents: [{ text: systemPrompt }, { text: rawText }],
         config: {
           responseMimeType: "application/json",
@@ -682,6 +685,9 @@ Return raw JSON schema.`;
 
     return NextResponse.json({ error: "Action not supported" }, { status: 400 });
   } catch (error: unknown) {
+    if (error instanceof GeminiBudgetExceededError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
     console.error("Endpoint catch:", error);
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }

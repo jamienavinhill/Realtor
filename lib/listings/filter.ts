@@ -40,7 +40,11 @@ export function filterListings(
   properties: ListingProperty[],
   options: ListingFilterOptions,
 ): ListingProperty[] {
-  const term = options.searchTerm.trim().toLowerCase();
+  const term = (options.searchTerm || "").trim().toLowerCase();
+  const cityFilter = options.cityFilter || "All";
+  const states = options.states || {};
+  const showHidden = !!options.showHidden;
+  const favoritesOnly = !!options.favoritesOnly;
   const pf = options.propertyFilters;
 
   // Price band matchers (simple, no overdesign).
@@ -58,11 +62,11 @@ export function filterListings(
       prop.address.toLowerCase().includes(term) ||
       prop.city.toLowerCase().includes(term);
 
-    const matchesCity = options.cityFilter === "All" || prop.city === options.cityFilter;
+    const matchesCity = cityFilter === "All" || prop.city === cityFilter;
 
-    const state = options.states[prop.id];
-    const matchesHidden = options.showHidden || state !== "hidden";
-    const matchesFavorites = !options.favoritesOnly || state === "favorite";
+    const state = states[prop.id];
+    const matchesHidden = showHidden || state !== "hidden";
+    const matchesFavorites = !favoritesOnly || state === "favorite";
 
     let matchesProperty = true;
     if (pf) {

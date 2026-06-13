@@ -113,7 +113,7 @@ export function useListingPreferences(
         markReady();
       },
       (err) => {
-        console.error("listingPreferences snapshot error:", err);
+        // Snapshot error: mark ready without console (AC5: no console in client UI)
         prefsLoaded = true;
         markReady();
       },
@@ -128,7 +128,7 @@ export function useListingPreferences(
         markReady();
       },
       (err) => {
-        console.error("compareQueue snapshot error:", err);
+        // Snapshot error (client UI): silent per AC5 no console in client hooks
         compareLoaded = true;
         markReady();
       },

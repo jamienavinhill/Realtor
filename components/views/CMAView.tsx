@@ -608,25 +608,25 @@ function CmaListingDialog({
   const footer =
     isSignedIn && prefs && canWrite ? (
       <div className="flex flex-wrap gap-1.5">
-        <ActionChip
+        <CMAActionChip
           active={state === "interested"}
           label="Interested"
           icon={<ThumbsUp className="h-3.5 w-3.5" />}
           onClick={() => void prefs.setState(listing.id, "interested")}
         />
-        <ActionChip
+        <CMAActionChip
           active={state === "notInterested"}
           label="Not interested"
           icon={<ThumbsDown className="h-3.5 w-3.5" />}
           onClick={() => void prefs.setState(listing.id, "notInterested")}
         />
-        <ActionChip
+        <CMAActionChip
           active={state === "favorite"}
           label="Favorite"
           icon={<Heart className={`h-3.5 w-3.5 ${state === "favorite" ? "fill-current" : ""}`} />}
           onClick={() => void prefs.setState(listing.id, "favorite")}
         />
-        <ActionChip
+        <CMAActionChip
           active={inCompare}
           label={inCompare ? "In compare" : "Compare"}
           icon={<GitCompareArrows className="h-3.5 w-3.5" />}
@@ -678,13 +678,13 @@ function CmaListingDialog({
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-          <Fact label="Beds" value={listing.beds} />
-          <Fact label="Baths" value={listing.baths} />
-          <Fact label="Sq ft" value={listing.sqft.toLocaleString()} />
-          <Fact label="$/sqft" value={ppsf === null ? "—" : `$${ppsf}`} />
-          <Fact label="Year" value={listing.yearBuilt ?? "—"} />
+          <CMAFact label="Beds" value={listing.beds} />
+          <CMAFact label="Baths" value={listing.baths} />
+          <CMAFact label="Sq ft" value={listing.sqft.toLocaleString()} />
+          <CMAFact label="$/sqft" value={ppsf === null ? "—" : `$${ppsf}`} />
+          <CMAFact label="Year" value={listing.yearBuilt ?? "—"} />
           {typeof listing.distanceMiles === "number" && (
-            <Fact label="Distance" value={`${listing.distanceMiles.toFixed(1)} mi`} />
+            <CMAFact label="Distance" value={`${listing.distanceMiles.toFixed(1)} mi`} />
           )}
         </div>
 
@@ -703,7 +703,7 @@ function CmaListingDialog({
   );
 }
 
-function Fact({ label, value }: { label: string; value: React.ReactNode }) {
+function CMAFact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 dark:border-stone-800 dark:bg-stone-950">
       <span className="block text-[10px] tracking-wider text-stone-400 uppercase">{label}</span>
@@ -714,7 +714,7 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function ActionChip({
+function CMAActionChip({
   active,
   label,
   icon,

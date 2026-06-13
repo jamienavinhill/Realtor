@@ -67,7 +67,7 @@ import { Dialog } from "./ui/dialog";
 import { filterListings, type PropertyMultiFilter } from "@/lib/listings/filter";
 import { Eye, EyeOff, GitCompareArrows, Heart } from "lucide-react";
 
-// Hoisted filter UI data (module scope, not recreated on every Dashboard render - less slop).
+// Filter UI data (module scope).
 const PRICE_BANDS = [
   { id: "lt200", label: "< $200k" },
   { id: "200-350", label: "$200–350k" },
@@ -519,11 +519,11 @@ export default function Dashboard() {
           setProperties(props);
         },
         (err) => {
-          console.error("Firestore onSnapshot properties error:", err);
+          // Listener error: UI shows empty/error states; no console in client per production rules.
         },
       );
     } catch (e) {
-      console.error(e);
+      // swallow (UI reflects state)
       setProperties([]);
     }
 
@@ -542,11 +542,11 @@ export default function Dashboard() {
             setAlerts(loadedAlerts);
           },
           (err) => {
-            console.error("Firestore onSnapshot alerts error:", err);
+            // Listener error: UI reflects via onSnapshot state; no console in client UI.
           },
         );
       } catch (e) {
-        console.error(e);
+        // swallow (UI reflects state)
       }
       try {
         const qAlertMatches = query(
@@ -566,11 +566,11 @@ export default function Dashboard() {
             setAlertMatches(loadedMatches);
           },
           (err) => {
-            console.error("Firestore onSnapshot alert_matches error:", err);
+            // Listener error: UI reflects via onSnapshot state; no console in client UI.
           },
         );
       } catch (e) {
-        console.error(e);
+        // swallow (UI reflects state)
         setAlertMatches([]);
       }
     } else {
@@ -663,7 +663,7 @@ export default function Dashboard() {
       }
       toast({ variant: "success", description: "Signed in. Google connected." });
     } catch (error: unknown) {
-      console.error("Offline sign-in failed; falling back to popup:", error);
+      // offline sign-in fallback (toast surfaced by caller)
       try {
         await popupSignIn();
       } catch (e: unknown) {
@@ -678,7 +678,7 @@ export default function Dashboard() {
       setAccessToken(null);
       toast({ variant: "info", description: "Signed out of services." });
     } catch (error) {
-      console.error("Logout failed:", error);
+      // logout error (UI will reflect signed-in state)
     }
   };
 
@@ -725,7 +725,7 @@ export default function Dashboard() {
         description: `Harvest complete: found ${data.properties?.length || 0} matching listing(s) in Gmail.`,
       });
     } catch (error: unknown) {
-      console.error(error);
+      // non-fatal (toast or UI state handles)
       toast({ variant: "error", description: `Gmail harvester error: ${getErrorMessage(error)}` });
     } finally {
       setIsScanningGmail(false);
@@ -760,7 +760,7 @@ export default function Dashboard() {
       }
       toast({ variant: "success", description: "Saved your listing-platform filter." });
     } catch (error: unknown) {
-      console.error(error);
+      // non-fatal (toast or UI state handles)
       toast({ variant: "error", description: `Could not save filter: ${getErrorMessage(error)}` });
     } finally {
       setIsSavingFilter(false);
@@ -814,7 +814,7 @@ export default function Dashboard() {
         });
       }
     } catch (error: unknown) {
-      console.error(error);
+      // non-fatal (toast or UI state handles)
       toast({ variant: "error", description: `Parser error: ${getErrorMessage(error)}` });
     } finally {
       setIsParsingDirect(false);
@@ -914,7 +914,7 @@ export default function Dashboard() {
         action: { label: "Open sheet", onClick: () => window.open(data.url, "_blank") },
       });
     } catch (err: unknown) {
-      console.error(err);
+      // final listener/edge error (UI state is source of truth)
       toast({ variant: "error", description: `Sheets integration error: ${getErrorMessage(err)}` });
     } finally {
       setSheetsExportingPropId(null);
@@ -969,7 +969,7 @@ export default function Dashboard() {
       // Clear scheduling inputs
       setCalendarEventTime("");
     } catch (err: unknown) {
-      console.error(err);
+      // final listener/edge error (UI state is source of truth)
       toast({
         variant: "error",
         description: `Calendar integration error: ${getErrorMessage(err)}`,

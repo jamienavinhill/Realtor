@@ -175,11 +175,9 @@ service cloud.firestore {
 
     match /properties/{propertyId} {
       allow list, get: if true; // Public catalog read
-      // Hobby project, non-sensitive data: any signed-in user may write the shared catalog.
-      // The app routes commits through the Admin SDK `/api/properties` route for clean
-      // normalization (uniform titles, media-merge, dedupe), but direct client writes are
-      // intentionally allowed too — no server-only lockdown.
-      allow create, update, delete: if isSignedIn();
+      // Server/Admin SDK only (ingestion + `/api/properties` commit/delete; client writes denied — WS16).
+      // All writes go through `lib/ingest/manual-normalize.ts` + Admin SDK for uniform provenance, dedupe, and validation.
+      allow create, update, delete: if false;
     }
 
     match /alerts/{alertId} {
